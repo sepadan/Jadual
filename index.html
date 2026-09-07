@@ -2076,7 +2076,7 @@ function gridInduk(){
 
 /* Isi nilai ini untuk menanam Client ID lalai bagi semua sekolah.
    Biarkan kosong jika setiap sekolah mahu memasukkan Client ID sendiri. */
-const CLIENT_ID_LALAI = '';
+const CLIENT_ID_LALAI = '544619880010-9m1m17p5ulg60gsgi232ds8njn2cqukp.apps.googleusercontent.com';
 
 const SKOP_DRIVE='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
 const KUNCI_DRIVE='janajadual.drive';
@@ -2336,11 +2336,15 @@ VIEWS.drive={t:'Google Drive', r(){
   </div>`:''}
 
   <div class="card"><h3>Tetapan Sambungan</h3>
-    <p class="hint">Client ID diperoleh daripada Google Cloud Console. Ia mengenal pasti <b>aplikasi</b>, bukan pengguna — akaun yang log masuk tetap akaun anda, dan fail tetap masuk Drive anda.</p>
+    <p class="hint">Client ID mengenal pasti <b>aplikasi</b>, bukan pengguna — akaun yang log masuk tetap akaun anda, dan fail tetap masuk Drive anda. Tukar hanya jika sekolah anda mahu menggunakan projek Google Cloud sendiri.</p>
+    ${DRIVE.cid===CLIENT_ID_LALAI&&CLIENT_ID_LALAI
+      ? `<div class="alert ok">✅ Client ID lalai sudah disediakan — anda tidak perlu buat apa-apa. Teruskan tekan <b>Sambung Google Drive</b> di atas.</div>`
+      : CLIENT_ID_LALAI?`<div class="alert warn">Anda menggunakan Client ID sendiri, bukan yang lalai.</div>`:''}
     <label class="f">Client ID</label>
     <input id="dCid" value="${esc(DRIVE.cid||'')}" placeholder="812345678901-abc.apps.googleusercontent.com" spellcheck="false" autocapitalize="off">
     <div class="row" style="margin-top:10px">
       <button class="btn pri" onclick="driveSimpanCid()">Simpan Client ID</button>
+      ${CLIENT_ID_LALAI&&DRIVE.cid!==CLIENT_ID_LALAI?`<button class="btn" onclick="DRIVE.cid=CLIENT_ID_LALAI;DRIVE.client=null;driveSimpanTetapan();ulang();toast('Kembali ke Client ID lalai')">Guna semula lalai</button>`:''}
       <span class="muted">Alamat laman ini: <code>${esc(location.origin)}</code></span>
     </div>
     <details style="margin-top:14px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--panel2)">
