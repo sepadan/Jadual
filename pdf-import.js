@@ -177,15 +177,23 @@ export async function parseTeacherPdf(file, pdfjsLib, teachers, onProgress = () 
   }
   await task.destroy();
 
-  const warnings = [];
-  const matchedIds = new Set(pages.filter((page) => page.teacherId).map((page) => page.teacherId));
-  const unmatchedPages = pages.filter((page) => !page.teacherId);
-  const missingTeachers = teachers.filter((teacher) => teacher.active && !matchedIds.has(teacher.id));
-  unmatchedPages.forEach((page) => warnings.push(`Nama baharu/tidak sepadan pada PDF: ${page.normalizedName}.`));
-  missingTeachers.forEach((teacher) => warnings.push(`Tiada halaman jadual untuk ${teacher.name}.`));
+  const structuralWarnings = [];
   pages.filter((page) => page.expectedSlotCount != null && page.rows.length !== page.expectedSlotCount).forEach((page) => {
-    warnings.push(`Semak ${page.rawName}: PDF menyatakan ${page.expectedSlotCount} waktu tetapi pembaca mengesan ${page.rows.length}.`);
+    structuralWarnings.push(`Semak ${page.rawName}: PDF menyatakan ${page.expectedSlotCount} waktu tetapi pembaca mengesan ${page.rows.length}.`);
   });
-  const rows = pages.flatMap((page) => page.rows.map((row) => ({ ...row, teacherId: page.teacherId })));
-  return { pageCount, pages, rows, warnings, unmatchedPages, missingTeachers };
+  return { pageCount, pages, structuralWarnings, ...buildImportSelection(pages, teachers, structuralWarnings) };
+}
+
+export function buildImportSelection(pages, teachers, structuralWarnings = []) {
+  const matchedPages = pages.filter((page) => page.teacherId);
+  const unmatchedPages = pages.filter((page) => !page.teacherId);
+  const matchedIds = new Set(matchedPages.map((page) => page.teacherId));
+  const missingTeachers = teachers.filter((teacher) => teacher.active && !matchedIds.has(teacher.id));
+  const warnings = [
+    ...unmatchedPages.map((page) => `Diabaikan kerana tiada padanan guru: ${page.normalizedName}.`),
+    ...missingTeachers.map((teacher) => `Tiada halaman jadual untuk ${teacher.name}.`),
+    ...structuralWarnings,
+  ];
+  const rows = matchedPages.flatMap((page) => page.rows.map((row) => ({ ...row, teacherId: page.teacherId })));
+  return { rows, warnings, unmatchedPages, missingTeachers };
 }

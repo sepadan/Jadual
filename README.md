@@ -17,6 +17,8 @@ https://sepadan.github.io/Jadual/
 
 ANIZAN dan SYAHIDAH ialah dua guru berlainan. ANIZAN ditetapkan sebagai Guru Prasekolah dan tidak menerima relief secara lalai; tetapan ini boleh diubah dalam modul Guru.
 
+Semasa import PDF, halaman yang tidak sepadan dengan direktori guru akan diabaikan secara automatik. Ini sesuai untuk guru prasekolah, guru praktikal atau MySTEP. Penyelaras masih boleh memilih padanan guru secara manual pada skrin semakan sebelum menyimpan.
+
 ## Google Sheets
 
 1. Cipta satu Google Sheet kosong.

@@ -66,7 +66,7 @@ function setupSystem() {
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "1.1.0" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "1.1.1" });
     if (action === "bootstrap") return output_(bootstrap_(Number(e.parameter.sinceRevision || -1)));
     return output_({ ok: false, error: "Tindakan GET tidak dikenali." });
   } catch (error) {

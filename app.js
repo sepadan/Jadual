@@ -1,7 +1,7 @@
 import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js";
 import { ApiClient, loadConfig, saveConfig } from "./api.js";
 import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js";
-import { parseTeacherPdf } from "./pdf-import.js";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js";
 import { flushQueue, queueWrite } from "./storage.js";
 
 const DB_KEY = "relief-skpr-db-v1";
@@ -89,6 +89,7 @@ function renderAll() {
   renderTeacherLists();
   renderTeachers();
   renderSchedule();
+  if (importResult) renderImportReview();
   updateConnectionUi();
 }
 
@@ -280,7 +281,7 @@ async function parsePdf() {
   try {
     const pdfjs = await import("./vendor/pdf.min.js");
     pdfjs.GlobalWorkerOptions.workerSrc = new URL("./vendor/pdf.worker.min.js", import.meta.url).href;
-    importResult = await parseTeacherPdf(file, pdfjs, db.teachers, ({ current, total }) => progress.style.setProperty("--progress", `${Math.round(current / total * 100)}%`));
+    importResult = await parseTeacherPdf(file, pdfjs, activeTeachers(), ({ current, total }) => progress.style.setProperty("--progress", `${Math.round(current / total * 100)}%`));
     renderImportReview();
     toast("PDF selesai dibaca.", "success");
   } catch (error) {
@@ -292,23 +293,26 @@ async function parsePdf() {
 
 function renderImportReview() {
   const review = $("#importReview"); review.classList.remove("hidden");
-  $("#importSummary").innerHTML = `<div><strong>${importResult.pageCount}</strong><span>halaman guru</span></div><div><strong>${importResult.rows.length}</strong><span>slot jadual</span></div><div><strong>${importResult.warnings.length}</strong><span>amaran</span></div>`;
-  $("#importWarnings").innerHTML = importResult.warnings.map((warning) => `<div class="alert">${esc(warning)}</div>`).join("") + (importResult.unmatchedPages.length ? `<button id="addImportedTeachers" class="button ghost wide">+ Tambah ${importResult.unmatchedPages.length} nama baharu ke direktori</button>` : "");
-  $("#importRows").innerHTML = importResult.pages.map((page, index) => `<tr><td>${index + 1}</td><td>${esc(page.rawName)}</td><td><span class="badge ${page.teacherId ? "good" : "warn"}">${page.teacherId ? "Dipadan" : "Semak"}</span></td><td>${page.rows.length}</td></tr>`).join("");
-  $("#addImportedTeachers")?.addEventListener("click", addImportedTeachers);
+  $("#importSummary").innerHTML = `<div><strong>${importResult.pageCount}</strong><span>halaman guru</span></div><div><strong>${importResult.rows.length}</strong><span>slot digunakan</span></div><div><strong>${importResult.unmatchedPages.length}</strong><span>diabaikan</span></div><div><strong>${importResult.warnings.length}</strong><span>makluman</span></div>`;
+  $("#importWarnings").innerHTML = importResult.unmatchedPages.length
+    ? `<div class="alert">${importResult.unmatchedPages.length} halaman tanpa padanan akan diabaikan. Jika perlu, pilih guru secara manual dalam jadual semakan di bawah.</div>`
+    : "";
+  $("#importRows").innerHTML = importResult.pages.map((page, index) => `<tr><td>${index + 1}</td><td>${esc(page.rawName)}</td><td><select class="import-teacher-match" data-page-index="${index}" aria-label="Padanan untuk ${esc(page.rawName)}"><option value="">Abaikan halaman ini</option>${activeTeachers().map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === page.teacherId ? "selected" : ""}>${esc(teacher.name)}</option>`).join("")}</select></td><td>${page.teacherId ? page.rows.length : 0}</td></tr>`).join("");
+  $$(".import-teacher-match", $("#importRows")).forEach((select) => select.addEventListener("change", () => updateImportTeacherMatch(Number(select.dataset.pageIndex), select.value)));
 }
 
-async function addImportedTeachers() {
-  const additions = [];
-  importResult.unmatchedPages.forEach((page) => {
-    const teacher = { ...page.pageTeacher, id: `${page.pageTeacher.id}-${Date.now().toString(36)}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    db.teachers.push(teacher); additions.push(teacher); page.teacherId = teacher.id; page.suggestedTeacher = teacher;
-  });
-  importResult.rows = importResult.pages.flatMap((page) => page.rows.map((row) => ({ ...row, teacherId: page.teacherId })));
-  importResult.unmatchedPages = [];
-  importResult.warnings = importResult.warnings.filter((warning) => !warning.startsWith("Nama baharu/tidak sepadan"));
-  persist(); renderAll(); renderImportReview();
-  for (const teacher of additions) await remoteWrite("saveTeacher", teacher, `${teacher.shortName} ditambah.`);
+function updateImportTeacherMatch(pageIndex, teacherId) {
+  const page = importResult?.pages[pageIndex];
+  if (!page) return;
+  if (teacherId && importResult.pages.some((item, index) => index !== pageIndex && item.teacherId === teacherId)) {
+    toast("Guru itu sudah dipadankan dengan halaman lain.", "error");
+    renderImportReview();
+    return;
+  }
+  page.teacherId = teacherId;
+  page.suggestedTeacher = teacherById(teacherId) || null;
+  Object.assign(importResult, buildImportSelection(importResult.pages, db.teachers, importResult.structuralWarnings || []));
+  renderImportReview();
 }
 
 async function saveImportedSchedule() {
@@ -316,7 +320,7 @@ async function saveImportedSchedule() {
   const effectiveDate = $("#effectiveDate").value;
   const label = $("#versionLabel").value.trim();
   if (!effectiveDate || !label) return toast("Isi tarikh kuat kuasa dan nama versi.", "error");
-  if (importResult.unmatchedPages.length) return toast("Terdapat halaman guru yang belum dipadankan.", "error");
+  if (!importResult.rows.length) return toast("Tiada halaman guru yang dipadankan. Pilih sekurang-kurangnya seorang guru secara manual.", "error");
   const version = { id: uuid("v"), label, effectiveDate, sourceName: $("#pdfFile").files[0]?.name || "PDF", status: $("#activateVersion").checked ? "active" : "draft", createdAt: new Date().toISOString() };
   if (version.status === "active") db.scheduleVersions.forEach((item) => { if (item.status === "active") item.status = "superseded"; });
   const rows = importResult.rows.map((row) => ({ ...row, versionId: version.id }));

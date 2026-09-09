@@ -130,7 +130,7 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 .progress { overflow: hidden; position: relative; height: 34px; margin-top: 12px; border-radius: 9px; background: #eaf0ed; }
 .progress span { position: absolute; inset: 0 auto 0 0; width: var(--progress, 15%); background: var(--green-100); transition: width .2s ease; }
 .progress small { position: relative; z-index: 1; display: grid; place-items: center; height: 100%; color: var(--green-800); font-weight: 750; }
-.mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 17px 0; }
+.mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin: 17px 0; }
 .mini-stats div { padding: 12px; border-radius: 11px; background: var(--green-50); }
 .mini-stats strong, .mini-stats span { display: block; }
 .mini-stats strong { font-size: 22px; }
@@ -140,6 +140,7 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 table { width: 100%; border-collapse: collapse; font-size: 11px; }
 th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 th { position: sticky; top: 0; color: var(--muted); background: #f6f9f7; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+.import-teacher-match { min-width: 230px; font-size: 11px; }
 .check-row { grid-template-columns: 20px 1fr; align-items: center; gap: 8px; }
 .check-row input { min-height: auto; width: 17px; height: 17px; }
 dl { margin: 20px 0; }

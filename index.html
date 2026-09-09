@@ -144,7 +144,7 @@
     <form id="teacherForm" method="dialog">
       <div class="dialog-head"><div><p class="step">PROFIL GURU</p><h2 id="teacherDialogTitle">Tambah guru</h2></div><button class="close" value="cancel" aria-label="Tutup">×</button></div>
       <input id="teacherId" type="hidden"><label>Nama penuh<input id="teacherName" required></label><label>Nama ringkas<input id="teacherShortName" required maxlength="24"></label><label>Jawatan<input id="teacherPosition" list="positionList" required></label>
-      <datalist id="positionList"><option>Guru Besar</option><option>Penolong Kanan Pentadbiran</option><option>Penolong Kanan HEM</option><option>Penolong Kanan Kokurikulum</option><option>Guru Akademik</option><option>Guru Prasekolah</option><option>Guru Pendidikan Khas</option></datalist>
+      <datalist id="positionList"><option>Guru Besar</option><option>Penolong Kanan Pentadbiran</option><option>Penolong Kanan HEM</option><option>Penolong Kanan Kokurikulum</option><option>Guru Akademik</option><option>Guru Prasekolah</option><option>Guru Pendidikan Khas</option><option>Guru Praktikal</option><option>Personel MySTEP</option></datalist>
       <label>Keutamaan relief <select id="teacherPriority"><option value="1">1 — Tinggi</option><option value="2">2</option><option value="3" selected>3 — Biasa</option><option value="4">4</option><option value="5">5</option><option value="6">6 — Rendah</option><option value="9">9 — Sangat rendah</option></select></label>
       <label class="check-row"><input id="teacherEligible" type="checkbox" checked> Layak menerima tugasan relief</label>
       <div class="dialog-actions"><button class="button ghost" value="cancel">Batal</button><button id="saveTeacher" class="button primary" value="default">Simpan guru</button></div>
@@ -152,6 +152,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./app.js?v=1.1.0"></script>
+  <script type="module" src="./app.js?v=1.1.1"></script>
 </body>
 </html>
