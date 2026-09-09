@@ -61,13 +61,9 @@ let VIEW='dash';
 const KEY='janajadual.v3';
 let memOnly=false;
 function simpan(quiet){
-  try{ localStorage.setItem(KEY, JSON.stringify(S)); }
-  catch(e){ memOnly=true; }
   const el=$('#saveState');
-  if(el){ el.textContent = memOnly?'Dalam ingatan sahaja':'Tersimpan'; el.className='pill '+(memOnly?'warn':'ok'); }
+  if(el){el.textContent='Draf';el.className='pill';}
   document.dispatchEvent(new CustomEvent("builder-saved"));
-  if(typeof driveAutoSimpan==='function') driveAutoSimpan();
-  if(!quiet && memOnly) toast('Pelayar tidak benarkan simpanan. Gunakan Eksport JSON.','warn',4000);
 }
 function muat(){
   try{
@@ -1545,377 +1541,7 @@ function gridInduk(){
 
 /* Isi nilai ini untuk menanam Client ID lalai bagi semua sekolah.
    Biarkan kosong jika setiap sekolah mahu memasukkan Client ID sendiri. */
-const CLIENT_ID_LALAI = '544619880010-9m1m17p5ulg60gsgi232ds8njn2cqukp.apps.googleusercontent.com';
 
-const SKOP_DRIVE='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
-const KUNCI_DRIVE='janajadual.drive';
-
-let DRIVE={ token:null, luput:0, client:null, emel:null,
-            folderId:null, folderNama:null, dataId:null, sandaranId:null,
-            paparanId:null, csvId:null, sync:null, sandaranTarikh:null, cid:'' };
-let driveTimer=null, driveSibuk=false, driveRalat='';
-
-function driveMuatTetapan(){
-  try{ const o=JSON.parse(localStorage.getItem(KUNCI_DRIVE)||'{}');
-    Object.assign(DRIVE,{cid:o.cid||CLIENT_ID_LALAI||'',folderId:o.folderId||null,folderNama:o.folderNama||null,
-      dataId:o.dataId||null,sandaranId:o.sandaranId||null,paparanId:o.paparanId||null,csvId:o.csvId||null,
-      emel:o.emel||null,sync:o.sync||null,sandaranTarikh:o.sandaranTarikh||null});
-  }catch(e){ DRIVE.cid=CLIENT_ID_LALAI||''; }
-}
-function driveSimpanTetapan(){
-  try{ localStorage.setItem(KUNCI_DRIVE,JSON.stringify({cid:DRIVE.cid,folderId:DRIVE.folderId,
-    folderNama:DRIVE.folderNama,dataId:DRIVE.dataId,sandaranId:DRIVE.sandaranId,paparanId:DRIVE.paparanId,
-    csvId:DRIVE.csvId,emel:DRIVE.emel,sync:DRIVE.sync,sandaranTarikh:DRIVE.sandaranTarikh})); }catch(e){}
-}
-function driveAda(){ return !!(DRIVE.token && Date.now()<DRIVE.luput); }
-function drivePernah(){ return !!(DRIVE.folderId && DRIVE.emel); }
-function driveNamaFolder(){ return 'Jadual — '+((S.sekolah.nama||'Sekolah').trim()); }
-function masaLalu(iso){
-  if(!iso) return '—';
-  const s=Math.round((Date.now()-new Date(iso).getTime())/1000);
-  if(s<60) return 'baru sahaja';
-  if(s<3600) return Math.round(s/60)+' minit lalu';
-  if(s<86400) return Math.round(s/3600)+' jam lalu';
-  return new Date(iso).toLocaleDateString('ms-MY');
-}
-function driveStatus(teks,jenis){
-  const el=$('#driveState'); if(!el) return;
-  if(!teks){ el.classList.add('hidden'); return; }
-  el.classList.remove('hidden');
-  el.className='pill '+(jenis||'')+'';
-  el.textContent=teks;
-}
-function driveKemasStatus(){
-  const c=$('#cDrive');
-  if(driveAda()){ driveStatus('☁️ '+(driveSibuk?'Menyimpan…':'Drive '+masaLalu(DRIVE.sync)),driveSibuk?'':'ok');
-    if(c) c.textContent='✓'; }
-  else if(drivePernah()){ driveStatus('☁️ Perlu sambung semula','warn'); if(c) c.textContent='!'; }
-  else { driveStatus(''); if(c) c.textContent='—'; }
-}
-
-/* ---------- OAuth ---------- */
-function driveGIS(){ return !!(window.google&&google.accounts&&google.accounts.oauth2); }
-function driveClient(){
-  if(DRIVE.client) return DRIVE.client;
-  if(!driveGIS()) throw new Error('Pustaka Google belum dimuat. Semak sambungan internet.');
-  if(!DRIVE.cid) throw new Error('Client ID belum ditetapkan.');
-  DRIVE.client=google.accounts.oauth2.initTokenClient({
-    client_id:DRIVE.cid, scope:SKOP_DRIVE, callback:()=>{}, error_callback:()=>{} });
-  return DRIVE.client;
-}
-function driveMintaToken(senyap){
-  return new Promise((res,rej)=>{
-    let c; try{ c=driveClient(); }catch(e){ return rej(e); }
-    let selesai=false;
-    c.callback=(r)=>{ selesai=true;
-      if(r.error) return rej(new Error(driveMesejAuth(r)));
-      DRIVE.token=r.access_token; DRIVE.luput=Date.now()+((r.expires_in||3600)-90)*1000;
-      res(r.access_token); };
-    c.error_callback=(e)=>{ selesai=true; rej(new Error(driveMesejAuth(e))); };
-    try{ c.requestAccessToken({prompt:senyap?'':'consent'}); }
-    catch(e){ rej(e); }
-    setTimeout(()=>{ if(!selesai) rej(new Error('Tiada respons daripada Google. Benarkan pop-up untuk laman ini.')); },90000);
-  });
-}
-function driveMesejAuth(err){
-  const t=(err&&(err.type||err.error))||'', m=(err&&(err.message||err.error_description))||'';
-  if(/popup_closed|popup_failed/i.test(t)) return 'Tetingkap Google ditutup atau disekat pelayar. Benarkan pop-up, kemudian cuba lagi.';
-  if(/access_denied/i.test(t+m)) return 'Kebenaran ditolak. Jika ini akaun sekolah (DELIMa), admin mungkin menyekat aplikasi luar.';
-  if(/invalid_client|unauthorized_client/i.test(t+m)) return 'Client ID salah, atau alamat laman ini belum didaftarkan sebagai Authorized JavaScript origin.';
-  return (t||'Ralat')+(m?': '+m:'');
-}
-async function drivePastikanToken(){
-  if(driveAda()) return DRIVE.token;
-  return driveMintaToken(true);
-}
-async function driveSambung(){
-  await driveMintaToken(false);
-  try{
-    const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+DRIVE.token}});
-    if(r.ok){ const j=await r.json(); DRIVE.emel=j.email||null; }
-  }catch(e){}
-  await drivePastikanFolder();
-  driveSimpanTetapan(); driveKemasStatus();
-}
-function drivePutus(){
-  if(DRIVE.token&&driveGIS()) try{ google.accounts.oauth2.revoke(DRIVE.token,()=>{}); }catch(e){}
-  DRIVE={ token:null, luput:0, client:null, emel:null, folderId:null, folderNama:null, dataId:null,
-          sandaranId:null, paparanId:null, csvId:null, sync:null, sandaranTarikh:null, cid:DRIVE.cid };
-  driveSimpanTetapan(); driveKemasStatus();
-}
-
-/* ---------- Panggilan Drive ---------- */
-async function dapi(url,opt){
-  opt=opt||{}; opt.headers=Object.assign({},opt.headers,{Authorization:'Bearer '+await drivePastikanToken()});
-  let r=await fetch(url,opt);
-  if(r.status===401){ DRIVE.token=null; opt.headers.Authorization='Bearer '+await drivePastikanToken(); r=await fetch(url,opt); }
-  if(r.status===403) throw new Error('Akses ditolak (403). Pastikan Google Drive API sudah diaktifkan dalam projek Cloud.');
-  if(!r.ok) throw new Error(r.status+' — '+(await r.text()).slice(0,200));
-  const ct=r.headers.get('content-type')||'';
-  return ct.includes('json')?r.json():r.text();
-}
-async function driveCari(nama,indukId,folderSahaja){
-  const q="name='"+String(nama).replace(/'/g,"\\'")+"' and trashed=false"
-    +(folderSahaja?" and mimeType='application/vnd.google-apps.folder'":"")
-    +(indukId?" and '"+indukId+"' in parents":"");
-  const j=await dapi('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)
-    +'&fields=files(id,name,modifiedTime)&pageSize=10');
-  return j.files&&j.files.length?j.files[0]:null;
-}
-async function driveCiptaFolder(nama,indukId){
-  const body={name:nama,mimeType:'application/vnd.google-apps.folder'};
-  if(indukId) body.parents=[indukId];
-  return dapi('https://www.googleapis.com/drive/v3/files?fields=id,name',
-    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-}
-async function driveTulis(nama,mime,isi,indukId,failId){
-  const meta=failId?{name:nama}:{name:nama,mimeType:mime,parents:indukId?[indukId]:undefined};
-  const b='jj'+Date.now()+Math.random().toString(36).slice(2,7);
-  const badan='--'+b+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)
-    +'\r\n--'+b+'\r\nContent-Type: '+mime+'; charset=UTF-8\r\n\r\n'+isi+'\r\n--'+b+'--';
-  const url='https://www.googleapis.com/upload/drive/v3/files'+(failId?'/'+failId:'')
-    +'?uploadType=multipart&fields=id,name,modifiedTime';
-  return dapi(url,{method:failId?'PATCH':'POST',
-    headers:{'Content-Type':'multipart/related; boundary='+b},body:badan});
-}
-async function driveBaca(id){ return dapi('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media'); }
-
-/** Pastikan folder sekolah + subfolder Sandaran wujud */
-async function drivePastikanFolder(){
-  const nama=driveNamaFolder();
-  if(DRIVE.folderId&&DRIVE.folderNama===nama) return DRIVE.folderId;
-  let f=await driveCari(nama,null,true);
-  if(!f) f=await driveCiptaFolder(nama,null);
-  DRIVE.folderId=f.id; DRIVE.folderNama=nama;
-  let sd=await driveCari('Sandaran',f.id,true);
-  if(!sd) sd=await driveCiptaFolder('Sandaran',f.id);
-  DRIVE.sandaranId=sd.id;
-  const d=await driveCari('jadual-data.json',f.id,false);
-  DRIVE.dataId=d?d.id:null;
-  driveSimpanTetapan();
-  return f.id;
-}
-
-/* ---------- Simpan / Muat ---------- */
-function driveCSV(){
-  const baris=[['Hari','Waktu','Kelas','Subjek','Guru','Panjang']];
-  ((S.jadual&&S.jadual.slots)||[]).slice()
-    .sort((a,b)=>S.hari.indexOf(a.hari)-S.hari.indexOf(b.hari)||a.mula-b.mula)
-    .forEach(x=>baris.push([x.hari,x.mula,namaKelas(x.kelasId),kodSubjek(x.subjekId),namaGuru(x.guruId),x.panjang]));
-  return '﻿'+baris.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-}
-function driveAutoSimpan(){
-  if(!drivePernah()||!DRIVE.cid) return;
-  clearTimeout(driveTimer);
-  driveTimer=setTimeout(()=>{ driveSimpanSemua(true).catch(()=>{}); },4000);
-}
-async function driveSimpanSemua(auto){
-  if(driveSibuk) return;
-  if(!DRIVE.cid) throw new Error('Client ID belum ditetapkan.');
-  driveSibuk=true; driveRalat=''; driveKemasStatus();
-  try{
-    await drivePastikanToken();
-    await drivePastikanFolder();
-    const d=await driveTulis('jadual-data.json','application/json',JSON.stringify(S),DRIVE.folderId,DRIVE.dataId);
-    DRIVE.dataId=d.id;
-    if(bilJadual()){
-      const p=await driveTulis('jadual-paparan.html','text/html',binaFailPaparan(),DRIVE.folderId,DRIVE.paparanId);
-      DRIVE.paparanId=p.id;
-      const c=await driveTulis('jadual.csv','text/csv',driveCSV(),DRIVE.folderId,DRIVE.csvId);
-      DRIVE.csvId=c.id;
-    }
-    const hariIni=new Date().toISOString().slice(0,10);
-    if(DRIVE.sandaranTarikh!==hariIni&&DRIVE.sandaranId){
-      await driveTulis('sandaran-'+hariIni+'.json','application/json',JSON.stringify(S),DRIVE.sandaranId,null);
-      DRIVE.sandaranTarikh=hariIni;
-    }
-    DRIVE.sync=new Date().toISOString();
-    driveSimpanTetapan();
-    if(!auto) toast('Disimpan ke Google Drive');
-  }catch(e){
-    driveRalat=e.message;
-    if(auto) driveStatus('☁️ Gagal simpan','bad'); else throw e;
-  }finally{
-    driveSibuk=false; driveKemasStatus();
-    if(VIEW==='drive') ulang();
-  }
-}
-async function driveSandaranSekarang(){
-  await drivePastikanFolder();
-  const cap=new Date().toISOString().slice(0,16).replace('T','-').replace(':','');
-  await driveTulis('sandaran-'+cap+'.json','application/json',JSON.stringify(S),DRIVE.sandaranId,null);
-  toast('Sandaran dicipta');
-  if(VIEW==='drive') ulang();
-}
-async function driveMuatData(){
-  await drivePastikanFolder();
-  if(!DRIVE.dataId){ toast('Tiada fail data dalam folder Drive','warn'); return false; }
-  const o=await driveBaca(DRIVE.dataId);
-  const data=typeof o==='string'?JSON.parse(o):o;
-  if(!data||!data.subjek) throw new Error('Fail data tidak sah.');
-  S=Object.assign(kosong(),data);
-  S.masa=Object.assign(kosong().masa,data.masa||{});
-  S.kekangan=Object.assign(kosong().kekangan,data.kekangan||{});
-  S.sekolah=Object.assign(kosong().sekolah,data.sekolah||{});
-  try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
-  DRIVE.sync=new Date().toISOString(); driveSimpanTetapan();
-  return true;
-}
-async function driveSenaraiSandaran(){
-  if(!DRIVE.sandaranId) return [];
-  const j=await dapi('https://www.googleapis.com/drive/v3/files?q='
-    +encodeURIComponent("'"+DRIVE.sandaranId+"' in parents and trashed=false")
-    +'&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc&pageSize=30');
-  return j.files||[];
-}
-
-/* ---------- Paparan ---------- */
-let driveSandaranCache=null;
-VIEWS.drive={t:'Google Drive', r(){
-  const sambung=driveAda(), pernah=drivePernah();
-  return `
-  <div class="card"><h3>☁️ Simpan ke Google Drive Sekolah</h3>
-    <p class="hint">Data jadual disimpan sebagai fail dalam Google Drive <b>akaun anda sendiri</b>. Aplikasi meminta kebenaran <code>drive.file</code> sahaja — ia hanya nampak fail yang ia sendiri cipta, dan tidak boleh membaca dokumen lain dalam Drive anda.</p>
-    ${sambung?`<div class="alert ok">✅ Disambung${DRIVE.emel?` sebagai <b>${esc(DRIVE.emel)}</b>`:''} · disimpan ${esc(masaLalu(DRIVE.sync))}</div>`
-      :pernah?`<div class="alert warn">Sambungan tamat tempoh. Tekan <b>Sambung semula</b> — data anda selamat dalam Drive.</div>`
-      :`<div class="alert info">Belum disambung. Data kini disimpan dalam pelayar peranti ini sahaja.</div>`}
-    ${driveRalat?`<div class="alert bad">${esc(driveRalat)}</div>`:''}
-    <div class="row">
-      ${sambung
-        ? `<button class="btn" onclick="driveTindakan('simpan')">💾 Simpan sekarang</button>
-           <button class="btn" onclick="driveTindakan('muat')">⬇️ Muat dari Drive</button>
-           <button class="btn" onclick="driveTindakan('sandaran')">🗂️ Sandaran sekarang</button>
-           <button class="btn" onclick="window.open('https://drive.google.com/drive/folders/${esc(DRIVE.folderId||'')}','_blank')">📂 Buka folder</button>
-           <button class="btn dgr right" onclick="ask('Putus sambungan Drive? Data dalam Drive tidak dipadam.',()=>{drivePutus();ulang();toast('Sambungan diputuskan')})">Putus</button>`
-        : `<button class="btn pri" onclick="driveTindakan('sambung')">🔌 ${pernah?'Sambung semula':'Sambung Google Drive'}</button>
-           ${pernah?`<button class="btn dgr" onclick="ask('Lupakan sambungan Drive pada peranti ini?',()=>{drivePutus();ulang()})">Lupakan</button>`:''}`}
-    </div>
-  </div>
-
-  ${sambung?`<div class="card"><h3>Fail dalam Drive anda</h3>
-    <p class="hint">Folder: <b>${esc(DRIVE.folderNama||driveNamaFolder())}</b></p>
-    <div class="tblwrap"><table class="dt"><thead><tr><th>Fail</th><th>Kegunaan</th><th style="width:90px">Status</th></tr></thead><tbody>
-      <tr><td><code>jadual-data.json</code></td><td>Pangkalan data penuh — dibaca semula bila anda sambung dari peranti lain</td><td>${DRIVE.dataId?'<span class="pill ok">Ada</span>':'<span class="pill">—</span>'}</td></tr>
-      <tr><td><code>jadual-paparan.html</code></td><td>Fail paparan guru — kongsi pautan Drive terus kepada guru</td><td>${DRIVE.paparanId?'<span class="pill ok">Ada</span>':'<span class="pill">—</span>'}</td></tr>
-      <tr><td><code>jadual.csv</code></td><td>Untuk dibuka dalam Google Sheets / Excel</td><td>${DRIVE.csvId?'<span class="pill ok">Ada</span>':'<span class="pill">—</span>'}</td></tr>
-      <tr><td><code>Sandaran/</code></td><td>Salinan bertarikh — automatik sekali sehari</td><td>${DRIVE.sandaranId?'<span class="pill ok">Ada</span>':'<span class="pill">—</span>'}</td></tr>
-    </tbody></table></div>
-    <div class="row" style="margin-top:12px"><button class="btn" onclick="driveTindakan('senarai')">🔄 Muat senarai sandaran</button></div>
-    <div id="senaraiSandaran">${driveSandaranCache?driveJadualSandaran(driveSandaranCache):''}</div>
-  </div>`:''}
-
-  <div class="card"><h3>Tetapan Sambungan</h3>
-    <p class="hint">Client ID mengenal pasti <b>aplikasi</b>, bukan pengguna — akaun yang log masuk tetap akaun anda, dan fail tetap masuk Drive anda. Tukar hanya jika sekolah anda mahu menggunakan projek Google Cloud sendiri.</p>
-    ${DRIVE.cid===CLIENT_ID_LALAI&&CLIENT_ID_LALAI
-      ? `<div class="alert ok">✅ Client ID lalai sudah disediakan — anda tidak perlu buat apa-apa. Teruskan tekan <b>Sambung Google Drive</b> di atas.</div>`
-      : CLIENT_ID_LALAI?`<div class="alert warn">Anda menggunakan Client ID sendiri, bukan yang lalai.</div>`:''}
-    <label class="f">Client ID</label>
-    <input id="dCid" value="${esc(DRIVE.cid||'')}" placeholder="812345678901-abc.apps.googleusercontent.com" spellcheck="false" autocapitalize="off">
-    <div class="row" style="margin-top:10px">
-      <button class="btn pri" onclick="driveSimpanCid()">Simpan Client ID</button>
-      ${CLIENT_ID_LALAI&&DRIVE.cid!==CLIENT_ID_LALAI?`<button class="btn" onclick="DRIVE.cid=CLIENT_ID_LALAI;DRIVE.client=null;driveSimpanTetapan();ulang();toast('Kembali ke Client ID lalai')">Guna semula lalai</button>`:''}
-      <span class="muted">Alamat laman ini: <code>${esc(location.origin)}</code></span>
-    </div>
-    <details style="margin-top:14px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--panel2)">
-      <summary style="cursor:pointer;font-weight:650">Cara mendapatkan Client ID (sekali sahaja)</summary>
-      <ol style="margin:8px 0 0 18px;line-height:1.8">
-        <li>Buka <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a> dengan akaun Gmail peribadi.</li>
-        <li><b>New Project</b> → nama <code>JanaJadual</code>.</li>
-        <li><b>APIs &amp; Services → Library</b> → cari <b>Google Drive API</b> → <b>Enable</b>.</li>
-        <li><b>OAuth consent screen</b> → User Type <b>External</b> → isi nama aplikasi &amp; e-mel → tambah skop <code>drive.file</code> dan <code>userinfo.email</code> → <b>Publish App</b>.</li>
-        <li><b>Credentials → Create Credentials → OAuth client ID</b> → <b>Web application</b>.</li>
-        <li><b>Authorized JavaScript origins</b> → ADD URI → tampal <code>${esc(location.origin)}</code> (tanpa garis miring di hujung).</li>
-        <li>Create → salin Client ID → tampal di atas.</li>
-      </ol>
-    </details>
-  </div>
-
-  <div class="card"><h3>Cara ia berfungsi</h3>
-    <ul style="margin:0 0 0 18px;line-height:1.8;font-size:13.5px">
-      <li>Folder <b>Jadual — (nama sekolah)</b> dicipta automatik dalam Drive anda pada sambungan pertama.</li>
-      <li>Setiap perubahan disimpan automatik ~4 saat selepas anda berhenti mengedit.</li>
-      <li>Satu sandaran bertarikh dibuat automatik pada kali pertama menyimpan setiap hari.</li>
-      <li>Tukar peranti: buka aplikasi, sambung Drive, tekan <b>Muat dari Drive</b>.</li>
-      <li>Nama folder mengikut nama sekolah dalam Tetapan. Menukar nama sekolah akan mencipta folder baharu.</li>
-      <li>Tarik balik kebenaran bila-bila masa di <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</li>
-    </ul>
-  </div>`;
-}};
-function driveJadualSandaran(fail){
-  if(!fail.length) return '<div class="alert info" style="margin-top:12px">Tiada fail sandaran lagi.</div>';
-  return `<div class="tblwrap" style="margin-top:12px"><table class="dt"><thead><tr><th>Fail sandaran</th><th style="width:150px">Dikemas kini</th><th style="width:110px"></th></tr></thead><tbody>
-    ${fail.map(f=>`<tr><td><code>${esc(f.name)}</code></td><td>${esc(masaLalu(f.modifiedTime))}</td>
-      <td><button class="btn sm" onclick="drivePulih('${esc(f.id)}','${esc(f.name)}')">Pulihkan</button></td></tr>`).join('')}
-  </tbody></table></div>`;
-}
-function driveSimpanCid(){
-  DRIVE.cid=$('#dCid').value.trim();
-  DRIVE.client=null;
-  driveSimpanTetapan(); toast('Client ID disimpan'); ulang();
-}
-async function driveTindakan(apa){
-  driveRalat='';
-  try{
-    if(apa==='sambung'){
-      if(!DRIVE.cid){ toast('Masukkan Client ID dahulu','bad'); return; }
-      await driveSambung();
-      if(DRIVE.dataId){
-        const bolehKosong=!S.subjek.length&&!S.kelas.length&&!S.guru.length;
-        if(bolehKosong){ await driveMuatData(); toast('Data dimuat dari Drive'); }
-        else driveTanyaArah();
-      }else{
-        await driveSimpanSemua(false);
-      }
-      ulang();
-    }
-    else if(apa==='simpan'){ await driveSimpanSemua(false); ulang(); }
-    else if(apa==='muat'){
-      ask('Muat data dari Drive? Data dalam peranti ini akan diganti.',async()=>{
-        try{ await driveMuatData(); toast('Data dimuat dari Drive'); go('dash'); }
-        catch(e){ driveRalat=e.message; toast('Gagal: '+e.message,'bad'); ulang(); }
-      },'Muat dari Drive');
-    }
-    else if(apa==='sandaran'){ await driveSandaranSekarang(); }
-    else if(apa==='senarai'){
-      driveSandaranCache=await driveSenaraiSandaran();
-      const el=$('#senaraiSandaran'); if(el) el.innerHTML=driveJadualSandaran(driveSandaranCache);
-    }
-  }catch(e){
-    driveRalat=e.message; toast('Ralat: '+e.message,'bad',4500);
-    driveKemasStatus(); if(VIEW==='drive') ulang();
-  }
-}
-function driveTanyaArah(){
-  $('#dlgBody').innerHTML=`<h3>Data sudah ada dalam Drive</h3>
-    <p>Folder <b>${esc(DRIVE.folderNama||'')}</b> sudah mengandungi fail jadual, dan peranti ini juga ada data.</p>
-    <p class="muted">Pilih yang mana satu hendak dikekalkan.</p>
-    <div class="row" style="justify-content:flex-end;margin-top:14px">
-      <button class="btn" onclick="dlg.close()">Batal</button>
-      <button class="btn" id="daTimpa">Guna data peranti ini</button>
-      <button class="btn pri" id="daMuat">Guna data dari Drive</button></div>`;
-  const d=$('#dlg'); d.showModal();
-  $('#daMuat').onclick=async()=>{ d.close();
-    try{ await driveMuatData(); toast('Data dimuat dari Drive'); go('dash'); }
-    catch(e){ toast('Gagal: '+e.message,'bad'); } };
-  $('#daTimpa').onclick=async()=>{ d.close();
-    try{ await driveSimpanSemua(false); toast('Data peranti disimpan ke Drive'); ulang(); }
-    catch(e){ toast('Gagal: '+e.message,'bad'); } };
-}
-function drivePulih(id,nama){
-  ask('Pulihkan daripada <b>'+esc(nama)+'</b>? Data semasa akan diganti.',async()=>{
-    try{
-      const o=await driveBaca(id);
-      const data=typeof o==='string'?JSON.parse(o):o;
-      if(!data||!data.subjek) throw new Error('Fail sandaran tidak sah');
-      S=Object.assign(kosong(),data);
-      S.masa=Object.assign(kosong().masa,data.masa||{});
-      S.kekangan=Object.assign(kosong().kekangan,data.kekangan||{});
-      S.sekolah=Object.assign(kosong().sekolah,data.sekolah||{});
-      simpan(); toast('Dipulihkan'); go('dash');
-    }catch(e){ toast('Gagal: '+e.message,'bad'); }
-  },'Pulihkan');
-}
-driveMuatTetapan();
 
 
 /* ============================================================
@@ -2095,13 +1721,6 @@ VIEWS.cetak={t:'Cetak / PDF', r(){
         <input type="checkbox" class="ckC" value="${esc(x.id)}" ${cetakPilih.has(x.id)?'checked':''}
         onchange="this.checked?cetakPilih.add(this.value):cetakPilih.delete(this.value);ulangCetakPratonton()"> ${esc(x.nama)}</label>`).join('')}
     </div>`}
-  </div>
-  <div class="card noprint"><h3>📤 Untuk Kemudahan Guru</h3>
-    <p class="hint">Hasilkan satu fail HTML <b>baca sahaja</b> yang mengandungi jadual siap. Guru buka fail itu, pilih nama sendiri, terus nampak jadual mereka dan boleh cetak. Tiada butang edit — data anda selamat. Fail ini boleh dimuat naik ke laman web sekolah, Google Drive, atau dihantar melalui WhatsApp.</p>
-    <div class="row">
-      <button class="btn pri" onclick="eksportPaparan()">📄 Eksport Fail Paparan Guru</button>
-      <button class="btn" onclick="bukaPaparan()">👁️ Pratonton dalam tab baharu</button>
-    </div>
   </div>
   <div id="cetakArea">${pratontonCetak()}</div>`;
 }};
@@ -2327,20 +1946,22 @@ VIEWS.dash = {t:'Ruang bina jadual', r(){
     ['05','Slot tetap & kekangan','Tetapkan perhimpunan, aktiviti dan syarat penjanaan.', 'acara',false],
     ['06','Jana, semak & aktifkan',`${bilJadual()} blok dijadualkan. Semak sebelum digunakan untuk relief.`, 'jana',bilJadual() > 0]
   ];
-  return `<div class="card"><p class="eyebrow">PEMBINA JADUAL SEKOLAH</p><h2>Satu aliran, dari data hingga jadual siap.</h2><p class="hint">Ikuti langkah di bawah atau pilih bahagian terus daripada menu. Perubahan disimpan secara automatik pada peranti ini. Gunakan Data & Sandaran untuk menyimpan salinan pembina.</p>
+  return `<div class="card"><p class="eyebrow">PEMBINA JADUAL SEKOLAH</p><h2>Satu aliran, dari data hingga jadual siap.</h2><p class="hint">Ikuti langkah di bawah atau pilih bahagian terus daripada menu. Tekan Simpan draf ke Sheets untuk menyimpan semua persediaan dalam fail Sistem Jadual sekolah.</p>
     <div class="build-status"><div><b>${S.guru.length}</b><span>Guru</span></div><div><b>${S.kelas.length}</b><span>Kelas</span></div><div><b>${S.subjek.length}</b><span>Subjek</span></div><div><b>${bilJadual()}</b><span>Blok jadual</span></div></div>
     <div class="build-grid">${steps.map(([n,t,d,v,ready])=>`<button class="build-step" onclick="go('${v}')"><i>${ready?'✓':n}</i><b>${t}</b><span>${d}</span><small>${ready?'Semak / ubah':'Buka langkah'} →</small></button>`).join('')}</div>
     <div class="row" style="margin-top:18px"><button class="btn" onclick="go('kelas')">Urus kelas</button><button class="btn" onclick="go('agihan')">Agihan guru</button><button class="btn" onclick="go('kekangan')">Kekangan</button><button class="btn" onclick="go('data')">Pulihkan / sandarkan data</button><button class="btn pri" onclick="go('lihat')">Lihat & edit jadual →</button></div></div>`;
 }};
 
+VIEWS.data={t:'Sandaran',r(){return '<div class="card"><h3>Salinan keselamatan</h3><p>Data utama berada dalam satu Google Sheets sekolah. Gunakan JSON hanya untuk sandaran atau memindahkan data pembina lama.</p><div class="row"><button class="btn" onclick="eksportJSON()">Muat turun sandaran JSON</button><button class="btn" onclick="fileIn.click()">Import sandaran lama</button></div></div>';}};
+VIEWS.bantuan={t:'Panduan ringkas',r(){return '<div class="card"><h3>Bina jadual dalam 4 langkah</h3><ol><li>Isi sekolah, masa, subjek, kelas dan guru.</li><li>Tetapkan peruntukan waktu, agihan guru dan slot tetap.</li><li>Jana jadual, semak pertembungan, kemudian cetak jadual guru atau kelas.</li><li>Simpan draf ke Sheets. Pilih Gunakan untuk relief apabila jadual sudah siap.</li></ol><p>PDF aSc boleh diimport terus daripada halaman Jadual. Nama tanpa padanan diabaikan dan boleh dipilih secara manual.</p></div>';}};
 const adaData=muat();
 simpan(true);
 go('dash');
 
-if(typeof driveKemasStatus==='function') driveKemasStatus();
-window.addEventListener('beforeunload',()=>simpan(true));
 
 window.jadualBuilder = {
+  setState(state) {S=Object.assign(kosong(),clone(state));S.masa=Object.assign(kosong().masa,state.masa||{});ulang();},
+  clear() {S=kosong();$('#content').innerHTML='';},
   getState: () => clone(S),
   validate: () => semakJadual(),
   times: () => jalurMasa(),

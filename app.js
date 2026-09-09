@@ -1,20 +1,24 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=2.0.1";
-import { ApiClient, loadConfig, saveConfig } from "./api.js?v=2.0.1";
-import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js?v=2.0.1";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=2.0.1";
-import { flushQueue, queueWrite } from "./storage.js?v=2.0.1";
-import { convertBuilderSchedule } from "./builder-relief.js?v=2.0.1";
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.0";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.0";
+import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js?v=3.0.0";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.0";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.0";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.0';
 
 const DB_KEY = "relief-skpr-db-v1";
-const titleByView = { "hari-ini": "Hari ini", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
+const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
 let config = loadConfig();
 let api = new ApiClient(config);
-let db = loadDb();
+let db = emptyDatabase();
+db.teachers = [];
+let confirmedDb = structuredClone(db);
+let admin = false, writeBusy = false, builderRevision = 0, builderDirty = false, restoringBuilder = false;
+let sessionExpiry = 0;
 let importResult = null;
 let currentDrafts = [];
 let deferredInstallPrompt = null;
 let toastTimer = null;
-let scheduleMode = localStorage.getItem("sistem-jadual-mode") || "generator";
+let scheduleMode = "relief";
 
 function $(selector, root = document) { return root.querySelector(selector); }
 function $$(selector, root = document) { return [...root.querySelectorAll(selector)]; }
@@ -38,7 +42,7 @@ function loadDb() {
 
 function persist() {
   db.updatedAt = new Date().toISOString();
-  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  // Private administration data stays in memory; Sheets is the source of truth.
   updateConnectionUi();
 }
 
@@ -52,6 +56,7 @@ function toast(message, type = "info") {
 }
 
 function showView(name) {
+  if (!admin && !["hari-ini","ketiadaan","jadual"].includes(name)) return openLogin();
   if (!titleByView[name]) name = "hari-ini";
   document.body.classList.toggle("print-builder", name === "jadual" && scheduleMode === "generator");
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `view-${name}`));
@@ -63,7 +68,7 @@ function showView(name) {
 }
 
 function setScheduleMode(mode) {
-  scheduleMode = mode === "relief" ? "relief" : "generator";
+  scheduleMode = admin && mode === "generator" ? "generator" : "relief";
   localStorage.setItem("sistem-jadual-mode", scheduleMode);
   $("#schedule-generator-pane")?.classList.toggle("hidden", scheduleMode !== "generator");
   $("#schedule-relief-pane")?.classList.toggle("hidden", scheduleMode !== "relief");
@@ -78,7 +83,8 @@ function setScheduleMode(mode) {
 function updateConnectionUi() {
   const configured = api.isConfigured();
   $("#syncDot").classList.toggle("online", configured && navigator.onLine);
-  $("#syncLabel").textContent = configured ? (navigator.onLine ? `Sheets · r${db.revision || 0}` : "Luar talian") : "Mod setempat";
+  $("#syncLabel").textContent = configured ? (navigator.onLine ? "Google Sheets" : "Luar talian") : "Belum disambungkan";
+  $("#systemNotice").textContent = !configured ? "Sambungan sekolah belum disediakan. Login admin memerlukan pelayan sekolah." : admin ? "Admin · semua perubahan disimpan dalam Google Sheets sekolah" : "Paparan umum · jadual diterbitkan oleh admin";
   $("#revisionLabel").textContent = db.revision || 0;
   $("#lastUpdated").textContent = db.updatedAt ? new Intl.DateTimeFormat("ms-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date(db.updatedAt)) : "—";
 }
@@ -94,10 +100,10 @@ function renderAll() {
 }
 
 function renderDashboard() {
-  const date = todayIso();
+  const date = $("#reliefDate").value || todayIso();
   const absences = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
   const published = db.reliefs.filter((item) => item.date === date && item.status !== "cancelled");
-  currentDrafts = buildReliefDrafts(db, date);
+  currentDrafts = admin ? buildReliefDrafts(db, date) : [];
   const items = [...published.map((item) => ({ ...item, candidates: [] })), ...currentDrafts];
   $("#metricAbsent").textContent = new Set(absences.map((item) => item.teacherId)).size;
   $("#metricClasses").textContent = new Set(items.map((item) => item.className).filter(Boolean)).size;
@@ -106,7 +112,7 @@ function renderDashboard() {
   const list = $("#reliefList");
   if (!items.length) {
     const hasSchedule = db.scheduleVersions.some((version) => version.status === "active");
-    list.innerHTML = `<div class="empty-state"><strong>${hasSchedule ? "Tiada relief diperlukan hari ini" : "Sediakan jadual pertama anda"}</strong>${hasSchedule ? "Tambah rekod guru tiada untuk menjana cadangan." : "Bina jadual di tab Jadual dan pilih Gunakan untuk relief, atau import PDF jadual guru."}</div>`;
+    list.innerHTML = `<div class="empty-state"><strong>${hasSchedule ? "Tiada relief diperlukan hari ini" : "Tiada relief diterbitkan"}</strong>${hasSchedule ? "Tambah rekod guru tiada untuk menjana cadangan." : "Jadual relief akan dipaparkan selepas diterbitkan oleh admin."}</div>`;
   } else {
     list.innerHTML = items.map((item) => reliefCard(item)).join("");
     $$(".candidate-select", list).forEach((select) => select.addEventListener("change", () => {
@@ -148,7 +154,7 @@ function renderAbsences() {
   const list = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
   $("#absenceList").innerHTML = list.length ? list.map((item) => {
     const teacher = teacherById(item.teacherId);
-    return `<article class="absence-card"><div><h3>${esc(teacher?.name || "Guru tidak ditemui")}</h3><p>${esc(item.reason || "Tiada sebab dinyatakan")} · ${item.allDay ? "Sepanjang hari" : `Waktu ${(item.periods || []).join(", ")}`}</p></div><button class="mini-button delete" data-cancel-absence="${esc(item.id)}" title="Batalkan">×</button></article>`;
+    return `<article class="absence-card"><div><h3>${esc(teacher?.name || "Guru tidak ditemui")}</h3><p>${admin ? esc(item.reason || "Tiada sebab dinyatakan") + " · " : ""}${item.allDay ? "Sepanjang hari" : `Waktu ${(item.periods || []).join(", ")}`}</p></div><button class="mini-button delete admin-only" data-cancel-absence="${esc(item.id)}" title="Batalkan">×</button></article>`;
   }).join("") : `<div class="empty-state"><strong>Tiada rekod</strong>Tiada guru direkodkan tidak hadir pada ${formatDate(date)}.</div>`;
   $$('[data-cancel-absence]').forEach((button) => button.addEventListener("click", () => cancelAbsence(button.dataset.cancelAbsence)));
 }
@@ -162,12 +168,15 @@ function renderTeacherLists() {
   const selectedAbsence = absence.value;
   const selectedSchedule = schedule.value;
   absence.innerHTML = `<option value="">Pilih guru</option>${teacherOptions(selectedAbsence)}`;
-  schedule.innerHTML = `<option value="">Pilih guru</option>${teacherOptions(selectedSchedule)}`;
+  const byClass = admin && $("#scheduleType").value === "class";
+  $("#scheduleEntityLabel").textContent = byClass ? "Kelas" : "Guru";
+  schedule.innerHTML = byClass ? `<option value="">Pilih kelas</option>${[...new Set(db.schedule.map(r=>r.className).filter(Boolean))].sort().map(name=>`<option value="${esc(name)}" ${selectedSchedule===name?'selected':''}>${esc(name)}</option>`).join('')}` : `<option value="">Pilih guru</option>${teacherOptions(selectedSchedule)}`;
 }
 
 function initials(name) { return String(name).split(" ").filter((word) => !["BIN", "BINTI"].includes(word)).slice(0, 2).map((word) => word[0]).join(""); }
 
 function renderTeachers() {
+  if (!admin) {$("#teacherList").innerHTML="";return;}
   const query = $("#teacherSearch").value.trim().toUpperCase();
   const teachers = activeTeachers().filter((teacher) => !query || `${teacher.name} ${teacher.position}`.includes(query));
   $("#teacherList").innerHTML = teachers.map((teacher) => `<article class="teacher-card">
@@ -184,9 +193,11 @@ function renderSchedule() {
   $("#activeVersion").className = `badge ${version ? "good" : "neutral"}`;
   const teacherId = $("#scheduleTeacher").value;
   const day = $("#scheduleDay").value;
-  const rows = version ? db.schedule.filter((row) => row.versionId === version.id && row.teacherId === teacherId && row.day === day) : [];
-  if (!version || !teacherId || !db.schedule.some(row => row.versionId === version.id && row.teacherId === teacherId)) {
-    $("#scheduleGrid").innerHTML = `<div class="empty-state"><strong>${!version ? "Belum ada jadual aktif" : !teacherId ? "Pilih guru untuk melihat jadual" : "Tiada rekod jadual untuk guru ini"}</strong>Bina jadual atau import PDF. Guru tanpa padanan boleh diurus secara manual.</div>`;
+  const byClass = admin && $("#scheduleType").value === "class";
+  const matches = row => byClass ? row.className === teacherId : row.teacherId === teacherId;
+  const rows = version ? db.schedule.filter(row => row.versionId === version.id && matches(row) && row.day === day) : [];
+  if (!version || !teacherId || !db.schedule.some(row => row.versionId === version.id && matches(row))) {
+    $("#scheduleGrid").innerHTML = `<div class="empty-state"><strong>${!version ? "Belum ada jadual aktif" : !teacherId ? "Pilih guru atau kelas untuk melihat jadual" : "Tiada rekod jadual untuk pilihan ini"}</strong>${admin ? 'Bina jadual atau import PDF aSc untuk bermula.' : 'Jadual akan tersedia selepas diterbitkan oleh admin.'}</div>`;
     return;
   }
   $("#scheduleGrid").innerHTML = PERIODS.map((period) => {
@@ -197,6 +208,7 @@ function renderSchedule() {
 }
 
 function openAbsenceDialog() {
+  if (!requireAdmin()) return;
   $("#absenceDate").value = todayIso();
   $("#absenceTeacher").value = "";
   $("#absenceReason").value = "";
@@ -206,6 +218,7 @@ function openAbsenceDialog() {
 }
 
 async function saveAbsenceRecord(event) {
+  if (!requireAdmin()) return;
   event.preventDefault();
   const teacherId = $("#absenceTeacher").value;
   const date = $("#absenceDate").value;
@@ -219,6 +232,7 @@ async function saveAbsenceRecord(event) {
 }
 
 async function cancelAbsence(id) {
+  if (!requireAdmin()) return;
   const item = db.absences.find((absence) => absence.id === id);
   if (!item || !confirm("Batalkan rekod ketiadaan ini?")) return;
   item.status = "cancelled"; item.updatedAt = new Date().toISOString(); persist(); renderAll();
@@ -226,6 +240,7 @@ async function cancelAbsence(id) {
 }
 
 function openTeacherDialog(id = "") {
+  if (!requireAdmin()) return;
   const teacher = db.teachers.find((item) => item.id === id);
   $("#teacherDialogTitle").textContent = teacher ? "Ubah guru" : "Tambah guru";
   $("#teacherId").value = teacher?.id || "";
@@ -238,6 +253,7 @@ function openTeacherDialog(id = "") {
 }
 
 async function saveTeacherRecord(event) {
+  if (!requireAdmin()) return;
   event.preventDefault();
   const existingId = $("#teacherId").value;
   const name = $("#teacherName").value.trim().toUpperCase();
@@ -262,6 +278,7 @@ async function saveTeacherRecord(event) {
 }
 
 async function archiveTeacher(id) {
+  if (!requireAdmin()) return;
   const teacher = teacherById(id);
   if (!teacher || !confirm(`Nyahaktifkan ${teacher.name}? Rekod sejarah tidak akan dipadam.`)) return;
   teacher.active = false; teacher.updatedAt = new Date().toISOString(); persist(); renderAll();
@@ -269,6 +286,7 @@ async function archiveTeacher(id) {
 }
 
 async function publishReliefs() {
+  if (!requireAdmin()) return;
   const errors = validateReliefs(db, currentDrafts);
   if (errors.length) return toast(errors[0], "error");
   const now = new Date().toISOString();
@@ -278,6 +296,7 @@ async function publishReliefs() {
 }
 
 async function parsePdf() {
+  if (!requireAdmin()) return;
   const file = $("#pdfFile").files[0];
   if (!file) return;
   if (file.size > 25 * 1024 * 1024) return toast("Fail melebihi 25 MB.", "error");
@@ -321,6 +340,7 @@ function updateImportTeacherMatch(pageIndex, teacherId) {
 }
 
 async function saveImportedSchedule() {
+  if (!requireAdmin()) return;
   if (!importResult) return;
   const effectiveDate = $("#effectiveDate").value;
   const label = $("#versionLabel").value.trim();
@@ -334,32 +354,34 @@ async function saveImportedSchedule() {
 }
 
 async function remoteWrite(action, data, successMessage) {
-  if (!api.isConfigured()) {
-    queueWrite(action, data);
-    toast(`${successMessage} Data disimpan pada peranti.`, "success");
-    return;
-  }
+  if (!admin) return;
+  writeBusy = true;
   try {
     const result = await api.write(action, data);
+    if (!admin) return;
     db.revision = result.revision ?? db.revision; db.updatedAt = result.updatedAt || db.updatedAt; persist();
+    confirmedDb = structuredClone(db);
     toast(successMessage, "success");
   } catch (error) {
-    queueWrite(action, data);
-    toast(`Disimpan pada peranti; Sheets belum dikemas kini. ${error.message}`, "error");
-  }
+    db = structuredClone(confirmedDb); renderAll();
+    toast(`Simpanan tidak dapat disahkan. Segerakkan data sebelum cuba lagi. ${error.message}`, "error");
+    if (error.code === 'AUTH_REQUIRED') await leaveAdmin();
+  } finally {writeBusy=false;}
 }
 
 async function syncData(showSuccess = true) {
   if (!api.isConfigured()) return showSuccess && toast("Tetapkan URL API di bahagian Tetapan.");
   $("#syncButton").disabled = true;
   try {
-    const queued = await flushQueue(api);
-    const result = await api.bootstrap(db.revision || -1);
-    if (result.changed && result.data) db = { ...db, ...result.data };
-    db.revision = result.revision ?? db.revision; db.updatedAt = result.updatedAt || new Date().toISOString(); persist(); renderAll();
-    if (showSuccess) toast(queued.sent ? `${queued.sent} perubahan dihantar dan data disegerakkan.` : (result.changed ? "Data baharu diterima daripada Sheets." : "Data sudah terkini."), "success");
+    const wasAdmin=admin;
+    const result = wasAdmin ? await api.bootstrap() : await api.publicData();
+    if (wasAdmin !== admin) return;
+    if (result.data) db = { ...emptyDatabase(), ...result.data };
+    confirmedDb=structuredClone(db); renderAll();
+    if (showSuccess) toast("Data Google Sheets telah dikemas kini.", "success");
   } catch (error) {
     if (showSuccess) toast(error.message, "error");
+    if(error.code==='AUTH_REQUIRED') await leaveAdmin();
   } finally { $("#syncButton").disabled = false; }
 }
 
@@ -368,9 +390,12 @@ function populatePeriodPicker() {
 }
 
 function wireEvents() {
+  wireAdminEvents();
+  $("#reliefDate").addEventListener("change",renderDashboard);
+  $("#scheduleType").addEventListener("change",()=>{renderTeacherLists();renderSchedule();});
   $("#builderSection").addEventListener("change", event => window.jadualBuilder.go(event.target.value));
   document.addEventListener("builder-view", event => { $("#builderSection").value = event.detail; });
-  $$('[data-builder-open]').forEach(button => button.addEventListener("click", () => { setScheduleMode("generator"); showView("jadual"); window.jadualBuilder.go(button.dataset.builderOpen); }));
+  $$('[data-builder-open]').forEach(button => button.addEventListener("click", async () => { if (!requireAdmin()) return; await ensureBuilder(); setScheduleMode("generator"); showView("jadual"); window.jadualBuilder.go(button.dataset.builderOpen); }));
   $("#syncBuilderTeachers").addEventListener("click", () => { const count = window.jadualBuilder.mergeTeachers(db.teachers); toast(`${count} profil guru diselaraskan. Semak agihan guru sebelum menjana.`, "success"); });
   $("#useBuilderSchedule").addEventListener("click", previewBuilderSchedule);
   $("#confirmBuilderPublish").addEventListener("click", publishBuilderSchedule);
@@ -397,7 +422,7 @@ function wireEvents() {
   $("#saveImport").addEventListener("click", saveImportedSchedule);
   $("#syncButton").addEventListener("click", () => syncData(true));
   $("#testApi").addEventListener("click", async () => { try { const temp = new ApiClient({ ...config, apiUrl: $("#apiUrl").value.trim() }); const result = await temp.health(); toast(`${result.school || "API"} bersambung.`, "success"); } catch (error) { toast(error.message, "error"); } });
-  $("#saveSettings").addEventListener("click", () => { config = { apiUrl: $("#apiUrl").value.trim(), adminPin: $("#adminPin").value.trim(), autoSync: $("#autoSync").checked }; saveConfig(config); api = new ApiClient(config); updateConnectionUi(); toast("Tetapan disimpan.", "success"); });
+  $("#saveSettings").addEventListener("click", async () => {if(!requireAdmin()) return; const next={apiUrl:$("#apiUrl").value.trim(),autoSync:true};if(!new ApiClient(next).isConfigured()) return toast('URL Apps Script tidak sah.','error');const changed=next.apiUrl!==config.apiUrl;config=next;saveConfig(config);if(changed) await leaveAdmin();else api.config=config;updateConnectionUi();toast(changed?'Sambungan diubah. Login semula.':'Tetapan disimpan.','success');});
   $("#checkUpdate").addEventListener("click", async () => { const registration = await navigator.serviceWorker?.getRegistration(); await registration?.update(); toast("Semakan kemas kini selesai.", "success"); });
   $("#installButton").addEventListener("click", async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; $("#installButton").classList.add("hidden"); });
   window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; $("#installButton").classList.remove("hidden"); });
@@ -406,17 +431,112 @@ function wireEvents() {
 }
 
 function init() {
-  if (window.jadualBuilder && !window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
+
   const date = todayIso();
+  $("#reliefDate").value = date;
   $("#todayLabel").textContent = new Intl.DateTimeFormat("ms-MY", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${date}T12:00:00`)).toUpperCase();
   $("#absenceFilterDate").value = date; $("#effectiveDate").value = date;
-  $("#apiUrl").value = config.apiUrl || ""; $("#adminPin").value = config.adminPin || ""; $("#autoSync").checked = config.autoSync !== false;
+  $("#apiUrl").value = config.apiUrl || ""; $("#autoSync").checked = config.autoSync !== false;
   $("#appVersion").textContent = APP_VERSION;
-  populatePeriodPicker(); wireEvents(); renderAll(); showView(localStorage.getItem("relief-skpr-view") || "hari-ini");
-  if (config.autoSync && api.isConfigured() && navigator.onLine) syncData(false);
+  populatePeriodPicker(); wireEvents(); renderAll(); showView("jadual");
+  resumeSession();
 }
 
 init();
+
+async function resumeSession() {
+  try {
+    const session=JSON.parse(sessionStorage.getItem('jadual-admin-session')||'null');
+    if(session?.token&&session.expiresAt>Date.now()&&api.isConfigured()) {api.token=session.token;await enterAdmin(session);return;}
+  } catch {api.token='';sessionStorage.removeItem('jadual-admin-session');}
+  if(api.isConfigured()&&navigator.onLine) syncData(false);
+}
+
+function requireAdmin() {
+  if(!admin || Date.now()>=sessionExpiry) {openLogin();return false;}
+  if(writeBusy) {toast('Tunggu simpanan semasa selesai.');return false;}
+  return true;
+}
+function openLogin() {
+  $('#loginError').textContent='';$('#loginSetup').classList.toggle('hidden',api.isConfigured());
+  $('#loginApiUrl').value=config.apiUrl;$('#loginDialog').showModal();
+}
+async function ensureBuilder() {
+  if(window.jadualBuilder) return;
+  await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`./builder.js?v=${APP_VERSION}`;script.onload=resolve;script.onerror=()=>reject(new Error('Pembina gagal dimuatkan.'));document.body.appendChild(script);});
+}
+async function enterAdmin(result) {
+  const snapshot=await api.bootstrap();
+  db={...emptyDatabase(),...snapshot.data};confirmedDb=structuredClone(db);
+  restoringBuilder=true;
+  await ensureBuilder();
+  if(snapshot.builder?.state) window.jadualBuilder.setState(snapshot.builder.state);
+  builderRevision=snapshot.builder?.revision||0;
+  if(!window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
+  restoringBuilder=false;builderDirty=false;
+  admin=true;window.systemAdminActive=true;sessionExpiry=result.expiresAt;
+  sessionStorage.setItem('jadual-admin-session',JSON.stringify({token:api.token,expiresAt:sessionExpiry}));
+  document.body.classList.remove('public-mode');$('#loginButton').classList.add('hidden');
+  $('#builderCloudStatus').textContent=snapshot.builder?.state?'Draf Sheets telah dimuatkan':'Draf baharu — simpan ke Sheets apabila siap';
+  $('#passwordNotice').textContent=result.mustChangePassword?'Kata laluan awal masih digunakan. Tukar kepada kata laluan yang lebih kuat.':'';
+  $('#loginDialog').close();$('#loginPassword').value='';renderAll();
+}
+async function leaveAdmin() {
+  const previous=api;admin=false;window.systemAdminActive=false;sessionExpiry=0;sessionStorage.removeItem('jadual-admin-session');
+  document.body.classList.add('public-mode');$('#loginButton').classList.remove('hidden');
+  restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;
+  importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';
+  $$('dialog').forEach(d=>{d.close();d.querySelector('form')?.reset();});
+  db=emptyDatabase();db.teachers=[];confirmedDb=structuredClone(db);$('#scheduleType').value='teacher';setScheduleMode('relief');showView('jadual');
+  api=new ApiClient(config);await previous.logout().catch(()=>{});await syncData(false);
+}
+async function saveBuilderCloud() {
+  if(!admin||restoringBuilder) return;
+  if(writeBusy) {$('#builderCloudStatus').textContent='Belum disimpan — tunggu simpanan semasa selesai.';return;}
+  writeBusy=true;const state=window.jadualBuilder.getState();const fingerprint=JSON.stringify(state);
+  $('#builderCloudStatus').textContent='Menyimpan draf ke Sheets…';
+  try {
+    const result=await api.write('saveBuilder',{baseRevision:builderRevision,state});
+    if(!admin) return;
+    builderRevision=result.result.builderRevision;builderDirty=JSON.stringify(window.jadualBuilder.getState())!==fingerprint;
+    $('#builderCloudStatus').textContent=builderDirty?'Ada perubahan baharu — tekan Simpan draf':'Semua perubahan draf disimpan di Sheets';
+  } catch(error) {builderDirty=true;$('#builderCloudStatus').textContent=`Belum disimpan: ${error.message}`;if(error.code==='AUTH_REQUIRED') await leaveAdmin();}
+  finally {writeBusy=false;}
+}
+function wireAdminEvents() {
+  $('#pdfToBuilder').addEventListener('click',async()=>{
+    if(!requireAdmin()||!importResult?.rows.length) return;
+    try {
+      await ensureBuilder();
+      if(!confirm('Gantikan draf pembina semasa dengan jadual PDF yang dipadankan? Jadual aktif tidak berubah sehingga anda mengaktifkannya.')) return;
+      const draft=draftFromPdf(importResult.rows,db.teachers,window.jadualBuilder.getState());
+      window.jadualBuilder.setState(draft);builderDirty=true;$('#builderCloudStatus').textContent='Draf daripada PDF — semak agihan dan simpan ke Sheets';setScheduleMode('generator');showView('jadual');window.jadualBuilder.go('lihat');
+    } catch(error) {toast(error.message,'error');}
+  });
+  $('#loginButton').addEventListener('click',openLogin);$('#closeLogin').addEventListener('click',()=>$('#loginDialog').close());
+  $('#logoutButton').addEventListener('click',()=>{if(builderDirty&&!confirm('Draf belum disimpan. Log keluar tanpa menyimpannya?')) return;leaveAdmin();});
+  $('#loginForm').addEventListener('submit',async event=>{
+    event.preventDefault();$('#submitLogin').disabled=true;$('#loginError').textContent='';
+    try {
+      if(!api.isConfigured()) {config={apiUrl:$('#loginApiUrl').value.trim(),autoSync:true};api=new ApiClient(config);saveConfig(config);}
+      const result=await api.login($('#loginUsername').value.trim(),$('#loginPassword').value);await enterAdmin(result);
+    } catch(error) {api.token='';$('#loginError').textContent=error.message;}
+    finally {$('#submitLogin').disabled=false;$('#loginPassword').value='';}
+  });
+  $('#saveBuilderCloud').addEventListener('click',saveBuilderCloud);
+  $('#loadBuilderCloud').addEventListener('click',async()=>{
+    if(!requireAdmin()||(builderDirty&&!confirm('Gantikan draf belum disimpan dengan draf Sheets?'))) return;
+    try {const result=await api.bootstrap();if(!result.builder?.state) return toast('Belum ada draf di Sheets.');restoringBuilder=true;window.jadualBuilder.setState(result.builder.state);builderRevision=result.builder.revision;builderDirty=false;$('#builderCloudStatus').textContent='Draf Sheets dimuatkan';}
+    catch(error){toast(error.message,'error');}finally{restoringBuilder=false;}
+  });
+  document.addEventListener('builder-saved',()=>{if(admin&&!restoringBuilder){builderDirty=true;$('#builderCloudStatus').textContent='Draf berubah — tekan Simpan draf ke Sheets';}});
+  $('#changePassword').addEventListener('click',async()=>{
+    if(!requireAdmin()) return;
+    try {await api.write('changePassword',{currentPassword:$('#currentPassword').value,newPassword:$('#newPassword').value});$('#currentPassword').value='';$('#newPassword').value='';await leaveAdmin();toast('Kata laluan ditukar. Login semula.','success');}catch(error){toast(error.message,'error');}
+  });
+  window.addEventListener('beforeunload',event=>{if(admin&&builderDirty){event.preventDefault();event.returnValue='';}});
+  setInterval(()=>{if(admin&&Date.now()>=sessionExpiry) leaveAdmin();},30000);
+}
 
 function checkedBuilderSchedule() {
   const builder = window.jadualBuilder;
@@ -430,6 +550,7 @@ function checkedBuilderSchedule() {
 }
 
 function previewBuilderSchedule() {
+  if (!requireAdmin()) return;
   $("#builderNotice").classList.add("hidden");
   try {
     const result = checkedBuilderSchedule();
@@ -442,6 +563,7 @@ function previewBuilderSchedule() {
 }
 
 async function publishBuilderSchedule(event) {
+  if (!requireAdmin()) return;
   event.preventDefault();
   if (!$("#builderPublishForm").reportValidity()) return;
   try {

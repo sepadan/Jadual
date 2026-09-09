@@ -19,25 +19,25 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=2.0.1">
-  <link rel="stylesheet" href="./builder.css?v=2.0.1">
-  <link rel="stylesheet" href="./workspace.css?v=2.0.1">
-  <title>Sistem Jadual SKPR</title>
+  <link rel="stylesheet" href="./styles.css?v=3.0.0">
+  <link rel="stylesheet" href="./builder.css?v=3.0.0">
+  <link rel="stylesheet" href="./workspace.css?v=3.0.0">
+  <link rel="stylesheet" href="./public-ui.css?v=3.0.0"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
-<body>
+<body class="public-mode">
   <div class="app-shell">
     <aside class="sidebar" aria-label="Navigasi utama">
-      <a class="brand" href="#hari-ini" data-nav="hari-ini" aria-label="Sistem Jadual SKPR">
+      <a class="brand" href="#hari-ini" data-nav="hari-ini" aria-label="Sistem Jadual">
         <span class="brand-mark">J</span>
-        <span><strong>Sistem Jadual</strong><small>Jadual &amp; Relief · SKPR</small></span>
+        <span><strong>Sistem Jadual</strong><small>SePadan · SK Paya Redan</small></span>
       </a>
       <nav class="nav-list">
-        <button class="nav-item active" data-view="hari-ini"><span>⌂</span> Hari ini</button>
+        <button class="nav-item active" data-view="hari-ini"><span>⌂</span> Relief</button>
         <button class="nav-item" data-view="ketiadaan"><span>○</span> Ketiadaan</button>
         <button class="nav-item" data-view="jadual"><span>▦</span> Jadual</button>
-        <button class="nav-item" data-view="guru"><span>♙</span> Guru</button>
-        <button class="nav-item" data-view="import"><span>⇧</span> Import PDF</button>
-        <button class="nav-item" data-view="tetapan"><span>⚙</span> Tetapan</button>
+        <button class="nav-item admin-only" data-view="guru"><span>♙</span> Guru</button>
+        <button class="nav-item admin-only" data-builder-open="dash"><span>＋</span> Bina jadual</button>
+        <button class="nav-item admin-only" data-view="tetapan"><span>⚙</span> Tetapan</button>
       </nav>
       <div class="sidebar-foot">
         <span id="syncDot" class="status-dot"></span>
@@ -45,27 +45,21 @@
       </div>
     </aside>
 
-    <main>
+    <main><div id="systemNotice" class="system-notice" role="status">Paparan umum · hanya untuk bacaan</div>
       <header class="topbar">
         <div>
           <p class="eyebrow" id="todayLabel"></p>
           <h1 id="viewTitle">Hari ini</h1>
         </div>
-        <div class="top-actions">
+        <div class="top-actions"><button id="loginButton" class="button primary">Login admin</button><button id="logoutButton" class="button ghost admin-only">Log keluar</button>
           <button id="installButton" class="button ghost hidden">Pasang aplikasi</button>
-          <button id="mobileSettings" class="icon-button mobile-only" title="Tetapan" aria-label="Tetapan">⚙</button>
+          <button id="mobileSettings" class="icon-button mobile-only admin-only" title="Tetapan" aria-label="Tetapan">⚙</button>
           <button id="syncButton" class="icon-button" title="Segerakkan data" aria-label="Segerakkan data">↻</button>
-          <button id="openAbsence" class="button primary">+ Guru tiada</button>
+          <button id="openAbsence" class="button primary admin-only">+ Guru tiada</button>
         </div>
       </header>
 
       <section id="view-hari-ini" class="view active">
-        <div class="welcome"><div><p class="eyebrow">RUANG KERJA SEKOLAH</p><h2>Jadual tersusun. Urusan lebih mudah.</h2><p>Bina jadual, urus guru dan sediakan relief — semuanya di satu tempat.</p></div><button class="button primary" data-builder-open="dash">Buka pembina jadual →</button></div>
-        <div class="quick-start">
-          <button class="quick-card" data-builder-open="dash"><span class="quick-icon">▦</span><div><strong>Bina jadual</strong><small>Tetapan, agihan dan penjana automatik</small></div><span>↗</span></button>
-          <button class="quick-card" data-builder-open="lihat"><span class="quick-icon">✓</span><div><strong>Semak &amp; cetak</strong><small>Jadual guru, kelas dan jadual induk</small></div><span>↗</span></button>
-          <button class="quick-card" data-view="import"><span class="quick-icon">⇧</span><div><strong>Import jadual PDF</strong><small>Gunakan jadual sedia ada untuk relief</small></div><span>↗</span></button>
-        </div>
         <div class="summary-grid">
           <article class="metric"><span>Guru tiada</span><strong id="metricAbsent">0</strong><small>hari ini</small></article>
           <article class="metric"><span>Kelas terlibat</span><strong id="metricClasses">0</strong><small>perlu ganti</small></article>
@@ -73,8 +67,8 @@
           <article class="metric"><span>Relief selesai</span><strong id="metricDone">0</strong><small>hari ini</small></article>
         </div>
         <div class="section-head">
-          <div><h2>Senarai relief</h2><p>Cadangan disusun mengikut kekosongan dan agihan adil.</p></div>
-          <div class="segmented"><button class="active" data-relief-filter="all">Semua</button><button data-relief-filter="open">Belum selesai</button></div>
+          <div><h2>Senarai relief</h2><p>Jadual ganti yang diterbitkan oleh pentadbir.</p></div>
+          <label class="relief-date">Tarikh<input id="reliefDate" type="date"></label>
         </div>
         <div id="reliefList" class="relief-list"></div>
         <div id="reliefActions" class="sticky-actions hidden">
@@ -84,21 +78,21 @@
       </section>
 
       <section id="view-ketiadaan" class="view">
-        <div class="section-head"><div><h2>Rekod ketiadaan</h2><p>Tambah guru yang tiada mengikut tarikh dan waktu.</p></div><button class="button primary" data-open-absence>+ Tambah</button></div>
+        <div class="section-head"><div><h2>Rekod ketiadaan</h2><p>Tambah guru yang tiada mengikut tarikh dan waktu.</p></div><button class="button primary admin-only" data-open-absence>+ Tambah</button></div>
         <div class="filters"><label>Tarikh<input id="absenceFilterDate" type="date"></label></div>
         <div id="absenceList" class="card-list"></div>
       </section>
 
       <section id="view-jadual" class="view">
-        <div class="section-head"><div><h2>Jadual sekolah</h2><p>Dari perancangan hingga relief — bina, semak dan aktifkan jadual di sini.</p></div></div>
-        <div class="schedule-switch segmented" role="tablist" aria-label="Pilihan jadual">
+        <div class="section-head"><div><h2>Jadual sekolah</h2><p>Cari jadual guru mengikut nama dan hari.</p></div></div>
+        <div class="schedule-switch segmented admin-only" role="tablist" aria-label="Pilihan jadual">
           <button type="button" data-schedule-mode="generator" role="tab">Bina &amp; urus jadual</button>
           <button type="button" data-schedule-mode="relief" role="tab">Jadual aktif untuk relief</button>
         </div>
-        <div id="schedule-generator-pane" class="schedule-pane">
-          <div class="builder-actions"><p>Lengkapkan data, jana jadual dan semak sebelum digunakan.</p><div><button class="button ghost" id="syncBuilderTeachers">Ambil senarai guru</button><button class="button primary" id="useBuilderSchedule">Gunakan untuk relief →</button></div></div>
+        <div id="schedule-generator-pane" class="schedule-pane admin-only hidden">
+          <div class="builder-actions"><p id="builderCloudStatus">Draf belum disimpan ke Sheets</p><div><button class="button ghost" id="saveBuilderCloud">Simpan draf ke Sheets</button><button class="button ghost" id="loadBuilderCloud">Muat draf Sheets</button><button class="button ghost" id="syncBuilderTeachers">Ambil senarai guru</button><button class="button primary" id="useBuilderSchedule">Gunakan untuk relief →</button></div></div>
           <div id="builderNotice" class="alert hidden" role="alert"></div>
-          <label class="builder-section-picker">Bahagian pembina<select id="builderSection"><option value="dash">Ruang bina jadual</option><option value="tetapan">Sekolah &amp; masa</option><option value="subjek">Subjek</option><option value="kelas">Kelas</option><option value="guru">Guru &amp; ketersediaan</option><option value="peruntukan">Peruntukan waktu</option><option value="agihan">Agihan guru</option><option value="acara">Slot tetap</option><option value="kekangan">Kekangan</option><option value="jana">Jana jadual</option><option value="lihat">Lihat &amp; edit</option><option value="cetak">Cetak / PDF</option><option value="data">Data &amp; sandaran</option><option value="drive">Google Drive</option><option value="bantuan">Panduan</option></select></label>
+          <label class="builder-section-picker">Bahagian pembina<select id="builderSection"><option value="dash">Ruang bina jadual</option><option value="tetapan">Sekolah &amp; masa</option><option value="subjek">Subjek</option><option value="kelas">Kelas</option><option value="guru">Guru &amp; ketersediaan</option><option value="peruntukan">Peruntukan waktu</option><option value="agihan">Agihan guru</option><option value="acara">Slot tetap</option><option value="kekangan">Kekangan</option><option value="jana">Jana jadual</option><option value="lihat">Lihat &amp; edit</option><option value="cetak">Cetak / PDF</option><option value="data">Data &amp; sandaran</option><option value="bantuan">Panduan</option></select></label>
           <div id="builderRoot" data-theme="light">
 <div class="app">
   <aside class="side" id="side">
@@ -124,7 +118,7 @@
       <button class="navbtn" data-v="lihat"><span class="ic">🗓️</span>Lihat &amp; Edit</button>
       <button class="navbtn" data-v="cetak"><span class="ic">🖨️</span>Cetak / PDF</button>
       <div class="navsec">Sistem</div>
-      <button class="navbtn" data-v="drive"><span class="ic">☁️</span>Google Drive<span class="cnt" id="cDrive">—</span></button>
+
       <button class="navbtn" data-v="data"><span class="ic">💾</span>Data &amp; Sandaran</button>
       <button class="navbtn" data-v="bantuan"><span class="ic">❓</span>Panduan</button>
     </nav>
@@ -149,239 +143,22 @@
 <dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
 <input type="file" id="fileIn" accept="application/json" class="hidden">
 <input type="file" id="logoIn" accept="image/*" class="hidden">
-<script type="text/template" id="tplPaparan"><!DOCTYPE html>
-<html lang="ms">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jadual Waktu</title>
-<style>
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{background:#f2f4f9;color:#15182a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:15px}
-.top{background:#fff;border-bottom:1px solid #e2e6f0;padding:12px 16px;position:sticky;top:0;z-index:10}
-.top h1{margin:0;font-size:17px;font-weight:700}
-.top p{margin:2px 0 0;font-size:12.5px;color:#5d6478}
-.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px;background:#fff;border-bottom:1px solid #e2e6f0;position:sticky;top:60px;z-index:9}
-.seg{display:inline-flex;border:1px solid #cfd5e6;border-radius:8px;overflow:hidden}
-.seg button{border:0;background:#fff;padding:9px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;border-right:1px solid #cfd5e6}
-.seg button:last-child{border-right:0}
-.seg button.on{background:#3d5afe;color:#fff}
-select,input{padding:9px 10px;border:1px solid #cfd5e6;border-radius:8px;font:inherit;font-size:14px;background:#fff;color:#15182a;max-width:100%}
-select{min-width:200px;flex:1}
-.btn{border:1px solid #cfd5e6;background:#fff;border-radius:8px;padding:9px 14px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
-.btn.pri{background:#3d5afe;border-color:#3d5afe;color:#fff}
-.wrap{padding:14px}
-.sheet{background:#fff;width:1080px;max-width:100%;margin:0 auto;padding:14px;border-radius:8px;box-shadow:0 2px 14px rgba(20,25,60,.08)}
-.sh-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
-.sh-logo{width:58px;height:58px;object-fit:contain}
-.sh-title{flex:1;text-align:center}
-.s1{font-size:21px;font-weight:700;line-height:1.15}
-.s2{font-size:13px;font-weight:600}
-.s3{font-size:14px;font-weight:700;margin-top:2px}
-.sh-side-top{width:140px;text-align:right;font-size:11px;font-weight:700}
-.body2{display:flex;gap:8px;align-items:flex-start;max-width:100%}
-.main2{flex:1 1 auto;min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.side2{width:240px;flex:0 0 240px;min-width:0}
-table.pt{border-collapse:collapse;width:100%;min-width:760px;table-layout:fixed;font-family:Arial,Helvetica,sans-serif}
-table.pt th,table.pt td{border:1px solid #000;text-align:center;vertical-align:middle;padding:1px;height:60px;font-size:11px}
-table.pt th{height:auto;padding:2px 1px;font-size:13px;font-weight:700}
-table.pt th .tm{display:block;font-size:6.5px;font-weight:400;letter-spacing:-.03em}
-td.day{width:48px;font-size:16px;font-weight:700}
-td.vert{width:26px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:17px;font-weight:700;letter-spacing:.06em}
-td.cv{position:relative;padding:0}
-.pc{height:100%;display:flex;flex-direction:column;justify-content:center;padding:9px 1px 1px;overflow:hidden}
-.psub{position:absolute;top:1px;left:2px;font-size:8.5px;font-weight:700;line-height:1}
-.pcls{font-weight:600;line-height:1.04;word-break:break-word}
-.pgr{font-size:7.5px;line-height:1.05;word-break:break-word}
-table.sum{border-collapse:collapse;width:100%;font-family:Arial,Helvetica,sans-serif;margin-top:2px}
-table.sum th,table.sum td{border:1px solid #000;font-size:10.5px;padding:1px 4px;text-align:left}
-table.sum th{text-align:center;font-weight:700}
-table.sum td.c{text-align:center}
-.sign{margin-top:12px;text-align:center;font-size:11px}
-.sign .nm{font-weight:700;font-size:12px;margin-top:26px;border-top:1px dotted #999;display:inline-block;padding-top:2px;min-width:220px}
-.foot{display:flex;justify-content:space-between;font-size:9px;margin-top:6px;border-top:1px solid #ccc;padding-top:3px;color:#555}
-.hint{font-size:12px;color:#5d6478;padding:0 16px 10px}
-@media(max-width:820px){
-  .side2{width:100%;flex:1 1 auto}
-  .body2{flex-direction:column}
-  .sheet{padding:8px}
-  .bar{top:58px}
-  select{min-width:140px}
-  .s1{font-size:16px}
-  .s2{font-size:11.5px}
-  .s3{font-size:12.5px}
-  .sh-head{gap:6px}
-  .sh-logo{width:36px;height:36px}
-  .sh-side-top{width:auto;max-width:96px;font-size:9.5px}
-  table.pt td.day{position:sticky;left:0;background:#fff;z-index:2}
-  .scrollnote{display:block}
-}
-.scrollnote{display:none;font-size:11.5px;color:#5d6478;margin:4px 0 0}
-@media print{
-  @page{size:A4 landscape;margin:7mm}
-  body{background:#fff}
-  .top,.bar,.hint,.noprint{display:none!important}
-  .wrap{padding:0}
-  .sheet{width:100%;max-width:none;padding:0;box-shadow:none;border-radius:0}
-  .main2{overflow:visible}
-  table.pt{min-width:0}
-  table.pt td{height:var(--rowh,26mm)}
-  table.pt td,table.pt th{border:1px solid #000!important}
-}
-</style>
-</head>
-<body>
-<div class="top"><h1 id="hTajuk">Jadual Waktu</h1><p id="hSub"></p></div>
-<div class="bar">
-  <div class="seg"><button id="bGuru" class="on">Guru</button><button id="bKelas">Kelas</button></div>
-  <input id="cari" placeholder="Taip nama untuk mencari…" style="max-width:220px">
-  <select id="pilih"></select>
-  <button class="btn pri" id="bCetak">🖨️ Cetak</button>
 </div>
-<p class="hint">Pilih nama anda daripada senarai. Untuk simpan sebagai PDF: tekan Cetak → pilih “Simpan sebagai PDF”, saiz A4, orientasi Landskap, dan hidupkan “Grafik latar belakang”.</p>
-<div class="wrap"><div id="papar"></div></div>
-<script>
-var D = __DATA__;
-var mod = 'guru', pilihanId = null;
-function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-function num(v,d){var n=parseInt(v,10);return isNaN(n)?(d||0):n;}
-var HP={ISNIN:'IS',SELASA:'SEL',RABU:'RAB',KHAMIS:'KHA',JUMAAT:'JUM',SABTU:'SAB',AHAD:'AHD'};
-function maxW(){var m=0;D.hari.forEach(function(h){m=Math.max(m,num(D.masa.waktu[h],0));});return m||1;}
-function wHari(h){return num(D.masa.waktu[h],maxW());}
-function mm(t){var p=String(t||'0:0').split(':');return num(p[0])*60+num(p[1]);}
-function hm(t){t=((t%1440)+1440)%1440;var h=Math.floor(t/60),m=t%60;return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
-function rehatMap(){var o={};(D.masa.rehat||[]).forEach(function(r){o[num(r.selepas)]=r;});return o;}
-function jalur(){var N=maxW(),reh=rehatMap(),out=[],t=mm(D.masa.mula);
-  for(var p=1;p<=N;p++){out.push({p:p,mula:hm(t),tamat:hm(t+num(D.masa.tempoh,30))});t+=num(D.masa.tempoh,30);if(reh[p])t+=num(reh[p].minit,0);}
-  return out;}
-function cari(arr,id){for(var i=0;i<arr.length;i++) if(arr[i].id===id) return arr[i]; return null;}
-function sbj(id){return cari(D.subjek,id)||{kod:'?',nama:'',warna:'#eee'};}
-function kls(id){return cari(D.kelas,id)||{nama:'?'};}
-function gur(id){return cari(D.guru,id)||{nama:'—',kod:''};}
-function acaraUntuk(mode,id){return (D.acara||[]).filter(function(a){
-  if(a.skop==='semua') return true;
-  if(mode==='kelas') return a.skop==='kelas'&&(a.kelas||[]).indexOf(id)>=0;
-  return a.skop==='guru'&&(a.guru||[]).indexOf(id)>=0;});}
-function matriks(mode,id){
-  var N=maxW(),m=D.hari.map(function(){return new Array(N+2);});
-  (D.slots||[]).filter(function(x){return mode==='kelas'?x.kelasId===id:x.guruId===id;}).forEach(function(x){
-    var d=D.hari.indexOf(x.hari); if(d<0) return;
-    for(var o=0;o<num(x.panjang,1);o++){var p=num(x.mula,1)+o; if(p>=1&&p<=N) m[d][p]={j:'w',ref:x,mula:o===0,len:num(x.panjang,1)};}});
-  acaraUntuk(mode,id).forEach(function(a){
-    var d=D.hari.indexOf(a.hari); if(d<0) return;
-    for(var o=0;o<num(a.panjang,1);o++){var p=num(a.mula,1)+o; if(p>=1&&p<=N&&!m[d][p]) m[d][p]={j:'a',ref:a,mula:o===0,len:num(a.panjang,1)};}});
-  return m;}
-function teks(mode,c){
-  if(c.j==='a') return {sudut:'',utama:esc(c.ref.kod),kecil:'',warna:c.ref.warna||'#eee'};
-  var x=c.ref;
-  if(mode==='kelas') return {sudut:'',utama:esc(sbj(x.subjekId).kod),kecil:esc(gur(x.guruId).kod||gur(x.guruId).nama),warna:sbj(x.subjekId).warna};
-  return {sudut:esc(sbj(x.subjekId).kod),utama:esc(kls(x.kelasId).nama),kecil:'',warna:sbj(x.subjekId).warna};}
-function sz(t){var L=(t||'').length;return L<=3?19:L<=5?15:L<=8?12:L<=12?10:8.5;}
-function grid(mode,id){
-  var N=maxW(),m=matriks(mode,id),jm=jalur(),reh=rehatMap(),pra=D.masa.pra&&D.masa.pra.aktif;
-  var head='<tr><th style="width:38px"></th>';
-  if(pra) head+='<th>0<span class="tm">'+esc(D.masa.pra.mula)+'</span></th>';
-  for(var p=1;p<=N;p++){ head+='<th>'+p+'<span class="tm">'+jm[p-1].mula+' - '+jm[p-1].tamat+'</span></th>';
-    if(reh[p]) head+='<th style="width:22px"></th>'; }
-  head+='</tr>';
-  var body='';
-  D.hari.forEach(function(h,d){
-    body+='<tr><td class="day">'+(HP[h]||h.slice(0,3))+'</td>';
-    if(pra&&d===0) body+='<td class="vert" rowspan="'+D.hari.length+'">'+esc(D.masa.pra.label||'')+'</td>';
-    for(var p=1;p<=N;p++){
-      var c=m[d][p];
-      if(c&&!c.mula){ if(reh[p]&&d===0) body+='<td class="vert" rowspan="'+D.hari.length+'">'+esc(reh[p].label||'REHAT')+'</td>'; continue; }
-      if(p>wHari(h)) body+='<td style="background:#eee"></td>';
-      else if(!c) body+='<td></td>';
-      else{ var t=teks(mode,c);
-        body+='<td class="cv" colspan="'+c.len+'" style="background:'+t.warna+'55"><div class="pc">'+
-          (t.sudut?'<span class="psub">'+t.sudut+'</span>':'')+
-          '<span class="pcls" style="font-size:'+sz(t.utama)+'px">'+t.utama+'</span>'+
-          (t.kecil?'<span class="pgr">'+t.kecil+'</span>':'')+'</div></td>'; }
-      if(reh[p]&&d===0) body+='<td class="vert" rowspan="'+D.hari.length+'">'+esc(reh[p].label||'REHAT')+'</td>';
-    }
-    body+='</tr>';
-  });
-  return '<table class="pt"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>';}
-function ringkas(mode,id){
-  var peta={},rows=[];
-  (D.slots||[]).filter(function(x){return mode==='kelas'?x.kelasId===id:x.guruId===id;}).forEach(function(x){
-    var k=mode==='kelas'?(x.subjekId+'|'+x.guruId):(x.subjekId+'|'+x.kelasId);
-    peta[k]=(peta[k]||0)+num(x.panjang,1);});
-  Object.keys(peta).forEach(function(k){var q=k.split('|');
-    rows.push({a:sbj(q[0]).kod, b:mode==='kelas'?gur(q[1]).nama:kls(q[1]).nama, n:peta[k]});});
-  rows.sort(function(x,y){return y.n-x.n||x.a.localeCompare(y.a);});
-  var ac=acaraUntuk(mode,id).map(function(a){return {a:a.kod,b:mode==='kelas'?'—':'Tanpa kelas',n:num(a.panjang,1)};});
-  var all=ac.concat(rows), jum=0; all.forEach(function(r){jum+=r.n;});
-  return {rows:all,jum:jum};}
-function render(){
-  var senarai = mod==='guru'?D.guru:D.kelas;
-  if(!pilihanId||!cari(senarai,pilihanId)) pilihanId = senarai.length?senarai[0].id:null;
-  var f=(document.getElementById('cari').value||'').toLowerCase();
-  var sel=document.getElementById('pilih');
-  sel.innerHTML = senarai.filter(function(x){return !f||x.nama.toLowerCase().indexOf(f)>=0;})
-    .map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===pilihanId?' selected':'')+'>'+esc(x.nama)+'</option>';}).join('');
-  if(sel.options.length&&!cari(senarai.filter(function(x){return !f||x.nama.toLowerCase().indexOf(f)>=0;}),pilihanId)){
-    pilihanId=sel.options[0].value; sel.value=pilihanId; }
-  document.getElementById('bGuru').className = mod==='guru'?'on':'';
-  document.getElementById('bKelas').className = mod==='kelas'?'on':'';
-  if(!pilihanId){ document.getElementById('papar').innerHTML='<div class="sheet">Tiada data.</div>'; return; }
-  var R=ringkas(mod,pilihanId), rh='min(30mm, calc(158mm / '+D.hari.length+'))';
-  var subjek = mod==='guru' ? ((gur(pilihanId).gelaran?gur(pilihanId).gelaran+' ':'')+gur(pilihanId).nama) : kls(pilihanId).nama;
-  var kanan = mod==='guru'
-    ? 'GURU KELAS:<br><span style="font-weight:400">'+esc(D.kelas.filter(function(k){return k.guruKelas===pilihanId;}).map(function(k){return k.nama;}).join(', ')||'—')+'</span>'
-    : 'GURU KELAS:<br><span style="font-weight:400">'+esc(kls(pilihanId).guruKelas?gur(kls(pilihanId).guruKelas).nama:'—')+'</span>';
-  var L1=D.sekolah.logo1?'<img src="'+D.sekolah.logo1+'" class="sh-logo">':'<div class="sh-logo"></div>';
-  var L2=D.sekolah.logo2?'<img src="'+D.sekolah.logo2+'" class="sh-logo">':'<div class="sh-logo"></div>';
-  var kosong=Math.max(0,13-R.rows.length), pad='';
-  for(var i=0;i<kosong;i++) pad+='<tr><td>&nbsp;</td><td></td><td></td></tr>';
-  document.getElementById('papar').innerHTML =
-   '<div class="sheet" style="--rowh:'+rh+'">'+
-    '<div class="sh-head">'+L1+L2+'<div class="sh-title">'+
-      '<div class="s1">'+esc(D.sekolah.nama||'')+'</div>'+
-      '<div class="s2">'+esc(mod==='guru'?D.sekolah.tajukGuru:D.sekolah.tajukKelas)+' '+esc(D.sekolah.tahun)+'</div>'+
-      '<div class="s3">'+esc(subjek)+'</div></div>'+
-      '<div class="sh-side-top">'+kanan+'</div></div>'+
-    '<div class="body2"><div class="main2">'+grid(mod,pilihanId)+
-      '<p class="scrollnote noprint">↔ Leret ke kiri/kanan untuk melihat semua waktu.</p></div>'+
-    '<div class="side2"><table class="sum"><thead><tr><th style="width:58px">Subjek</th><th>'+(mod==='guru'?'Kelas':'Guru')+'</th><th style="width:44px">Jumlah</th></tr></thead><tbody>'+
-      R.rows.map(function(r){return '<tr><td>'+esc(r.a)+'</td><td>'+esc(r.b)+'</td><td class="c">'+r.n+'</td></tr>';}).join('')+pad+
-      '<tr><td colspan="2" style="text-align:right;font-weight:700">Jumlah Waktu</td><td class="c" style="font-weight:700">'+R.jum+'</td></tr>'+
-      '</tbody></table>'+
-      '<div class="sign">Disahkan Oleh:<div class="nm">'+esc(D.sekolah.gb||'')+'</div>'+
-      '<div style="font-size:10px">'+esc(D.sekolah.gbGelaran||'')+'<br>'+esc(D.sekolah.nama||'')+'</div></div>'+
-    '</div></div>'+
-    '<div class="foot"><span>Jadual waktu terjana: '+esc(D.tarikh||'')+'</span><span>Sistem Jadual</span></div>'+
-   '</div>';
-}
-document.getElementById('bGuru').onclick=function(){mod='guru';pilihanId=null;render();};
-document.getElementById('bKelas').onclick=function(){mod='kelas';pilihanId=null;render();};
-document.getElementById('pilih').onchange=function(){pilihanId=this.value;render();};
-document.getElementById('cari').oninput=function(){render();};
-document.getElementById('bCetak').onclick=function(){window.print();};
-document.getElementById('hTajuk').textContent=D.sekolah.nama||'Jadual Waktu';
-document.getElementById('hSub').textContent='Jadual Waktu '+(D.sekolah.tahun||'')+' · dijana '+(D.tarikh||'');
-document.title='Jadual Waktu '+(D.sekolah.nama||'');
-render();
-<\/script>
-</body>
-</html></script></div>
         </div>
-        <div id="schedule-relief-pane" class="schedule-pane hidden">
-          <div class="module-head"><div><strong>Jadual aktif daripada PDF</strong><p>Jadual ini digunakan untuk menjana guru relief.</p></div><span id="activeVersion" class="badge neutral">Belum ada jadual</span></div>
-          <div class="filters two"><label>Guru<select id="scheduleTeacher"></select></label><label>Hari<select id="scheduleDay"><option value="IS">Isnin</option><option value="SEL">Selasa</option><option value="RAB">Rabu</option><option value="KHA">Khamis</option><option value="JUM">Jumaat</option></select></label></div>
+        <div id="schedule-relief-pane" class="schedule-pane">
+          <div class="module-head"><div><strong>Jadual guru</strong><p>Jadual rasmi sekolah mengikut tarikh kuat kuasa.</p></div><div class="button-row admin-only"><button class="button ghost" data-view="import">Import PDF aSc</button><button class="button primary" data-builder-open="dash">Bina jadual</button></div><span id="activeVersion" class="badge neutral">Belum ada jadual</span></div>
+          <div class="filters two"><label class="admin-only">Paparan<select id="scheduleType"><option value="teacher">Guru</option><option value="class">Kelas</option></select></label><label><span id="scheduleEntityLabel">Guru</span><select id="scheduleTeacher"></select></label><label>Hari<select id="scheduleDay"><option value="IS">Isnin</option><option value="SEL">Selasa</option><option value="RAB">Rabu</option><option value="KHA">Khamis</option><option value="JUM">Jumaat</option></select></label></div>
           <div id="scheduleGrid" class="schedule-grid"></div>
         </div>
       </section>
 
-      <section id="view-guru" class="view">
+      <section id="view-guru" class="view admin-only">
         <div class="section-head"><div><h2>Direktori guru</h2><p>Jawatan dan kelayakan relief boleh diubah pada bila-bila masa.</p></div><button id="addTeacher" class="button primary">+ Tambah guru</button></div>
         <div class="filters"><label>Cari guru<input id="teacherSearch" type="search" placeholder="Nama atau jawatan"></label></div>
         <div id="teacherList" class="teacher-grid"></div>
       </section>
 
-      <section id="view-import" class="view">
+      <section id="view-import" class="view admin-only">
         <div class="import-layout">
           <article class="panel">
             <p class="step">LANGKAH 1</p><h2>Muat naik jadual guru</h2>
@@ -398,21 +175,20 @@ render();
             <div class="table-wrap"><table><thead><tr><th>Halaman</th><th>Guru</th><th>Padanan</th><th>Waktu</th></tr></thead><tbody id="importRows"></tbody></table></div>
             <label class="check-row"><input id="activateVersion" type="checkbox" checked> Jadikan versi ini jadual aktif</label>
             <button id="saveImport" class="button primary wide">Simpan jadual</button>
+            <button id="pdfToBuilder" class="button ghost wide">Buka sebagai draf pembina</button>
           </article>
         </div>
       </section>
 
-      <section id="view-tetapan" class="view">
-        <div class="settings-grid">
-          <article class="panel"><p class="step">PANGKALAN DATA</p><h2>Sambungan Google Sheets</h2><label>URL Web App Apps Script<input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><label>PIN pentadbir<input id="adminPin" type="password" inputmode="numeric" autocomplete="current-password"></label><label class="check-row"><input id="autoSync" type="checkbox" checked> Segerak automatik apabila aplikasi dibuka</label><div class="button-row"><button id="testApi" class="button ghost">Uji sambungan</button><button id="saveSettings" class="button primary">Simpan</button></div></article>
+      <section id="view-tetapan" class="view admin-only">
+        <div class="settings-grid"><article class="panel"><p class="step">AKAUN ADMIN</p><h2>Tukar kata laluan</h2><label>Kata laluan semasa<input id="currentPassword" type="password" autocomplete="current-password"></label><label>Kata laluan baharu<input id="newPassword" type="password" autocomplete="new-password" minlength="12"></label><button id="changePassword" class="button primary">Simpan kata laluan</button><p id="passwordNotice"></p></article>
+          <article class="panel"><p class="step">PANGKALAN DATA</p><h2>Sambungan Google Sheets</h2><label>URL Web App Apps Script<input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><label class="check-row"><input id="autoSync" type="checkbox" checked> Segerak automatik apabila aplikasi dibuka</label><div class="button-row"><button id="testApi" class="button ghost">Uji sambungan</button><button id="saveSettings" class="button primary">Simpan</button></div></article>
           <article class="panel"><p class="step">APLIKASI</p><h2>Kemas kini PWA</h2><p>Versi aplikasi diperiksa secara automatik. Data Sheets pula disegerakkan tanpa perlu memasang semula aplikasi.</p><dl><div><dt>Versi</dt><dd id="appVersion"></dd></div><div><dt>Semakan data</dt><dd id="revisionLabel">0</dd></div><div><dt>Kemas kini terakhir</dt><dd id="lastUpdated">—</dd></div></dl><button id="checkUpdate" class="button ghost wide">Semak versi baharu</button></article>
         </div>
       </section>
     </main>
 
-    <nav class="bottom-nav" aria-label="Navigasi mudah alih">
-      <button class="active" data-view="hari-ini"><span>⌂</span>Hari ini</button><button data-view="ketiadaan"><span>○</span>Tiada</button><button data-view="jadual"><span>▦</span>Jadual</button><button data-view="guru"><span>♙</span>Guru</button><button data-view="import"><span>⇧</span>Import</button>
-    </nav>
+    <nav class="bottom-nav" aria-label="Navigasi mudah alih"><button data-view="jadual"><span>▦</span>Jadual guru</button><button data-view="hari-ini"><span>⌂</span>Relief</button><button data-view="ketiadaan"><span>○</span>Ketiadaan</button><button class="admin-only" data-builder-open="dash"><span>＋</span>Bina</button><button class="admin-only" data-view="guru"><span>♙</span>Guru</button></nav>
   </div>
 
   <dialog id="absenceDialog">
@@ -440,12 +216,12 @@ render();
     <div class="dialog-head"><div><p class="step">AKTIFKAN JADUAL</p><h2>Gunakan untuk relief</h2></div><button class="close" value="cancel" formnovalidate aria-label="Tutup">×</button></div>
     <p id="builderPublishSummary"></p><p class="alert" id="builderPublishMissing"></p>
     <label>Nama versi<input id="builderVersionLabel" required></label><label>Tarikh kuat kuasa<input id="builderEffectiveDate" type="date" required></label>
-    <p>Perubahan selepas ini dalam pembina tidak mengubah jadual relief sehingga anda mengaktifkannya semula. Data disimpan pada peranti dan dihantar ke Sheets jika disambungkan.</p>
+    <p>Perubahan selepas ini dalam pembina tidak mengubah jadual relief sehingga anda mengaktifkannya semula. Pengaktifan disimpan ke Google Sheets sekolah dan memerlukan internet.</p>
     <div class="dialog-actions"><button class="button ghost" value="cancel" formnovalidate>Batal</button><button class="button primary" id="confirmBuilderPublish">Aktifkan jadual</button></div>
   </form></dialog>
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="./builder.js?v=2.0.1"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js?v=2.0.1"></script>
+  <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+
+  <script type="module" src="./app.js?v=3.0.0"></script>
 </body>
 </html>

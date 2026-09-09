@@ -1,58 +1,39 @@
-# Sistem Jadual SK Paya Redan
+# Sistem Jadual — SePadan
 
-PWA mesra desktop dan telefon yang menggabungkan penjana jadual sekolah dengan pengurusan guru relief.
+Web app/PWA khusus SK Paya Redan, dengan tiga paparan umum: jadual guru, ketiadaan dan relief diterbitkan. Admin mengurus guru/jawatan, import PDF aSc, pembina jadual guru/kelas dan tugasan relief.
 
-## Pautan aplikasi
+## Persediaan
 
-https://sepadan.github.io/Jadual/
+Ikuti [SETUP-SEKOLAH.md](./SETUP-SEKOLAH.md). Semua data operasi dan draf pembina menggunakan satu fail Google Sheets **Sistem Jadual** dalam My Drive sekolah. Kata laluan dan sesi berada pada pelayan Apps Script terikat pada fail itu.
 
-## Modul
+`site-config.js` mesti mengandungi URL deployment Apps Script sebenar sebelum aplikasi boleh digunakan pada semua peranti. Tanpa API, login dan simpanan kekal disekat. Tiada login palsu berdasarkan kod frontend atau PIN localStorage.
 
-- **Hari ini** — cadangan guru relief berdasarkan guru yang lapang dan agihan yang adil.
-- **Ketiadaan** — rekod guru tiada sepanjang hari atau mengikut waktu.
-- **Jadual** — pembina penuh terbina terus, tanpa iframe: tetapan sekolah dan masa, subjek, kelas, guru, peruntukan, agihan, slot tetap, kekangan, penjana automatik, suntingan dan cetakan.
-- **Guru** — tambah, ubah atau nyahaktif guru, jawatan, keutamaan dan kelayakan relief.
-- **Import PDF** — membaca fail Jadual Waktu Persendirian Guru keluaran aSc pada peranti.
-- **Tetapan** — sambungkan aplikasi kepada Google Sheets melalui Google Apps Script.
+## Aliran kerja
 
-ANIZAN dan SYAHIDAH ialah dua guru berlainan. ANIZAN ditetapkan sebagai Guru Prasekolah dan tidak menerima relief secara lalai; tetapan ini boleh diubah dalam modul Guru.
+1. Login admin.
+2. Bina jadual daripada data asas, atau import PDF Jadual Guru aSc dan pilih **Buka sebagai draf pembina**.
+3. Semak peruntukan, agihan guru, ketersediaan dan pertembungan.
+4. **Simpan draf ke Sheets**, kemudian **Gunakan untuk relief** mengikut tarikh kuat kuasa.
+5. Rekod guru tiada, semak cadangan dan terbitkan relief.
 
-Semasa import PDF, halaman yang tidak sepadan dengan direktori guru akan diabaikan secara automatik. Ini sesuai untuk guru prasekolah, guru praktikal atau MySTEP. Penyelaras masih boleh memilih padanan guru secara manual pada skrin semakan sebelum menyimpan.
+ANIZAN dan SYAHIDAH kekal dua profil berbeza. ANIZAN ialah guru prasekolah dan dikecualikan daripada relief secara lalai. Guru tanpa padanan PDF diabaikan, dengan pilihan padanan manual.
 
-## Google Sheets
+Import menyokong PDF teks aSc berdasarkan format sekolah yang disertakan, bukan OCR foto/imbasan. Pengaktifan relief menyokong Isnin–Jumaat, waktu 1–12. Draf dan jadual aktif ialah dua rekod berasingan: sunting draf tidak mengubah jadual relief sehingga diterbitkan semula.
 
-Direktori guru, versi jadual aktif, ketiadaan dan relief menggunakan sambungan Sheets di bawah. Draf kerja pembina (termasuk subjek, peruntukan dan kekangan) masih disimpan pada peranti dalam `janajadual.v3`; gunakan **Data & Sandaran** untuk eksport/import JSON atau sambungan Google Drive pilihan pembina. Sambungan Sheets sebenar memerlukan pemilik menyediakan dan deploy Apps Script; ia tidak terhasil hanya dengan menerbitkan GitHub Pages.
+## Perlindungan akses
 
-1. Cipta satu Google Sheet kosong.
-2. Buka **Extensions → Apps Script**.
-3. Salin kandungan `apps-script/Code.gs` dan `apps-script/appsscript.json`.
-4. Jalankan `setupSystem()` sekali dan beri kebenaran yang diminta.
-5. Tukar PIN lalai `2468` dalam **Project Settings → Script properties → ADMIN_PIN**.
-6. Deploy sebagai **Web app**, jalankan sebagai pemilik dan pilih akses **Anyone** supaya PWA GitHub Pages boleh berhubung. Google Sheet asal kekal tidak dikongsi secara terus.
-7. Tampal URL Web App dan PIN dalam tab **Tetapan** aplikasi.
+- Login awal `admin / admin`, seperti diminta pemilik; tukar sebelum penggunaan berterusan.
+- Kata laluan disahkan di Apps Script. Sesi dua jam, logout/revokasi, sekatan percubaan berulang dan penukaran kata laluan disediakan.
+- API umum tidak memulangkan sebab ketiadaan, catatan dalaman, draf relief, hak guru atau draf pembina.
+- Semua tindakan tulis dan bootstrap dalaman memerlukan sesi sah. Laluan PIN lama tidak diterima.
+- Draf menggunakan semakan versi untuk mengelakkan penindihan silang peranti. Simpanan tidak disahkan tidak dilaporkan berjaya.
 
-## Kemas kini PWA
+## Penyederhanaan
 
-GitHub Pages menerbitkan fail daripada branch `main`. Selepas perubahan dipush, PWA memeriksa `sw.js`, memasang cache versi baharu dan memuat semula aplikasi apabila versi baharu mengambil alih. Naikkan nombor `APP_VERSION` dalam `data.js` dan `VERSION` dalam `sw.js` untuk setiap keluaran.
+Sambungan Drive berasingan, menu eksport laman HTML, data contoh pada menu utama dan pembina standalone lama telah dikeluarkan daripada aliran aplikasi. `jadual-app.html` kini mengarah ke aplikasi utama. Salinan lama boleh dipulihkan daripada sejarah Git; data pelayar lama tidak dipadam secara automatik. Sandaran JSON pembina kekal untuk pemindahan data lama.
 
-Data Google Sheets disegerakkan berasingan, jadi kemas kini guru, jadual, ketiadaan dan relief tidak memerlukan pemasangan semula PWA.
+## PWA dan ujian
 
-Versi 2.0.1 memulakan pemeriksaan PWA sebelum modul aplikasi dan menggunakan `?v=2.0.1` bagi seluruh rangkaian modul/CSS. Ini mengelakkan skrip lama bercampur dengan skrip baharu. Setiap keluaran perlu menaikkan versi pada import modul, pautan HTML dan senarai cache bersama-sama; ujian `pwa-cache.test.mjs` menyemak keselarasan ini.
+Jalankan `npm test`. Semua import JS, pautan CSS/HTML dan senarai cache mesti menggunakan versi keluaran sama. Pendaftaran service worker bermula sebelum modul aplikasi supaya cache lama tidak menyekat pemulihan. Sambungan internet diperlukan untuk login dan menyimpan data Sheets.
 
-## Ujian
-
-```sh
-npm test
-```
-
-Fail utama PWA berada di akar repo. `builder.js` dan `builder.css` ialah pembina terbina; `jadual-app.html` dikekalkan sebagai salinan pembina asal untuk keserasian pautan lama. Data pembina lama pada origin yang sama terus dibaca tanpa menetap semula data.
-
-## Aliran pembina → relief (versi 2.0)
-
-1. Buka **Jadual → Bina & urus jadual**. Direktori guru diambil pada penggunaan pertama jika pembina belum mempunyai guru; **Ambil senarai guru** menyelaraskan nama/jawatan tanpa membuang agihan sedia ada.
-2. Lengkapkan sekolah, subjek, kelas, peruntukan dan agihan. Tetapkan ketersediaan guru serta slot tetap.
-3. Jana jadual, kemudian selesaikan isu dalam **Lihat & Edit**.
-4. Pilih **Gunakan untuk relief**, semak guru yang diabaikan, isi nama versi serta tarikh kuat kuasa, dan sahkan.
-5. Jadual aktif ialah salinan berasingan. Edit pembina tidak menukar relief sehingga diaktifkan semula. Versi terdahulu kekal digunakan sebelum tarikh kuat kuasa versi baharu.
-
-Pengaktifan relief menyokong Isnin–Jumaat dan waktu 1–12. Waktu sebenar pembina dibawa bersama setiap slot. Slot aktiviti tetap seluruh sekolah/guru dan waktu tidak tersedia menyekat pemilihan guru relief. Hari/slot luar julat tidak diimport secara senyap.
+Laman: https://sepadan.github.io/Jadual/

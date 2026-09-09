@@ -8,7 +8,7 @@ test('integrated builder generates a clash-free timetable and exports it to reli
   const source=readFileSync(new URL('../builder.js',import.meta.url),'utf8');
   const node = {querySelector:()=>({}),querySelectorAll:()=>[]};
   const context=vm.createContext({console,setTimeout,clearTimeout,performance,document:{getElementById:()=>node}});
-  vm.runInContext(source.slice(0,source.indexOf("const KUNCI_DRIVE=")),context);
+  vm.runInContext(source.slice(0,source.indexOf("function jadualCetak(")),context);
   const result=await vm.runInContext(`(async()=>{
     S=kosong(); S.subjek=[{id:'bm',kod:'BM',nama:'Bahasa Melayu',ganda:false}];
     S.kelas=[{id:'1b',nama:'1B',tahap:1}];

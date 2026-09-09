@@ -10,7 +10,8 @@ var SHEETS = {
   Schedule: ["versionId", "teacherId", "day", "period", "startTime", "endTime", "subject", "className", "isDuty"],
   Absences: ["id", "date", "teacherId", "reason", "allDay", "periods", "status", "createdAt", "updatedAt"],
   Reliefs: ["id", "date", "day", "period", "startTime", "endTime", "absentTeacherId", "replacementTeacherId", "className", "subject", "status", "note", "createdAt", "updatedAt"],
-  Audit: ["timestamp", "action", "recordId", "details"]
+  Audit: ["timestamp", "action", "recordId", "details"],
+  BuilderState: ["revision", "index", "chunk"]
 };
 
 var INITIAL_TEACHERS = [
@@ -41,6 +42,8 @@ var INITIAL_TEACHERS = [
 
 function setupSystem() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('Jalankan setupSystem daripada editor yang terikat pada fail Sistem Jadual.');
+  PropertiesService.getScriptProperties().setProperty('DATABASE_ID', ss.getId());
   Object.keys(SHEETS).forEach(function(name) { ensureSheet_(ss, name, SHEETS[name]); });
   var configSheet = ss.getSheetByName("Config");
   if (configSheet.getLastRow() === 1) {
@@ -51,8 +54,7 @@ function setupSystem() {
       ["SCHEMA_VERSION", "1"]
     ]);
   }
-  var props = PropertiesService.getScriptProperties();
-  if (!props.getProperty("ADMIN_PIN")) props.setProperty("ADMIN_PIN", "2468");
+  initializeAdmin_();
   var teacherSheet = ss.getSheetByName("Teachers");
   if (teacherSheet.getLastRow() === 1) {
     var now = new Date().toISOString();
@@ -60,14 +62,20 @@ function setupSystem() {
   }
   formatSheets_(ss);
   audit_("setupSystem", "database", "Pangkalan data dimulakan");
-  return "Sistem sedia. PIN awal: 2468. Tukar ADMIN_PIN dalam Script Properties sebelum digunakan.";
+  return "Sistem sedia. Login awal admin / admin. Tukar kata laluan dalam Tetapan aplikasi.";
+}
+
+function database_() {
+  var id = PropertiesService.getScriptProperties().getProperty('DATABASE_ID');
+  if (!id) throw new Error('Jalankan setupSystem dahulu.');
+  return SpreadsheetApp.openById(id);
 }
 
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "1.1.1" });
-    if (action === "bootstrap") return output_(bootstrap_(Number(e.parameter.sinceRevision || -1)));
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.0.0", auth: "session" });
+    if (action === "public") {var lock=LockService.getScriptLock();lock.waitLock(20000);try{return output_(publicBootstrap_());}finally{lock.releaseLock();}}
     return output_({ ok: false, error: "Tindakan GET tidak dikenali." });
   } catch (error) {
     return output_({ ok: false, error: String(error && error.message || error) });
@@ -77,10 +85,13 @@ function doGet(e) {
 function doPost(e) {
   try {
     var request = JSON.parse((e && e.postData && e.postData.contents) || "{}");
-    requirePin_(request.pin);
+    if(request.action==='login') return output_(login_(request.data||{}));
+    requireSession_(request.token);
+    if(request.action==='logout') return output_(logout_(request.token));
     var lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
+      if(request.action==='bootstrap') {var snapshot=bootstrap_(-1);snapshot.builder=readBuilder_();return output_(snapshot);}
       var result = routeWrite_(request.action, request.data || {});
       var revision = bumpRevision_();
       return output_({ ok: true, revision: revision, updatedAt: configValue_("UPDATED_AT"), result: result });
@@ -88,11 +99,14 @@ function doPost(e) {
       lock.releaseLock();
     }
   } catch (error) {
-    return output_({ ok: false, error: String(error && error.message || error) });
+    var message=String(error && error.message || error);
+    return output_({ ok: false, code:message==='AUTH_REQUIRED'?'AUTH_REQUIRED':undefined,error:message==='AUTH_REQUIRED'?'Sesi tamat. Sila login semula.':message });
   }
 }
 
 function routeWrite_(action, data) {
+  if(action==='saveBuilder') return saveBuilder_(data);
+  if(action==='changePassword') return changePassword_(data);
   if (action === "saveTeacher") return upsert_("Teachers", "id", encodeTeacher_(data));
   if (action === "saveAbsence") return upsert_("Absences", "id", encodeAbsence_(data));
   if (action === "saveReliefs") {
@@ -129,7 +143,7 @@ function bootstrap_(sinceRevision) {
 
 function importSchedule_(payload) {
   if (!payload.version || !payload.version.id || !Array.isArray(payload.rows)) throw new Error("Data import tidak lengkap.");
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = database_();
   if (payload.version.status === "active") {
     var versionSheet = ss.getSheetByName("ScheduleVersions");
     var versions = readObjects_("ScheduleVersions");
@@ -168,7 +182,7 @@ function formatSheets_(ss) {
 }
 
 function readObjects_(sheetName) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  var sheet = database_().getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() < 2) return [];
   var values = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
   var headers = values.shift();
@@ -184,7 +198,7 @@ function readObjects_(sheetName) {
 }
 
 function upsert_(sheetName, keyName, row) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  var sheet = database_().getSheetByName(sheetName);
   var headers = SHEETS[sheetName];
   var keyIndex = headers.indexOf(keyName);
   var data = sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues() : [];
@@ -204,11 +218,6 @@ function text_(value) { return value == null ? "" : String(value); }
 function bool_(value) { return value === true || value === "true"; }
 function parseJson_(value, fallback) { try { return JSON.parse(value); } catch (error) { return fallback; } }
 
-function requirePin_(pin) {
-  var expected = PropertiesService.getScriptProperties().getProperty("ADMIN_PIN") || "2468";
-  if (!pin || String(pin) !== String(expected)) throw new Error("PIN pentadbir tidak sah.");
-}
-
 function configValue_(key) {
   var rows = readObjects_("Config");
   var record = rows.find(function(item) { return item.key === key; });
@@ -227,7 +236,7 @@ function bumpRevision_() {
 }
 
 function audit_(action, recordId, details) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Audit");
+  var sheet = database_().getSheetByName("Audit");
   if (sheet) sheet.appendRow([new Date().toISOString(), action, recordId, details]);
 }
 
