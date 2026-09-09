@@ -2,15 +2,26 @@
 <html lang="ms">
 <head>
   <meta charset="utf-8">
+  <script>
+    // Run independently of the module graph so an old cached module cannot block PWA recovery.
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      const wasControlled = Boolean(navigator.serviceWorker.controller);
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (wasControlled && !reloading) { reloading = true; location.reload(); }
+      });
+      navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).then(r => r.update()).catch(console.warn);
+    }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b6b5b">
   <meta name="description" content="Sistem jadual waktu dan pengurusan guru relief SK Paya Redan">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css">
-  <link rel="stylesheet" href="./builder.css">
-  <link rel="stylesheet" href="./workspace.css">
+  <link rel="stylesheet" href="./styles.css?v=2.0.1">
+  <link rel="stylesheet" href="./builder.css?v=2.0.1">
+  <link rel="stylesheet" href="./workspace.css?v=2.0.1">
   <title>Sistem Jadual SKPR</title>
 </head>
 <body>
@@ -433,8 +444,8 @@ render();
     <div class="dialog-actions"><button class="button ghost" value="cancel" formnovalidate>Batal</button><button class="button primary" id="confirmBuilderPublish">Aktifkan jadual</button></div>
   </form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="./builder.js?v=2.0.0"></script>
+  <script src="./builder.js?v=2.0.1"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js?v=2.0.0"></script>
+  <script type="module" src="./app.js?v=2.0.1"></script>
 </body>
 </html>

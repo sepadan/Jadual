@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS, slug } from "./data.js";
+import { DAY_CODES, PERIODS, slug } from "./data.js?v=2.0.1";
 
 // Measured from the vector grid in the supplied aSc PDFs (landscape A4).
 // The decimal column width matters near periods 9-12; rounding it to 36

@@ -37,6 +37,8 @@ GitHub Pages menerbitkan fail daripada branch `main`. Selepas perubahan dipush, 
 
 Data Google Sheets disegerakkan berasingan, jadi kemas kini guru, jadual, ketiadaan dan relief tidak memerlukan pemasangan semula PWA.
 
+Versi 2.0.1 memulakan pemeriksaan PWA sebelum modul aplikasi dan menggunakan `?v=2.0.1` bagi seluruh rangkaian modul/CSS. Ini mengelakkan skrip lama bercampur dengan skrip baharu. Setiap keluaran perlu menaikkan versi pada import modul, pautan HTML dan senarai cache bersama-sama; ujian `pwa-cache.test.mjs` menyemak keselarasan ini.
+
 ## Ujian
 
 ```sh

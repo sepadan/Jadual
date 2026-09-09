@@ -1,4 +1,4 @@
-import { emptyDatabase } from "./data.js";
+import { emptyDatabase } from "./data.js?v=2.0.1";
 
 const DB_KEY = "relief-skpr-db-v1";
 const QUEUE_KEY = "relief-skpr-queue-v1";

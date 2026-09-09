@@ -1,9 +1,9 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js";
-import { ApiClient, loadConfig, saveConfig } from "./api.js";
-import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js";
-import { flushQueue, queueWrite } from "./storage.js";
-import { convertBuilderSchedule } from "./builder-relief.js";
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=2.0.1";
+import { ApiClient, loadConfig, saveConfig } from "./api.js?v=2.0.1";
+import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js?v=2.0.1";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=2.0.1";
+import { flushQueue, queueWrite } from "./storage.js?v=2.0.1";
+import { convertBuilderSchedule } from "./builder-relief.js?v=2.0.1";
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Hari ini", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -405,22 +405,6 @@ function wireEvents() {
   window.addEventListener("offline", updateConnectionUi);
 }
 
-async function registerServiceWorker() {
-  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
-  try {
-    const hadController = Boolean(navigator.serviceWorker.controller);
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (hadController && !refreshing) { refreshing = true; location.reload(); }
-    });
-    const registration = await navigator.serviceWorker.register("./sw.js");
-    registration.addEventListener("updatefound", () => {
-      const worker = registration.installing;
-      worker?.addEventListener("statechange", () => { if (worker.state === "installed" && navigator.serviceWorker.controller) toast("Versi aplikasi baharu tersedia. Muat semula untuk menggunakannya."); });
-    });
-  } catch (error) { console.warn("Service worker gagal didaftarkan", error); }
-}
-
 function init() {
   if (window.jadualBuilder && !window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
   const date = todayIso();
@@ -428,7 +412,7 @@ function init() {
   $("#absenceFilterDate").value = date; $("#effectiveDate").value = date;
   $("#apiUrl").value = config.apiUrl || ""; $("#adminPin").value = config.adminPin || ""; $("#autoSync").checked = config.autoSync !== false;
   $("#appVersion").textContent = APP_VERSION;
-  populatePeriodPicker(); wireEvents(); renderAll(); showView(localStorage.getItem("relief-skpr-view") || "hari-ini"); registerServiceWorker();
+  populatePeriodPicker(); wireEvents(); renderAll(); showView(localStorage.getItem("relief-skpr-view") || "hari-ini");
   if (config.autoSync && api.isConfigured() && navigator.onLine) syncData(false);
 }
 
