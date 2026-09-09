@@ -1,11 +1,15 @@
-const VERSION = "1.1.1";
+const VERSION = "2.0.0";
 const CACHE = `sistem-jadual-${VERSION}`;
 const APP_SHELL = [
   "./",
   "./index.html",
   "./jadual-app.html",
   "./styles.css",
-  "./app.js?v=1.1.1",
+  "./app.js?v=2.0.0",
+  "./builder.js?v=2.0.0",
+  "./builder.css",
+  "./workspace.css",
+  "./builder-relief.js",
   "./api.js",
   "./data.js",
   "./storage.js",

@@ -3,6 +3,7 @@ import { ApiClient, loadConfig, saveConfig } from "./api.js";
 import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js";
 import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js";
 import { flushQueue, queueWrite } from "./storage.js";
+import { convertBuilderSchedule } from "./builder-relief.js";
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Hari ini", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -51,6 +52,8 @@ function toast(message, type = "info") {
 }
 
 function showView(name) {
+  if (!titleByView[name]) name = "hari-ini";
+  document.body.classList.toggle("print-builder", name === "jadual" && scheduleMode === "generator");
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `view-${name}`));
   $$('[data-view]').forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   $("#viewTitle").textContent = titleByView[name] || "Sistem Jadual";
@@ -69,10 +72,7 @@ function setScheduleMode(mode) {
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", String(active));
   });
-  if (scheduleMode === "generator") {
-    const frame = $("#scheduleGenerator");
-    if (frame && !frame.getAttribute("src")) frame.src = frame.dataset.src;
-  }
+  document.body.classList.toggle("print-builder", $("#view-jadual").classList.contains("active") && scheduleMode === "generator");
 }
 
 function updateConnectionUi() {
@@ -106,7 +106,7 @@ function renderDashboard() {
   const list = $("#reliefList");
   if (!items.length) {
     const hasSchedule = db.scheduleVersions.some((version) => version.status === "active");
-    list.innerHTML = `<div class="empty-state"><strong>${hasSchedule ? "Tiada relief diperlukan hari ini" : "Import jadual untuk bermula"}</strong>${hasSchedule ? "Tambah rekod guru tiada untuk menjana cadangan." : "Sistem memerlukan Jadual Guru PDF yang aktif."}</div>`;
+    list.innerHTML = `<div class="empty-state"><strong>${hasSchedule ? "Tiada relief diperlukan hari ini" : "Sediakan jadual pertama anda"}</strong>${hasSchedule ? "Tambah rekod guru tiada untuk menjana cadangan." : "Bina jadual di tab Jadual dan pilih Gunakan untuk relief, atau import PDF jadual guru."}</div>`;
   } else {
     list.innerHTML = items.map((item) => reliefCard(item)).join("");
     $$(".candidate-select", list).forEach((select) => select.addEventListener("change", () => {
@@ -185,9 +185,14 @@ function renderSchedule() {
   const teacherId = $("#scheduleTeacher").value;
   const day = $("#scheduleDay").value;
   const rows = version ? db.schedule.filter((row) => row.versionId === version.id && row.teacherId === teacherId && row.day === day) : [];
+  if (!version || !teacherId || !db.schedule.some(row => row.versionId === version.id && row.teacherId === teacherId)) {
+    $("#scheduleGrid").innerHTML = `<div class="empty-state"><strong>${!version ? "Belum ada jadual aktif" : !teacherId ? "Pilih guru untuk melihat jadual" : "Tiada rekod jadual untuk guru ini"}</strong>Bina jadual atau import PDF. Guru tanpa padanan boleh diurus secara manual.</div>`;
+    return;
+  }
   $("#scheduleGrid").innerHTML = PERIODS.map((period) => {
     const row = rows.find((item) => Number(item.period) === period.period);
-    return `<div class="schedule-cell ${row ? "" : "free"}"><span class="period">${period.period} · ${period.startTime}</span>${row ? `<strong>${esc(row.subject)}</strong><span>${esc(row.className || "Aktiviti")}</span>` : `<span style="margin-top:28px;color:#91a09c">Lapangan</span>`}</div>`;
+    const time = row?.startTime || db.schedule.find(r => r.versionId === version.id && r.day === day && Number(r.period) === period.period)?.startTime || period.startTime;
+    return `<div class="schedule-cell ${row ? "" : "free"}"><span class="period">${period.period} · ${esc(time)}</span>${row ? `<strong>${esc(row.subject)}</strong><span>${esc(row.className || "Aktiviti")}</span>` : `<span style="margin-top:28px;color:#91a09c">Lapangan</span>`}</div>`;
   }).join("");
 }
 
@@ -363,6 +368,12 @@ function populatePeriodPicker() {
 }
 
 function wireEvents() {
+  $("#builderSection").addEventListener("change", event => window.jadualBuilder.go(event.target.value));
+  document.addEventListener("builder-view", event => { $("#builderSection").value = event.detail; });
+  $$('[data-builder-open]').forEach(button => button.addEventListener("click", () => { setScheduleMode("generator"); showView("jadual"); window.jadualBuilder.go(button.dataset.builderOpen); }));
+  $("#syncBuilderTeachers").addEventListener("click", () => { const count = window.jadualBuilder.mergeTeachers(db.teachers); toast(`${count} profil guru diselaraskan. Semak agihan guru sebelum menjana.`, "success"); });
+  $("#useBuilderSchedule").addEventListener("click", previewBuilderSchedule);
+  $("#confirmBuilderPublish").addEventListener("click", publishBuilderSchedule);
   $$('[data-view]').forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
   $$('[data-schedule-mode]').forEach((button) => button.addEventListener("click", () => setScheduleMode(button.dataset.scheduleMode)));
   $$('[data-open-absence]').forEach((button) => button.addEventListener("click", openAbsenceDialog));
@@ -411,6 +422,7 @@ async function registerServiceWorker() {
 }
 
 function init() {
+  if (window.jadualBuilder && !window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
   const date = todayIso();
   $("#todayLabel").textContent = new Intl.DateTimeFormat("ms-MY", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${date}T12:00:00`)).toUpperCase();
   $("#absenceFilterDate").value = date; $("#effectiveDate").value = date;
@@ -421,3 +433,41 @@ function init() {
 }
 
 init();
+
+function checkedBuilderSchedule() {
+  const builder = window.jadualBuilder;
+  const state = builder.getState();
+  if (!state.jadual?.slots?.length) throw new Error("Belum ada jadual dijana. Lengkapkan data dan buka Jana Jadual dahulu.");
+  const issues = builder.validate();
+  if (issues.length) throw new Error(`Selesaikan ${issues.length} isu dalam Lihat & Edit sebelum mengaktifkan jadual. ${issues[0].m}`.replace(/<[^>]+>/g, ""));
+  const result = convertBuilderSchedule(state, db.teachers, builder.times());
+  if (!result.rows.some(row => !row.isDuty)) throw new Error("Tiada slot mengajar dengan guru yang dipadankan. Semak nama dalam tab Guru.");
+  return result;
+}
+
+function previewBuilderSchedule() {
+  $("#builderNotice").classList.add("hidden");
+  try {
+    const result = checkedBuilderSchedule();
+    $("#builderEffectiveDate").value = todayIso();
+    $("#builderVersionLabel").value = `Jadual binaan ${formatDate(todayIso())}`;
+    $("#builderPublishSummary").textContent = `${result.rows.length} slot • ${new Set(result.rows.map(r => r.teacherId)).size} guru. Jadual ini akan menjadi versi aktif mengikut tarikh kuat kuasa.`;
+    $("#builderPublishMissing").textContent = result.missing.length ? `Guru tanpa padanan akan diabaikan: ${result.missing.join(", ")}. Tambah atau betulkan profil guru jika diperlukan.` : "Semua guru dalam jadual berjaya dipadankan.";
+    $("#builderPublishDialog").showModal();
+  } catch (error) { $("#builderNotice").textContent = error.message; $("#builderNotice").classList.remove("hidden"); }
+}
+
+async function publishBuilderSchedule(event) {
+  event.preventDefault();
+  if (!$("#builderPublishForm").reportValidity()) return;
+  try {
+    const { rows: converted } = checkedBuilderSchedule();
+    const version = {id:uuid("v"),label:$("#builderVersionLabel").value.trim(),effectiveDate:$("#builderEffectiveDate").value,sourceName:"Penjana Jadual terbina",status:"active",createdAt:new Date().toISOString()};
+    if (!version.label) throw new Error("Isi nama versi jadual.");
+    const rows = converted.map(row => ({...row,versionId:version.id}));
+    db.scheduleVersions.forEach(v => {if(v.status === "active") v.status = "superseded";});
+    db.scheduleVersions.push(version); db.schedule.push(...rows); persist();
+    $("#builderPublishDialog").close(); setScheduleMode("relief"); renderAll();
+    await remoteWrite("importSchedule", {version,rows}, "Jadual binaan diaktifkan untuk relief.");
+  } catch (error) { toast(error.message, "error"); }
+}

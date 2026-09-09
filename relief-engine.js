@@ -9,8 +9,8 @@ export function dayCodeFromDate(dateText) {
 export function activeScheduleRows(db, dateText) {
   const date = new Date(`${dateText}T12:00:00`);
   const active = db.scheduleVersions
-    .filter((version) => version.status === "active" && new Date(`${version.effectiveDate}T00:00:00`) <= date)
-    .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))[0];
+    .filter((version) => ["active", "superseded"].includes(version.status) && new Date(`${version.effectiveDate}T00:00:00`) <= date)
+    .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0];
   return active ? db.schedule.filter((row) => row.versionId === active.id) : [];
 }
 
