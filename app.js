@@ -1,9 +1,9 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.0";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.0";
-import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js?v=3.0.0";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.0";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.0";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.0';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.1";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.1";
+import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js?v=3.0.1";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.1";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.1";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.1';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };

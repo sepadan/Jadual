@@ -1,6 +1,6 @@
-import { DAY_CODES, PERIODS, slug } from "./data.js?v=3.0.0";
+import { DAY_CODES, PERIODS, slug } from "./data.js?v=3.0.1";
 
-// Measured from the vector grid in the supplied aSc PDFs (landscape A4).
+// Reference coordinate system from the original aSc export (792 x 612).
 // The decimal column width matters near periods 9-12; rounding it to 36
 // gradually shifts late-day lessons into the preceding period.
 const GRID = { x0: 71.65, columnWidth: 35.58, top: 127, rowHeight: 91.35 };
@@ -78,14 +78,35 @@ function classNameFromLabel(label) {
 function parsePageItems(items, pageView, teachers) {
   const pageHeight = Math.abs(pageView[3] - pageView[1]);
   const pageWidth = Math.abs(pageView[2] - pageView[0]);
-  if (Math.abs(pageWidth - 792) > 15 || Math.abs(pageHeight - 612) > 15) {
-    throw new Error("Saiz halaman tidak sepadan dengan format aSc SK Paya Redan.");
+  if (!Number.isFinite(pageWidth) || !Number.isFinite(pageHeight) || pageWidth <= 0 || pageHeight <= 0) {
+    throw new Error("Ukuran halaman PDF tidak sah.");
   }
-  const words = wordsFromItems(items, pageHeight);
+  // aSc stretches its table to the selected paper size. Normalize both axes,
+  // including CropBox offsets, before applying the reference grid geometry.
+  const sx = 792 / pageWidth;
+  const sy = 612 / pageHeight;
+  const words = wordsFromItems(items, pageView[3]).map((word) => ({
+    ...word,
+    x: (word.x - pageView[0]) * sx,
+    top: word.top * sy,
+    width: word.width * sx,
+    height: word.height * sy,
+  }));
+  // A different paper size is allowed, a different table layout is not.
+  const headerText = words.filter((word) => word.top < 75).map((word) => word.text).join(" ");
+  const periodHeaders = Array.from({ length: 13 }, (_, period) => {
+    const column = period >= 6 ? period + 1 : period;
+    const center = GRID.x0 + (column + 0.5) * GRID.columnWidth;
+    return words.some((word) => word.text === String(period) && word.top > 75 && word.top < 110
+      && Math.abs(word.x + word.width / 2 - center) < 6);
+  });
+  if (!/PERSENDIRIAN\s+GURU/i.test(headerText) || periodHeaders.some((found) => !found)) {
+    throw new Error("Susun atur PDF tidak dikenali. Pilih eksport aSc Jadual Waktu Persendirian Guru dengan waktu 0–12; PDF kelas atau imbasan gambar belum disokong.");
+  }
   const rawName = getHeaderName(words);
   const normalized = normalizeName(rawName);
   const teacher = teachers.find((item) => normalizeName(item.name) === normalized);
-  const totalLabel = words.find((word) => /^Jumlah$/i.test(word.text) && word.x > 600 && word.top > 300 && word.top < 470);
+  const totalLabel = words.find((word) => /^Jumlah(?:\s+Waktu)?$/i.test(word.text) && word.x > 600 && word.top > 300 && word.top < 470);
   const totalWord = totalLabel && words.find((word) => /^\d+$/.test(word.text) && word.x > 690 && Math.abs(word.top - totalLabel.top) < 8);
   const expectedSlotCount = totalWord ? Number(totalWord.text) : null;
   const rows = [];
