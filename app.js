@@ -1,9 +1,10 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.1";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.1";
-import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js?v=3.0.1";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.1";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.1";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.1';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.2";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.2";
+import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js?v=3.0.2";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.2";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.2";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.2';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.2';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -19,6 +20,7 @@ let currentDrafts = [];
 let deferredInstallPrompt = null;
 let toastTimer = null;
 let scheduleMode = "relief";
+let builderLoadPromise;
 
 function $(selector, root = document) { return root.querySelector(selector); }
 function $$(selector, root = document) { return [...root.querySelectorAll(selector)]; }
@@ -253,8 +255,8 @@ function openTeacherDialog(id = "") {
 }
 
 async function saveTeacherRecord(event) {
-  if (!requireAdmin()) return;
   event.preventDefault();
+  if (!requireAdmin()) return;
   const existingId = $("#teacherId").value;
   const name = $("#teacherName").value.trim().toUpperCase();
   const now = new Date().toISOString();
@@ -275,6 +277,33 @@ async function saveTeacherRecord(event) {
   if (index >= 0) db.teachers[index] = teacher; else db.teachers.push(teacher);
   persist(); $("#teacherDialog").close(); renderAll();
   await remoteWrite("saveTeacher", teacher, "Maklumat guru disimpan.");
+}
+
+async function uploadTeacherDirectory(event) {
+  const file=event.target.files[0];event.target.value='';
+  if(!file||!requireAdmin()) return;
+  const status=$('#teacherTransferStatus');let saved=0, total=0, ownsWrite=false;
+  try {
+    if(file.size>2*1024*1024) throw new Error('Fail terlalu besar. Maksimum 2 MB.');
+    const preview=importTeachers(await file.text(),db.teachers);
+    total=preview.teachers.length;
+    if(!total) {status.textContent=`Tiada guru baharu. ${preview.skipped} nama sedia ada atau berulang diabaikan.`;return;}
+    if(!confirm(`Tambah ${total} guru baharu ke Sheets? ${preview.skipped} nama sedia ada/berulang diabaikan. Rekod sedia ada tidak diubah.`)) return;
+    if(!requireAdmin()) return;
+    writeBusy=true;ownsWrite=true;
+    $('#uploadTeachers').disabled=true;
+    for(const entry of preview.teachers) {
+      if(!admin||Date.now()>=sessionExpiry) throw new Error('Sesi tamat. Login semula untuk menyambung.');
+      status.textContent=`Menyimpan guru ${saved+1} daripada ${total}… Jangan tutup halaman.`;
+      const now=new Date().toISOString();
+      const teacher={...entry,id:`g-${crypto.randomUUID()}`,createdAt:now,updatedAt:now};
+      await api.write('saveTeacher',teacher);
+      db.teachers.push(teacher);confirmedDb=structuredClone(db);saved++;
+    }
+    status.textContent=`Selesai: ${saved} guru ditambah; ${preview.skipped} nama diabaikan.`;
+  } catch(error) {
+    status.textContent=`${saved} daripada ${total} guru disahkan disimpan. ${error.message} Jika sambungan terputus, muat semula data sebelum mengimport semula.`;
+  } finally {if(ownsWrite) writeBusy=false;$('#uploadTeachers').disabled=false;persist();renderAll();}
 }
 
 async function archiveTeacher(id) {
@@ -408,7 +437,15 @@ function wireEvents() {
   $("#absenceAllDay").addEventListener("change", (event) => $("#periodPicker").classList.toggle("hidden", event.target.checked));
   $("#saveAbsence").addEventListener("click", saveAbsenceRecord);
   $("#addTeacher").addEventListener("click", () => openTeacherDialog());
-  $("#saveTeacher").addEventListener("click", saveTeacherRecord);
+  $("#teacherForm").addEventListener("submit", saveTeacherRecord);
+  $$('[data-close-teacher]').forEach(button=>button.addEventListener('click',()=>$('#teacherDialog').close()));
+  $('#downloadTeachers').addEventListener('click',()=>{
+    if(!requireAdmin()) return;
+    const url=URL.createObjectURL(new Blob([exportTeachers(db.teachers)],{type:'application/json'}));
+    const link=document.createElement('a');link.href=url;link.download=`Senarai-Guru-${todayIso()}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+  $('#uploadTeachers').addEventListener('click',()=>{if(requireAdmin()) $('#teacherFile').click();});
+  $('#teacherFile').addEventListener('change',uploadTeacherDirectory);
   $("#teacherSearch").addEventListener("input", renderTeachers);
   $("#scheduleTeacher").addEventListener("change", renderSchedule);
   $("#scheduleDay").addEventListener("change", renderSchedule);
@@ -460,16 +497,19 @@ function requireAdmin() {
 function openLogin() {
   $('#loginError').textContent='';$('#loginSetup').classList.toggle('hidden',api.isConfigured());
   $('#loginApiUrl').value=config.apiUrl;$('#loginDialog').showModal();
+  $('#loginPassword').focus();
+  // Public static code only: no private data is requested before authentication.
+  ensureBuilder().catch(() => {});
 }
 async function ensureBuilder() {
   if(window.jadualBuilder) return;
-  await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`./builder.js?v=${APP_VERSION}`;script.onload=resolve;script.onerror=()=>reject(new Error('Pembina gagal dimuatkan.'));document.body.appendChild(script);});
+  if (!builderLoadPromise) builderLoadPromise = new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`./builder.js?v=${APP_VERSION}`;script.onload=resolve;script.onerror=()=>{script.remove();builderLoadPromise=null;reject(new Error('Pembina gagal dimuatkan. Cuba login semula.'));};document.body.appendChild(script);});
+  await builderLoadPromise;
 }
 async function enterAdmin(result) {
-  const snapshot=await api.bootstrap();
+  const [snapshot]=await Promise.all([api.bootstrap(),ensureBuilder()]);
   db={...emptyDatabase(),...snapshot.data};confirmedDb=structuredClone(db);
   restoringBuilder=true;
-  await ensureBuilder();
   if(snapshot.builder?.state) window.jadualBuilder.setState(snapshot.builder.state);
   builderRevision=snapshot.builder?.revision||0;
   if(!window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
@@ -516,12 +556,22 @@ function wireAdminEvents() {
   $('#loginButton').addEventListener('click',openLogin);$('#closeLogin').addEventListener('click',()=>$('#loginDialog').close());
   $('#logoutButton').addEventListener('click',()=>{if(builderDirty&&!confirm('Draf belum disimpan. Log keluar tanpa menyimpannya?')) return;leaveAdmin();});
   $('#loginForm').addEventListener('submit',async event=>{
-    event.preventDefault();$('#submitLogin').disabled=true;$('#loginError').textContent='';
+    event.preventDefault();
+    if ($('#submitLogin').disabled) return;
+    $('#submitLogin').disabled=true;$('#submitLogin').textContent='Sedang login…';
+    $('#loginForm').setAttribute('aria-busy','true');$('#loginError').textContent='';
     try {
       if(!api.isConfigured()) {config={apiUrl:$('#loginApiUrl').value.trim(),autoSync:true};api=new ApiClient(config);saveConfig(config);}
-      const result=await api.login($('#loginUsername').value.trim(),$('#loginPassword').value);await enterAdmin(result);
+      const result=await api.login($('#loginUsername').value.trim(),$('#loginPassword').value);
+      $('#submitLogin').textContent='Memuatkan data sekolah…';await enterAdmin(result);
     } catch(error) {api.token='';$('#loginError').textContent=error.message;}
-    finally {$('#submitLogin').disabled=false;$('#loginPassword').value='';}
+    finally {$('#submitLogin').disabled=false;$('#submitLogin').textContent='Login';$('#loginForm').removeAttribute('aria-busy');$('#loginPassword').value='';}
+  });
+  $('#loginPassword').addEventListener('keydown',event=>{
+    if(event.key==='Enter'&&!event.isComposing) {
+      event.preventDefault();
+      if(!$('#submitLogin').disabled) $('#loginForm').requestSubmit($('#submitLogin'));
+    }
   });
   $('#saveBuilderCloud').addEventListener('click',saveBuilderCloud);
   $('#loadBuilderCloud').addEventListener('click',async()=>{
