@@ -1,10 +1,10 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.3";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.3";
-import { buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.3";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.3";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.3";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.3';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.3';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.4";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.4";
+import { buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.4";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.4";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.4";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.4';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.4';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -249,7 +249,7 @@ function openTeacherDialog(id = "") {
   $("#teacherId").value = teacher?.id || "";
   $("#teacherName").value = teacher?.name || "";
   $("#teacherShortName").value = teacher?.shortName || "";
-  $("#teacherPosition").value = teacher?.position || "Guru Akademik";
+  $("#teacherPosition").value = teacher?.position || "Guru Akademik Biasa";
   $("#teacherEligible").checked = teacher?.reliefEligible ?? true;
   $("#teacherDialog").showModal();
 }
