@@ -132,10 +132,14 @@ function segerakAgihan(){
   }));
   // buang yang tidak perlu (kecuali ada waktu override)
   S.agihan=S.agihan.filter(a=>perlu.has(a.kelasId+'|'+a.subjekId) || num(a.waktu,0)>0);
+  const guruSah=new Set(S.guru.map(g=>g.id));
+  S.agihan.forEach(a=>{
+    a.pairGuruIds=[...new Set(Array.isArray(a.pairGuruIds)?a.pairGuruIds:[])].filter(id=>id!==a.guruId&&guruSah.has(id));
+  });
   // tambah yang tiada
   perlu.forEach(key=>{
     const [kelasId,subjekId]=key.split('|');
-    if(!agihanUntuk(kelasId,subjekId)) S.agihan.push({id:uid(),kelasId,subjekId,guruId:'',waktu:'',ganda:0});
+    if(!agihanUntuk(kelasId,subjekId)) S.agihan.push({id:uid(),kelasId,subjekId,guruId:'',pairGuruIds:[],waktu:'',ganda:0});
   });
 }
 
@@ -199,11 +203,14 @@ function autoAgihGuru(){
   Object.keys(byKelas).forEach(kid=>{
     byKelas[kid].sort((a,b)=>waktuEfektif(b)-waktuEfektif(a));
     byKelas[kid].forEach(a=>{
-      if(a.guruId) { beban[a.guruId]=(beban[a.guruId]||0)+waktuEfektif(a); return; }
+      if(a.guruId) {
+        [a.guruId,...(a.pairGuruIds||[])].forEach(id=>beban[id]=(beban[id]||0)+waktuEfektif(a));
+        return;
+      }
       // guru yang belum ajar subjek ini pada waktu sama & beban paling rendah
       const cand=S.guru.slice().sort((x,y)=>(beban[x.id]||0)-(beban[y.id]||0));
       const pilih=cand.find(g=>(beban[g.id]||0)+waktuEfektif(a)<=maxMinggu)||cand[0];
-      a.guruId=pilih.id; beban[pilih.id]=(beban[pilih.id]||0)+waktuEfektif(a);
+      a.guruId=pilih.id; a.pairGuruIds=(a.pairGuruIds||[]).filter(id=>id!==pilih.id); beban[pilih.id]=(beban[pilih.id]||0)+waktuEfektif(a);
       guruKelasSet[kid]=guruKelasSet[kid]||pilih.id;
     });
   });
@@ -240,7 +247,7 @@ function stat(){
   let jumWaktu=0, tanpaGuru=0;
   const bebanGuru={}; S.guru.forEach(g=>bebanGuru[g.id]=0);
   S.agihan.forEach(a=>{ const w=waktuEfektif(a); jumWaktu+=w;
-    if(!a.guruId) tanpaGuru+=w; else bebanGuru[a.guruId]=(bebanGuru[a.guruId]||0)+w; });
+    if(!a.guruId) tanpaGuru+=w; else [a.guruId,...(a.pairGuruIds||[])].forEach(id=>bebanGuru[id]=(bebanGuru[id]||0)+w); });
   const kapasiti=S.hari.reduce((s,h)=>s+waktuHari(h),0)*S.kelas.length;
   const acaraBlok=(S.acara||[]).filter(a=>a.skop==='semua').reduce((s,a)=>s+num(a.panjang,1),0)*S.kelas.length;
   return {jumWaktu,tanpaGuru,bebanGuru,kapasiti,acaraBlok,baki:kapasiti-acaraBlok-jumWaktu};
@@ -544,7 +551,7 @@ VIEWS.guru={t:'Guru', r(){
 function tambahGuru(){ ubah(()=>S.guru.push({id:uid(),nama:'',gelaran:'EN',kod:'',maxHari:8,tidakAda:[]})); ulang(); }
 function buangGuru(id){ ask('Buang guru ini? Agihan subjeknya akan dikosongkan.',()=>{
   ubah(()=>{ S.guru=S.guru.filter(g=>g.id!==id);
-    S.agihan.forEach(a=>{ if(a.guruId===id) a.guruId=''; });
+    S.agihan.forEach(a=>{ if(a.guruId===id) a.guruId=''; a.pairGuruIds=(a.pairGuruIds||[]).filter(gid=>gid!==id); });
     S.kelas.forEach(k=>{ if(k.guruKelas===id) k.guruKelas=''; });
     if(S.jadual) S.jadual.slots=S.jadual.slots.filter(x=>x.guruId!==id); });
   ulang(); }); }
@@ -668,7 +675,7 @@ VIEWS.agihan={t:'Agihan Guru', r(){
       </div>
       <div class="right row">
         <button class="btn" onclick="ask('Agih guru secara automatik untuk slot yang masih kosong?',()=>{ubah(()=>autoAgihGuru());ulang();toast('Agihan automatik selesai')},'Agih',false)">⚡ Auto agih</button>
-        <button class="btn dgr" onclick="ask('Kosongkan semua agihan guru?',()=>{ubah(()=>S.agihan.forEach(a=>a.guruId=''));ulang()})">Kosongkan</button>
+        <button class="btn dgr" onclick="ask('Kosongkan semua agihan guru dan pairing?',()=>{ubah(()=>S.agihan.forEach(a=>{a.guruId='';a.pairGuruIds=[]}));ulang()})">Kosongkan</button>
       </div></div>
     ${st.tanpaGuru?`<div class="alert warn" style="margin-top:12px"><b>${st.tanpaGuru} waktu</b> masih tanpa guru.</div>`:
       `<div class="alert ok" style="margin-top:12px">✅ Semua waktu sudah ada guru.</div>`}
@@ -689,7 +696,7 @@ function agihanIkutKelas(){
       <div style="align-self:flex-end"><span class="pill ${jum+acaraSemua>kap?'bad':''}">${jum} waktu + ${acaraSemua} slot tetap / ${kap}</span></div></div>
     <div class="tblwrap" style="margin-top:12px"><table class="dt"><thead><tr>
       <th style="min-width:170px">Subjek</th><th style="width:100px">Waktu</th>
-      <th style="width:110px">Blok 2 waktu</th><th style="min-width:200px">Guru</th></tr></thead><tbody>
+      <th style="width:110px">Blok 2 waktu</th><th style="min-width:200px">Guru utama</th><th style="min-width:170px">Kelas pairing</th></tr></thead><tbody>
     ${rows.map(a=>{ const sb=subjekById(a.subjekId); if(!sb) return '';
       const i=S.agihan.indexOf(a);
       const asas=waktuDiperuntuk(a.kelasId,a.subjekId);
@@ -699,10 +706,12 @@ function agihanIkutKelas(){
         title="Asas tahun: ${asas}" oninput="ubah(()=>S.agihan[${i}].waktu=this.value===''?'':num(this.value,0))"></td>
       <td><input type="number" min="0" max="6" style="text-align:center" value="${num(a.ganda,0)}"
         ${sb.ganda?'':'disabled title="Aktifkan “Waktu ganda” pada subjek"'} oninput="ubah(()=>S.agihan[${i}].ganda=num(this.value,0))"></td>
-      <td><select onchange="ubah(()=>S.agihan[${i}].guruId=this.value)" style="${a.guruId?'':'border-color:var(--bad)'}">
+      <td><select onchange="ubah(()=>{S.agihan[${i}].guruId=this.value;S.agihan[${i}].pairGuruIds=(S.agihan[${i}].pairGuruIds||[]).filter(id=>id!==this.value)});ulang()" style="${a.guruId?'':'border-color:var(--bad)'}">
         <option value="">— pilih guru —</option>
-        ${S.guru.map(g=>`<option value="${g.id}" ${a.guruId===g.id?'selected':''}>${esc(g.nama)}</option>`).join('')}</select></td></tr>`;}).join('')
-      ||`<tr><td colspan="4" class="empty">Tiada peruntukan waktu untuk Tahun ${k?k.tahap:''}. Isi di <b>Peruntukan Waktu</b>.</td></tr>`}
+        ${S.guru.map(g=>`<option value="${g.id}" ${a.guruId===g.id?'selected':''}>${esc(g.nama)}</option>`).join('')}</select></td>
+      <td><button class="btn sm" ${a.guruId?'':'disabled title="Pilih guru utama dahulu"'} onclick="pilihGuruPairing(${i})">
+        ${(a.pairGuruIds||[]).length?`${(a.pairGuruIds||[]).length} guru pasangan`:'Tetapkan pairing'}</button></td></tr>`;}).join('')
+      ||`<tr><td colspan="5" class="empty">Tiada peruntukan waktu untuk Tahun ${k?k.tahap:''}. Isi di <b>Peruntukan Waktu</b>.</td></tr>`}
     </tbody></table></div>
     <div class="row" style="margin-top:12px">
       <button class="btn" onclick="samaGuruSemua()">👤 Tetapkan seorang guru untuk semua subjek kelas ini</button>
@@ -719,18 +728,33 @@ function samaGuruSemua(){
 }
 function doSamaGuru(){
   const gid=$('#sgG').value, hanya=$('#sgKosong').checked;
-  ubah(()=>S.agihan.filter(a=>a.kelasId===agihanKelas).forEach(a=>{ if(!hanya||!a.guruId) a.guruId=gid; }));
+  ubah(()=>S.agihan.filter(a=>a.kelasId===agihanKelas).forEach(a=>{ if(!hanya||!a.guruId){a.guruId=gid;a.pairGuruIds=(a.pairGuruIds||[]).filter(id=>id!==gid);} }));
   $('#dlg').close(); ulang();
+}
+function pilihGuruPairing(index){
+  const a=S.agihan[index];if(!a||!a.guruId) return;
+  const cur=new Set(a.pairGuruIds||[]);
+  $('#dlgBody').innerHTML=`<h3>Kelas pairing</h3>
+    <p class="hint"><b>${esc(namaKelas(a.kelasId))} · ${esc(kodSubjek(a.subjekId))}</b><br>Guru yang dipilih akan dijadualkan bersama guru utama pada kelas dan waktu yang sama.</p>
+    <div style="max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px">
+      ${S.guru.filter(g=>g.id!==a.guruId).map(g=>`<label class="chk"><input type="checkbox" class="pairGuru" value="${g.id}" ${cur.has(g.id)?'checked':''}> ${esc(g.nama)}</label>`).join('')||'<p class="muted">Tiada guru lain.</p>'}
+    </div>
+    <div class="row" style="justify-content:space-between;margin-top:12px"><button class="btn dgr" onclick="$$('.pairGuru').forEach(x=>x.checked=false)">Kosongkan</button><span><button class="btn" onclick="dlg.close()">Batal</button> <button class="btn pri" onclick="simpanGuruPairing(${index})">Simpan pairing</button></span></div>`;
+  $('#dlg').showModal();
+}
+function simpanGuruPairing(index){
+  ubah(()=>S.agihan[index].pairGuruIds=$$('.pairGuru').filter(input=>input.checked).map(input=>input.value));
+  $('#dlg').close();ulang();toast((S.agihan[index].pairGuruIds||[]).length?'Pairing disimpan':'Pairing dikosongkan');
 }
 function agihanIkutGuru(){
   const st=stat();
   return `<div class="card"><h3>Beban Mengajar Guru</h3>
     <div class="tblwrap"><table class="dt"><thead><tr><th>Guru</th><th style="width:90px">Waktu</th><th>Tugasan</th></tr></thead><tbody>
     ${S.guru.map(g=>{
-      const t=S.agihan.filter(a=>a.guruId===g.id&&waktuEfektif(a)>0);
+      const t=S.agihan.filter(a=>(a.guruId===g.id||(a.pairGuruIds||[]).includes(g.id))&&waktuEfektif(a)>0);
       return `<tr><td><b>${esc(g.nama)}</b></td>
         <td><span class="pill ${(st.bebanGuru[g.id]||0)>34?'warn':(st.bebanGuru[g.id]||0)===0?'bad':'ok'}">${st.bebanGuru[g.id]||0}</span></td>
-        <td>${t.map(a=>`<span class="tag" style="background:${esc(warnaSubjek(a.subjekId))};color:#000;margin:1px 2px;display:inline-block">${esc(kodSubjek(a.subjekId))} ${esc(namaKelas(a.kelasId))} · ${waktuEfektif(a)}</span>`).join('')||'<span class="muted">Tiada</span>'}</td></tr>`;
+        <td>${t.map(a=>`<span class="tag" style="background:${esc(warnaSubjek(a.subjekId))};color:#000;margin:1px 2px;display:inline-block">${esc(kodSubjek(a.subjekId))} ${esc(namaKelas(a.kelasId))} · ${waktuEfektif(a)}${(a.pairGuruIds||[]).includes(g.id)?' · pairing':''}</span>`).join('')||'<span class="muted">Tiada</span>'}</td></tr>`;
     }).join('')}
     </tbody></table></div>
     ${(()=>{const kosong=S.agihan.filter(a=>!a.guruId&&waktuEfektif(a)>0);
@@ -903,14 +927,16 @@ function binaUnit(C){
     let ganda=Math.min(num(a.ganda,0),Math.floor(w/2));
     if(!sb.ganda) ganda=0;
     const sisa=w-ganda*2;
-    const mk=(len)=>({id:uid(),k:C.ki[a.kelasId],g:C.gi[a.guruId],s:C.si[a.subjekId],
-      kelasId:a.kelasId,guruId:a.guruId,subjekId:a.subjekId,len,
+    const pairGuruIds=[...new Set(a.pairGuruIds||[])].filter(id=>id!==a.guruId&&C.gi[id]!=null);
+    const mk=(len)=>({id:uid(),k:C.ki[a.kelasId],g:C.gi[a.guruId],pairGs:pairGuruIds.map(id=>C.gi[id]),s:C.si[a.subjekId],
+      kelasId:a.kelasId,guruId:a.guruId,pairGuruIds,subjekId:a.subjekId,len,
       kem:sb.kemudahan||'', pagi:!!(sb.pagi||sb.teras), teras:!!sb.teras});
     for(let i=0;i<ganda;i++) units.push(mk(2));
     for(let i=0;i<sisa;i++) units.push(mk(1));
   });
   return {units,tiadaGuru};
 }
+function unitGuruIndexes(u){ return [...new Set([u.g,...(u.pairGs||[])])]; }
 
 /* ---------- Semakan & letakan ---------- */
 function slotSah(C,u,d,p){
@@ -919,44 +945,46 @@ function slotSah(C,u,d,p){
   if(u.len===2 && C.brk.has(p)) return false;           // jangan merentas rehat
   for(let o=0;o<u.len;o++){
     const c=base+p+o-1;
-    if(C.kelasBlok[u.k][c]||C.guruBlok[u.g][c]) return false;
+    if(C.kelasBlok[u.k][c]||unitGuruIndexes(u).some(g=>C.guruBlok[g][c])) return false;
     if(u.kem && C.kem[u.kem] && C.kem[u.kem][c]>=C.kemMax[u.kem]) return false;
   }
   const nS=Math.max(1,C.subjek.length);
   if(C.subDay[u.k][d*nS+u.s]+u.len>C.maxSubjekSehari) return false;
-  const hadGuru=Math.min(C.maxHariGuru,num((C.guru[u.g]||{}).maxHari,99));
-  if(C.guruDay[u.g][d]+u.len>hadGuru) return false;
+  if(unitGuruIndexes(u).some(g=>C.guruDay[g][d]+u.len>Math.min(C.maxHariGuru,num((C.guru[g]||{}).maxHari,99)))) return false;
   return true;
 }
 function bebasDi(C,u,d,p){          // tiada pertembungan kelas/guru
   const base=d*C.N;
   for(let o=0;o<u.len;o++){ const c=base+p+o-1;
-    if(C.kelasBusy[u.k][c]>=0||C.guruBusy[u.g][c]>=0) return false; }
+    if(C.kelasBusy[u.k][c]>=0||unitGuruIndexes(u).some(g=>C.guruBusy[g][c]>=0)) return false; }
   return true;
 }
-function larianOk(C,u,d,p){
-  const arr=C.guruBusy[u.g], base=d*C.N, maxB=C.maxBerturut;
+function larianGuruOk(C,g,d,p,len){
+  const arr=C.guruBusy[g], base=d*C.N, maxB=C.maxBerturut;
   let left=0,q=p-1;
   while(q>=1 && !C.brk.has(q) && arr[base+q-1]>=0){left++;q--;}
-  let right=0; q=p+u.len;
+  let right=0; q=p+len;
   while(q<=C.dayLen[d] && !C.brk.has(q-1) && arr[base+q-1]>=0){right++;q++;}
-  return left+u.len+right<=maxB;
+  return left+len+right<=maxB;
+}
+function larianOk(C,u,d,p){
+  return unitGuruIndexes(u).every(g=>larianGuruOk(C,g,d,p,u.len));
 }
 function letak(C,u,d,p,idx){
   const base=d*C.N, nS=Math.max(1,C.subjek.length);
   for(let o=0;o<u.len;o++){ const c=base+p+o-1;
-    C.kelasBusy[u.k][c]=idx; C.guruBusy[u.g][c]=idx;
+    C.kelasBusy[u.k][c]=idx; unitGuruIndexes(u).forEach(g=>C.guruBusy[g][c]=idx);
     if(u.kem&&C.kem[u.kem]) C.kem[u.kem][c]++; }
-  C.subDay[u.k][d*nS+u.s]+=u.len; C.guruDay[u.g][d]+=u.len;
+  C.subDay[u.k][d*nS+u.s]+=u.len; unitGuruIndexes(u).forEach(g=>C.guruDay[g][d]+=u.len);
   u.d=d; u.p=p;
 }
 function buang(C,u){
   if(u.d==null) return;
   const base=u.d*C.N, nS=Math.max(1,C.subjek.length);
   for(let o=0;o<u.len;o++){ const c=base+u.p+o-1;
-    C.kelasBusy[u.k][c]=-1; C.guruBusy[u.g][c]=-1;
+    C.kelasBusy[u.k][c]=-1; unitGuruIndexes(u).forEach(g=>C.guruBusy[g][c]=-1);
     if(u.kem&&C.kem[u.kem]) C.kem[u.kem][c]--; }
-  C.subDay[u.k][u.d*nS+u.s]-=u.len; C.guruDay[u.g][u.d]-=u.len;
+  C.subDay[u.k][u.d*nS+u.s]-=u.len; unitGuruIndexes(u).forEach(g=>C.guruDay[g][u.d]-=u.len);
   u.d=null; u.p=null;
 }
 
@@ -969,17 +997,16 @@ function skorSlot(C,u,d,p){
     const ada=C.subDay[u.k][d*nS+u.s], ideal=C.ideal[u.k][u.s];
     s+=Math.max(0,(ada+u.len)-ideal)*6; }
   if(K.elakLubang){
-    // waktu kosong baru pada jadual guru
-    const arr=C.guruBusy[u.g], base=d*C.N;
-    let kiri=p-1, kanan=p+u.len;
-    let jrkKiri=0; while(kiri>=1 && arr[base+kiri-1]<0){jrkKiri++;kiri--;}
-    let jrkKanan=0; while(kanan<=C.dayLen[d] && arr[base+kanan-1]<0){jrkKanan++;kanan++;}
-    const adaKiri=kiri>=1, adaKanan=kanan<=C.dayLen[d];
-    if(adaKiri&&jrkKiri>0) s+=jrkKiri*2;
-    if(adaKanan&&jrkKanan>0) s+=jrkKanan*2;
-    if(!adaKiri&&!adaKanan) s+=0;
+    unitGuruIndexes(u).forEach(g=>{
+      const arr=C.guruBusy[g], base=d*C.N;
+      let kiri=p-1, kanan=p+u.len;
+      let jrkKiri=0; while(kiri>=1 && arr[base+kiri-1]<0){jrkKiri++;kiri--;}
+      let jrkKanan=0; while(kanan<=C.dayLen[d] && arr[base+kanan-1]<0){jrkKanan++;kanan++;}
+      if(kiri>=1&&jrkKiri>0) s+=jrkKiri*2;
+      if(kanan<=C.dayLen[d]&&jrkKanan>0) s+=jrkKanan*2;
+    });
   }
-  s+=C.guruDay[u.g][d]*0.6;        // seimbangkan beban harian guru
+  s+=unitGuruIndexes(u).reduce((jumlah,g)=>jumlah+C.guruDay[g][d],0)*0.6;
   s+=p*0.08;                        // sedikit keutamaan waktu awal
   return s;
 }
@@ -1026,8 +1053,8 @@ function cariSlotUsir(C,u,units,sd){
     if(!slotSah(C,u,d,p)) continue;
     const base=d*C.N, ev=new Set();
     for(let o=0;o<u.len;o++){ const c=base+p+o-1;
-      const a=C.kelasBusy[u.k][c], b=C.guruBusy[u.g][c];
-      if(a>=0) ev.add(a); if(b>=0) ev.add(b); }
+      const a=C.kelasBusy[u.k][c];
+      if(a>=0) ev.add(a); unitGuruIndexes(u).forEach(g=>{const b=C.guruBusy[g][c];if(b>=0) ev.add(b);}); }
     if(ev.size>2) continue;
     const s=ev.size*100+skorSlot(C,u,d,p)+rnd(sd)*3;
     if(s<bestS){bestS=s;best={d,p,ev:Array.from(ev)};}
@@ -1146,11 +1173,12 @@ async function janaJadual(opt,onProg){
   const slots=[];
   units.forEach(u=>{ if(u.d==null) return;
     const hari=C.hari[u.d];
-    slots.push({id:uid(),kelasId:u.kelasId,subjekId:u.subjekId,guruId:u.guruId,
-      hari,mula:u.p,panjang:u.len,kunci:!!kunciLama[[u.kelasId,u.subjekId,hari,u.p].join('|')]});
+    const guruIds=[u.guruId,...(u.pairGuruIds||[])],pairing=guruIds.length>1;
+    guruIds.forEach(guruId=>slots.push({id:uid(),kelasId:u.kelasId,subjekId:u.subjekId,guruId,
+      hari,mula:u.p,panjang:u.len,pairing,kunci:!!kunciLama[[u.kelasId,u.subjekId,hari,u.p].join('|')]}));
   });
   const gagalDetail=best.belum.map(i=>({kelas:namaKelas(units[i].kelasId),subjek:kodSubjek(units[i].subjekId),
-    guru:namaGuru(units[i].guruId),len:units[i].len}));
+    guru:[units[i].guruId,...(units[i].pairGuruIds||[])].map(id=>namaGuru(id)).join(' / '),len:units[i].len}));
   return {ok:true, slots, gagal:gagalDetail, kos:best.kos, tiadaGuru,
           masa:Math.round(performance.now()-t0), jumUnit:units.length};
 }
@@ -1181,7 +1209,8 @@ function semakJadual(){
       const bh=x.guruId+'|'+x.hari; bebanHari[bh]=(bebanHari[bh]||0)+1;
     }
     const shk=x.kelasId+'|'+x.subjekId+'|'+x.hari;
-    subHari[shk]=(subHari[shk]||0)+num(x.panjang,1);
+    subHari[shk]=subHari[shk]||new Set();
+    for(let o=0;o<num(x.panjang,1);o++) subHari[shk].add(num(x.mula,1)+o);
   });
   // slot tetap bertembung
   (S.acara||[]).forEach(a=>{
@@ -1204,8 +1233,8 @@ function semakJadual(){
   });
   Object.keys(subHari).forEach(k=>{
     const [kid,sid,h]=k.split('|');
-    if(subHari[k]>num(S.kekangan.maxSubjekSehari,2))
-      isu.push({t:'subjek',m:`${namaKelas(kid)} ada ${subHari[k]} waktu ${kodSubjek(sid)} pada ${h} (had ${num(S.kekangan.maxSubjekSehari,2)})`});
+    if(subHari[k].size>num(S.kekangan.maxSubjekSehari,2))
+      isu.push({t:'subjek',m:`${namaKelas(kid)} ada ${subHari[k].size} waktu ${kodSubjek(sid)} pada ${h} (had ${num(S.kekangan.maxSubjekSehari,2)})`});
   });
   // kekurangan waktu berbanding peruntukan
   segerakAgihan();

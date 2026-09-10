@@ -38,3 +38,11 @@ test('builder is lazy-loaded outside the login path and appears only inside Jadu
   assert.ok(!nav.includes('data-builder-open'));
   assert.ok(html.includes('data-schedule-mode="generator"'));
 });
+test('refresh restores a valid seven-day admin shell before network validation',()=>{
+  const init=source.slice(source.indexOf('function init()'),source.indexOf('\ninit();'));
+  const resume=source.slice(source.indexOf('async function resumeSession'),source.indexOf('\nfunction requireAdmin'));
+  assert.ok(init.indexOf('restoreAdminShell(savedSession)')<init.indexOf('renderAll()'));
+  assert.match(resume,/restoreAdminShell\(session\)/);
+  assert.match(resume,/error\.code==='AUTH_REQUIRED'/);
+  assert.match(resume,/restoreAdminShell\(session\);updateConnectionUi\(\)/);
+});

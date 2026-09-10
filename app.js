@@ -1,11 +1,11 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.9";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.9";
-import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.9";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.9";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.9";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.9';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.9';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.9';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.10";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.10";
+import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.10";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.10";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.10";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.10';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.10';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.10';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -33,6 +33,18 @@ function uuid(prefix) { return `${prefix}-${Date.now().toString(36)}-${crypto.ge
 function todayIso() { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" }); }
 function formatDate(value, options = { day: "numeric", month: "short", year: "numeric" }) { return new Intl.DateTimeFormat("ms-MY", options).format(new Date(`${value}T12:00:00`)); }
 function teacherById(id) { return db.teachers.find((teacher) => teacher.id === id); }
+function storedAdminSession() {
+  try {
+    const session=JSON.parse(localStorage.getItem('jadual-admin-session')||'null');
+    return session?.token&&Number(session.expiresAt)>Date.now()?{token:session.token,expiresAt:Number(session.expiresAt)}:null;
+  } catch { localStorage.removeItem('jadual-admin-session');return null; }
+}
+function restoreAdminShell(session) {
+  if(!session||!api.isConfigured()) return false;
+  api.token=session.token;admin=true;window.systemAdminActive=true;sessionExpiry=session.expiresAt;
+  document.body.classList.remove('public-mode');$('#loginButton').classList.add('hidden');
+  return true;
+}
 
 function loadDb() {
   try {
@@ -597,7 +609,8 @@ function wireEvents() {
 }
 
 function init() {
-
+  const savedSession=storedAdminSession();
+  restoreAdminShell(savedSession);
   const date = todayIso();
   $("#reliefDate").value = date;
   $("#todayLabel").textContent = new Intl.DateTimeFormat("ms-MY", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${date}T12:00:00`)).toUpperCase();
@@ -605,21 +618,30 @@ function init() {
   $("#apiUrl").value = config.apiUrl || ""; $("#autoSync").checked = config.autoSync !== false;
   $("#appVersion").textContent = APP_VERSION;
   populatePeriodPicker(); wireEvents(); renderAll(); showView("jadual");
-  resumeSession();
+  resumeSession(savedSession);
 }
 
 init();
 
-async function resumeSession() {
-  try {
-    const session=JSON.parse(localStorage.getItem('jadual-admin-session')||'null');
-    if(session?.token&&session.expiresAt>Date.now()&&api.isConfigured()) {api.token=session.token;await enterAdmin(session);return;}
-  } catch(error) {
-    api.token='';
-    if(error.code==='AUTH_REQUIRED'||error instanceof SyntaxError) localStorage.removeItem('jadual-admin-session');
-    else toast('Sesi disimpan, tetapi data sekolah belum dapat dimuatkan. Cuba segar semula apabila sambungan pulih.','error');
+async function resumeSession(session=storedAdminSession()) {
+  if(!session||!api.isConfigured()) {
+    if(api.isConfigured()&&navigator.onLine) syncData(false);
+    return;
   }
-  if(api.isConfigured()&&navigator.onLine) syncData(false);
+  restoreAdminShell(session);
+  $('#systemNotice').textContent='Sesi admin dipulihkan · memuatkan data Google Sheets…';
+  try {
+    const snapshot=await api.bootstrap();
+    await enterAdmin({...session,snapshot});
+  } catch(error) {
+    if(error.code==='AUTH_REQUIRED') {
+      await leaveAdmin(false);
+      toast('Sesi tujuh hari telah tamat atau dibatalkan. Sila login semula.','error');
+    } else {
+      restoreAdminShell(session);updateConnectionUi();
+      toast('Sesi admin masih disimpan. Data Google Sheets akan dicuba semula apabila sambungan pulih.','error');
+    }
+  }
 }
 
 function requireAdmin() {
@@ -659,14 +681,14 @@ async function enterAdmin(result) {
   $('#passwordNotice').textContent=result.mustChangePassword?'Kata laluan awal masih digunakan. Tukar kepada kata laluan yang lebih kuat.':'';
   $('#loginDialog').close();$('#loginPassword').value='';renderAll();
 }
-async function leaveAdmin() {
+async function leaveAdmin(remoteLogout=true) {
   const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');
   document.body.classList.add('public-mode');$('#loginButton').classList.remove('hidden');
   restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;builderCloudLoaded=false;
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';
   $$('dialog').forEach(d=>{d.close();d.querySelector('form')?.reset();});
   db=emptyDatabase();db.teachers=[];confirmedDb=structuredClone(db);$('#scheduleType').value='teacher';setScheduleMode('relief');showView('jadual');
-  api=new ApiClient(config);await finalWrites;await previous.logout().catch(()=>{});await syncData(false);
+  api=new ApiClient(config);await finalWrites;if(remoteLogout) await previous.logout().catch(()=>{});await syncData(false);
 }
 async function saveBuilderCloud() {
   if(!admin||restoringBuilder) return;

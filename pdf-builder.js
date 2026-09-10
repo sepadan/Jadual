@@ -136,9 +136,10 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
   allocations.forEach((allocation,index)=>{
     const primary=[...allocation.teachers.entries()].sort((a,b)=>b[1].size-a[1].size||a[0].localeCompare(b[0]))[0]?.[0]||'';
     const blocks=state.jadual.slots.filter(slot=>slot.kelasId===allocation.kelasId&&slot.subjekId===allocation.subjekId&&slot.guruId===primary);
+    const pairGuruIds=[...allocation.teachers.entries()].filter(([guruId,periods])=>guruId!==primary&&periods.size===allocation.periods.size&&[...periods].every(period=>allocation.periods.has(period))).map(([guruId])=>guruId);
     const ganda=blocks.reduce((total,slot)=>total+Math.floor(slot.panjang/2),0);
     const waktu=allocation.periods.size;
-    state.agihan.push({id:makeId('a',index),kelasId:allocation.kelasId,subjekId:allocation.subjekId,guruId:primary,waktu,ganda});
+    state.agihan.push({id:makeId('a',index),kelasId:allocation.kelasId,subjekId:allocation.subjekId,guruId:primary,pairGuruIds,waktu,ganda});
     const subject=state.subjek.find(item=>item.id===allocation.subjekId);if(subject&&ganda) subject.ganda=true;
   });
 

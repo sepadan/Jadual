@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS } from "./data.js?v=3.0.9";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.0.10";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
