@@ -68,3 +68,13 @@ test('published relief consumes daily allowance but cancelled relief does not',(
   assert.equal(rankCandidates(args).length,0);
   db.reliefs[1].status='cancelled';assert.equal(rankCandidates(args)[0].id,'free');
 });
+
+test('pairing setting skips only when another active teacher is present for that slot',()=>{
+  const db=fixture();db.schedule.push({...db.schedule[0],teacherId:'busy'});
+  assert.equal(buildReliefDrafts(db,'2026-09-09').length,1);
+  db.reliefSettings={dailyLimit:2,ignorePairingWhenCovered:true};
+  assert.equal(buildReliefDrafts(db,'2026-09-09').length,0);
+  db.absences.push({date:'2026-09-09',teacherId:'busy',allDay:false,periods:[3],status:'active'});
+  assert.equal(buildReliefDrafts(db,'2026-09-09').length,0);
+  db.absences[1].periods=[2];assert.equal(buildReliefDrafts(db,'2026-09-09').length,2);
+});

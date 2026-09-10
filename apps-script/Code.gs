@@ -109,6 +109,7 @@ function routeWrite_(action, data) {
     var limit=Number(data.dailyLimit);
     if(!Number.isInteger(limit)||limit<0||limit>13) throw new Error('Had relief mesti 0 hingga 13 waktu.');
     setConfig_('RELIEF_DAILY_LIMIT',String(limit));
+    setConfig_('RELIEF_IGNORE_PAIRING',String(data.ignorePairingWhenCovered===true));
     return {dailyLimit:limit};
   }
   if(action==='saveBuilder') return saveBuilder_(data);
@@ -143,7 +144,7 @@ function bootstrap_(sinceRevision) {
     updatedAt: updatedAt,
     data: {
       school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar",
-      reliefSettings: {dailyLimit:reliefDailyLimit_()},
+      reliefSettings: {dailyLimit:reliefDailyLimit_(),ignorePairingWhenCovered:bool_(configValue_('RELIEF_IGNORE_PAIRING'))},
       revision: revision,
       updatedAt: updatedAt,
       teachers: readObjects_("Teachers"),

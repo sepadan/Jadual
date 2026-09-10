@@ -1,10 +1,10 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.4";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.4";
-import { buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.4";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.4";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.4";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.4';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.4';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.5";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.5";
+import { buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.5";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.5";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.5";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.5';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.5';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -17,6 +17,8 @@ let admin = false, writeBusy = false, builderRevision = 0, builderDirty = false,
 let sessionExpiry = 0;
 let importResult = null;
 let currentDrafts = [];
+let generatedReliefKey = '';
+function reliefInputKey() { return JSON.stringify([$('#reliefDate').value,db.teachers,db.scheduleVersions,db.schedule,db.absences,db.reliefs,db.reliefSettings]); }
 let deferredInstallPrompt = null;
 let toastTimer = null;
 let scheduleMode = "relief";
@@ -103,10 +105,12 @@ function renderAll() {
 
 function renderDashboard() {
   $('#dailyReliefLimit').value=String(dailyReliefLimit(db));
+  $('#ignorePairingWhenCovered').checked=db.reliefSettings?.ignorePairingWhenCovered===true;
   const date = $("#reliefDate").value || todayIso();
   const absences = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
   const published = db.reliefs.filter((item) => item.date === date && item.status !== "cancelled");
-  currentDrafts = admin ? buildReliefDrafts(db, date) : [];
+  if(!admin || generatedReliefKey!==reliefInputKey()) {currentDrafts=[];generatedReliefKey='';}
+  $('#reliefGuide').textContent=admin ? (generatedReliefKey ? `Draf dijana: ${currentDrafts.length} slot baharu. Semak guru ganti, kemudian Terbitkan.` : '1. Rekod guru tiada → 2. Jana relief → 3. Semak dan terbitkan. Perubahan data memerlukan jana semula.') : 'Jadual relief yang telah diterbitkan oleh admin.';
   const items = [...published.map((item) => ({ ...item, candidates: [] })), ...currentDrafts];
   $("#metricAbsent").textContent = new Set(absences.map((item) => item.teacherId)).size;
   $("#metricClasses").textContent = new Set(items.map((item) => item.className).filter(Boolean)).size;
@@ -423,9 +427,17 @@ function wireEvents() {
     if(!requireAdmin()) return;
     const input=$('#dailyReliefLimit');
     if(!input.reportValidity()) return;
-    db.reliefSettings={dailyLimit:Number(input.value)};
+    db.reliefSettings={dailyLimit:Number(input.value),ignorePairingWhenCovered:$('#ignorePairingWhenCovered').checked};
     await remoteWrite('saveReliefSettings',db.reliefSettings,'Had relief harian disimpan ke Sheets.');
     renderAll();
+  });
+  $('#generateRelief').addEventListener('click',()=>{
+    if(!requireAdmin()) return;
+    if(currentDrafts.length&&!confirm('Jana semula dan gantikan pilihan draf yang belum diterbitkan?')) return;
+    const date=$('#reliefDate').value;
+    if(!date||!dayCodeFromDate(date)) return toast('Pilih tarikh persekolahan Isnin hingga Jumaat.','error');
+    currentDrafts=buildReliefDrafts(db,date);generatedReliefKey=reliefInputKey();renderDashboard();
+    toast(currentDrafts.length?`${currentDrafts.length} slot relief dijana. Semak sebelum terbitkan.`:'Tiada slot relief baharu. Semak jadual aktif, rekod guru tiada, pairing atau relief yang sudah diterbitkan.');
   });
   wireAdminEvents();
   $("#reliefDate").addEventListener("change",renderDashboard);

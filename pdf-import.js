@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS, slug } from "./data.js?v=3.0.4";
+import { DAY_CODES, PERIODS, slug } from "./data.js?v=3.0.5";
 
 // Reference coordinate system from the original aSc export (792 x 612).
 // The decimal column width matters near periods 9-12; rounding it to 36
@@ -57,7 +57,7 @@ function groupLargeLabels(words, rowTop, rowBottom) {
     .sort((a, b) => a.top - b.top || a.x - b.x);
   const groups = [];
   large.forEach((word) => {
-    let group = groups.find((candidate) => Math.abs(candidate.top - word.top) < 4 && word.x - candidate.right < 10);
+    let group = groups.find((candidate) => !classNameFromLabel(candidate.words.join(' ')) && Math.abs(candidate.top - word.top) < 4 && word.x - candidate.right < 10);
     if (!group) {
       group = { top: word.top, left: word.x, right: word.x + word.width, words: [] };
       groups.push(group);
@@ -144,6 +144,7 @@ function parsePageItems(items, pageView, teachers) {
       const label = labels.find((candidate) => candidate.center >= subject.x - 4 && candidate.center < nextSubjectX - 1);
       const startX = GRID.x0 + rawColumn * GRID.columnWidth;
       let duration = label ? Math.max(1, Math.round((2 * (label.center - startX)) / GRID.columnWidth)) : (NO_CLASS_DURATION[subject.text] || 1);
+      if(subjects[index+1]) duration=Math.min(duration,subjects[index+1].rawColumn-rawColumn);
       if (rawColumn < 6 && rawColumn + duration > 6) duration = 6 - rawColumn;
       if (rawColumn > 6 && rawColumn + duration > 14) duration = 14 - rawColumn;
       duration = Math.max(1, Math.min(duration, 4));

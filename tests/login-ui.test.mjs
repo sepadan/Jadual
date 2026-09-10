@@ -32,5 +32,5 @@ test('builder is parallel with bootstrap and appears only inside Jadual navigati
   const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const nav=html.slice(html.indexOf('<nav'),html.indexOf('</nav>'));
   assert.ok(!nav.includes('data-builder-open'));
-  assert.ok(html.includes('data-builder-open="dash"'));
+  assert.ok(html.includes('data-schedule-mode="generator"'));
 });

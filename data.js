@@ -1,4 +1,4 @@
-export const APP_VERSION = "3.0.4";
+export const APP_VERSION = "3.0.5";
 
 export const PERIODS = [
   { period: 0, startTime: "07:20", endTime: "07:30" },
@@ -69,7 +69,7 @@ export function emptyDatabase() {
   return {
     school: "SK Paya Redan, Muar",
     revision: 0,
-    reliefSettings: {dailyLimit: 2},
+    reliefSettings: {dailyLimit: 2,ignorePairingWhenCovered:false},
     updatedAt: new Date().toISOString(),
     teachers: structuredClone(INITIAL_TEACHERS),
     scheduleVersions: [],

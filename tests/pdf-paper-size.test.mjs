@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseTeacherPdf} from '../pdf-import.js';
 
-function documentAt(width, height, dx = 0, dy = 0, invalid = false) {
+function documentAt(width, height, dx = 0, dy = 0, invalid = false, adjacent = false) {
   const sx = width / 792, sy = height / 612;
   const items = [];
   const add = (str, x, top, size = 10, w = 10) => items.push({str,
@@ -11,7 +11,11 @@ function documentAt(width, height, dx = 0, dy = 0, invalid = false) {
   add('GURU A', 200, 55);
   for (let p = 0; p <= 12; p++) add(String(p), 71.65 + ((p >= 6 ? p + 1 : p) + .5) * 35.58 - 5 + (invalid ? 40 : 0), 90);
   add('BM', 110, 132);
-  add('1 B', 71.65 + 2 * 35.58 - 12, 165, 20, 24);
+  if(adjacent) {
+    add('1 B',71.65+1.5*35.58-14,165,20,28);
+    add('PK',145,132);
+    add('2 B',71.65+2.5*35.58-14,165,20,28);
+  } else add('1 B', 71.65 + 2 * 35.58 - 12, 165, 20, 24);
   add('Jumlah Waktu', 640, 400);
   add('2', 715, 400);
   return {getDocument: () => ({promise: Promise.resolve({numPages: 1,
@@ -30,4 +34,9 @@ test('A4, enlarged paper and CropBox retain identical slots', async () => {
 });
 test('unrecognized table is rejected even on valid paper', async () => {
   await assert.rejects(parseTeacherPdf(new Uint8Array(),documentAt(842,595,0,0,true),teachers),/Susun atur/);
+});
+test('adjacent class labels remain separate with no overlapping periods',async()=>{
+  const result=await parseTeacherPdf(new Uint8Array(),documentAt(792,612,0,0,false,true),teachers);
+  assert.deepEqual(result.rows.map(r=>[r.period,r.subject,r.className]),[[1,'BM','1 BIJAK'],[2,'PK','2 BIJAK']]);
+  assert.deepEqual(result.structuralWarnings,[]);
 });

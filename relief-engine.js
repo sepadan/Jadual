@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS } from "./data.js?v=3.0.4";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.0.5";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
@@ -84,6 +84,7 @@ export function buildReliefDrafts(db, date) {
         .forEach((row) => {
           const key = `${absence.teacherId}|${row.period}`;
           if (existingKeys.has(key)) return;
+          if(db.reliefSettings?.ignorePairingWhenCovered && hasPresentPair(db,date,row,rows)) return;
           const candidates = rankCandidates({ db: {...db, reliefs:[...db.reliefs,...drafts]}, date, day, period: row.period, absentTeacherId: absence.teacherId });
           drafts.push({
             id: `r-${date}-${absence.teacherId}-${row.period}`,
@@ -104,6 +105,16 @@ export function buildReliefDrafts(db, date) {
         });
     });
   return drafts.sort((a, b) => a.period - b.period || a.className.localeCompare(b.className, "ms"));
+}
+
+export function hasPresentPair(db,date,row,rows=activeScheduleRows(db,date)) {
+  const normalize=value=>String(value||'').trim().replace(/\s+/g,' ').toUpperCase();
+  return !!row.className && rows.some(other=>other.teacherId!==row.teacherId && !other.isDuty
+    && other.day===row.day && Number(other.period)===Number(row.period)
+    && normalize(other.className)===normalize(row.className)
+    && db.teachers.some(t=>t.id===other.teacherId&&t.active)
+    && !db.absences.some(a=>a.teacherId===other.teacherId&&a.date===date&&a.status!=='cancelled'&&absenceCovers(a,row.period))
+    && !db.reliefs.some(r=>r.date===date&&Number(r.period)===Number(row.period)&&r.status!=='cancelled'&&r.replacementTeacherId===other.teacherId));
 }
 
 export function validateReliefs(db, reliefs) {
