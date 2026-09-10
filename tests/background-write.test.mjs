@@ -12,7 +12,7 @@ test('ordinary actions are not blocked while Sheets saves in the background',()=
   for(const call of [
     'remoteWrite("saveAbsence", absence, message);',
     'remoteWrite("saveTeacher", teacher, "Maklumat guru disimpan.");',
-    'remoteWrite("saveReliefs", records, `${records.length} relief diterbitkan.`);',
+    'remoteWrite("saveReliefs", records, `${records.length} relief diterbitkan.',
   ]) assert.ok(source.includes(call));
 });
 

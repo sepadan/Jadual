@@ -70,6 +70,7 @@ p { color: var(--muted); line-height: 1.55; }
 .segmented button { padding: 7px 10px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; }
 .segmented button.active { color: var(--ink); background: #fff; box-shadow: 0 2px 8px rgba(17,48,42,.08); }
 .relief-list, .card-list { display: grid; gap: 10px; }
+.relief-print-sheet { display: none; }
 .relief-card { display: grid; grid-template-columns: 112px 1fr minmax(210px, 260px); align-items: center; gap: 20px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .time-chip { display: flex; align-items: center; gap: 11px; }
 .period-bubble { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--green-800); background: var(--green-100); font-size: 16px; font-weight: 850; }
@@ -218,4 +219,34 @@ dialog form { padding: 25px; }
   .relief-card { break-inside: avoid; grid-template-columns: 110px 1fr 220px; box-shadow: none; }
   .candidate-select { border: 0; appearance: none; }
   body { background: #fff; }
+}
+
+@media print {
+  body.print-relief { color: #000; background: #fff; font-family: Arial, sans-serif; }
+  body.print-relief .sidebar,
+  body.print-relief .topbar,
+  body.print-relief #view-hari-ini > :not(.relief-print-sheet),
+  body.print-relief .bottom-nav { display: none !important; }
+  body.print-relief .app-shell,
+  body.print-relief .app-shell > main,
+  body.print-relief #view-hari-ini { display: block !important; width: 100%; max-width: none; margin: 0; padding: 0; }
+  body.print-relief .relief-print-sheet { display: block !important; }
+  .relief-print-heading { position: relative; min-height: 16mm; margin-bottom: 3mm; }
+  .relief-print-title { text-align: center; font-size: 10pt; line-height: 1.35; letter-spacing: .02em; }
+  .relief-print-title strong, .relief-print-title span { display: block; }
+  .relief-print-meta { position: absolute; top: 0; left: 0; display: grid; gap: 2mm; font-size: 8.5pt; }
+  .relief-print-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7.5pt; }
+  .relief-print-table th, .relief-print-table td { height: 7mm; padding: 1mm; border: .35mm solid #000; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+  .relief-print-table thead { display: table-header-group; }
+  .relief-print-table thead th { height: 13mm; font-size: 7.5pt; }
+  .relief-print-table thead th b, .relief-print-table thead th span { display: block; }
+  .relief-print-table thead th b { font-size: 8.5pt; }
+  .relief-print-time { width: 52mm; font-size: 9pt !important; }
+  .relief-print-name { width: 34mm; padding: 1.5mm !important; text-align: left !important; }
+  .relief-print-name span { display: block; margin-bottom: 2mm; font-size: 7pt; font-weight: 700; }
+  .relief-print-name strong { display: block; font-size: 8.5pt; line-height: 1.2; }
+  .relief-print-label { width: 18mm; font-size: 7.5pt; line-height: 1.1; }
+  .relief-print-group { break-inside: avoid; page-break-inside: avoid; }
+  .relief-print-footer { margin: 2mm 0 0; font-size: 6.5pt; }
+  @page { size: A4 landscape; margin: 7mm; }
 }
