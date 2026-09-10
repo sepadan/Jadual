@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS } from "./data.js?v=3.0.2";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.0.3";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
@@ -56,10 +56,16 @@ export function rankCandidates({ db, date, day, period, absentTeacherId }) {
       const today = todayCounts.get(teacher.id) || 0;
       const week = weekCounts.get(teacher.id) || 0;
       const teaching = teachingCounts.get(teacher.id) || 0;
-      const score = Number(teacher.priority || 3) * 10 + today * 35 + week * 8 + teaching * 1.5;
+      const score = teaching + today;
       return { ...teacher, score, todayReliefs: today, weekReliefs: week, teachingToday: teaching };
     })
-    .sort((a, b) => a.score - b.score || a.name.localeCompare(b.name, "ms"));
+    .filter(teacher => teacher.todayReliefs < dailyReliefLimit(db))
+    .sort((a, b) => a.score - b.score || a.weekReliefs - b.weekReliefs || a.name.localeCompare(b.name, "ms"));
+}
+
+export function dailyReliefLimit(db) {
+  const value = Number(db.reliefSettings?.dailyLimit ?? 2);
+  return Number.isInteger(value) && value >= 0 && value <= 13 ? value : 2;
 }
 
 export function buildReliefDrafts(db, date) {
@@ -78,7 +84,7 @@ export function buildReliefDrafts(db, date) {
         .forEach((row) => {
           const key = `${absence.teacherId}|${row.period}`;
           if (existingKeys.has(key)) return;
-          const candidates = rankCandidates({ db, date, day, period: row.period, absentTeacherId: absence.teacherId });
+          const candidates = rankCandidates({ db: {...db, reliefs:[...db.reliefs,...drafts]}, date, day, period: row.period, absentTeacherId: absence.teacherId });
           drafts.push({
             id: `r-${date}-${absence.teacherId}-${row.period}`,
             date,
@@ -94,6 +100,7 @@ export function buildReliefDrafts(db, date) {
             note: "",
             candidates,
           });
+          existingKeys.add(key);
         });
     });
   return drafts.sort((a, b) => a.period - b.period || a.className.localeCompare(b.className, "ms"));
@@ -108,7 +115,7 @@ export function validateReliefs(db, reliefs) {
     if (item.replacementTeacherId && slotTeacher.has(key)) errors.push(`Guru yang sama dipilih dua kali pada waktu ${item.period}.`);
     slotTeacher.add(key);
     const eligible = rankCandidates({
-      db,
+      db: {...db, reliefs: [...db.reliefs.filter(row => !reliefs.some(draft => draft.id === row.id)), ...reliefs.filter(row => row !== item && row.status !== 'cancelled')]},
       date: item.date,
       day: item.day,
       period: item.period,

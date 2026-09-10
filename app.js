@@ -1,10 +1,10 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.2";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.2";
-import { buildReliefDrafts, dayCodeFromDate, validateReliefs } from "./relief-engine.js?v=3.0.2";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.2";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.2";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.2';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.2';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.3";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.3";
+import { buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.3";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.3";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.3";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.3';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.3';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -102,6 +102,7 @@ function renderAll() {
 }
 
 function renderDashboard() {
+  $('#dailyReliefLimit').value=String(dailyReliefLimit(db));
   const date = $("#reliefDate").value || todayIso();
   const absences = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
   const published = db.reliefs.filter((item) => item.date === date && item.status !== "cancelled");
@@ -135,7 +136,7 @@ function reliefCard(item) {
   } else if (!item.candidates.length) {
     candidateHtml = `<select class="candidate-select" data-id="${esc(item.id)}"><option value="">Tiada guru tersedia</option></select><div class="candidate-note" style="color:#b83d45">Pilih atau ubah kelayakan guru</div>`;
   } else {
-    candidateHtml = `<select class="candidate-select" data-id="${esc(item.id)}">${item.candidates.map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === item.replacementTeacherId ? "selected" : ""}>${esc(teacher.shortName)} · ${teacher.todayReliefs} hari ini</option>`).join("")}</select><div class="candidate-note">Cadangan terbaik · agihan minggu ini diambil kira</div>`;
+    candidateHtml = `<select class="candidate-select" data-id="${esc(item.id)}">${item.candidates.map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === item.replacementTeacherId ? "selected" : ""}>${esc(teacher.shortName)} · ${teacher.teachingToday} jadual + ${teacher.todayReliefs} relief</option>`).join("")}</select><div class="candidate-note">Jumlah waktu hari ini paling sedikit · had ${dailyReliefLimit(db)} relief sehari</div>`;
   }
   return `<article class="relief-card">
     <div class="time-chip"><span class="period-bubble">${item.period}</span><span><strong>${esc(item.startTime)}–${esc(item.endTime)}</strong><small>Waktu ${item.period}</small></span></div>
@@ -249,7 +250,6 @@ function openTeacherDialog(id = "") {
   $("#teacherName").value = teacher?.name || "";
   $("#teacherShortName").value = teacher?.shortName || "";
   $("#teacherPosition").value = teacher?.position || "Guru Akademik";
-  $("#teacherPriority").value = String(teacher?.priority || 3);
   $("#teacherEligible").checked = teacher?.reliefEligible ?? true;
   $("#teacherDialog").showModal();
 }
@@ -267,7 +267,7 @@ async function saveTeacherRecord(event) {
     name,
     shortName: $("#teacherShortName").value.trim().toUpperCase(),
     position: $("#teacherPosition").value.trim(),
-    priority: Number($("#teacherPriority").value),
+    priority: db.teachers.find(item=>item.id===existingId)?.priority || 3,
     reliefEligible: $("#teacherEligible").checked,
     active: true,
     createdAt: db.teachers.find((item) => item.id === existingId)?.createdAt || now,
@@ -419,6 +419,14 @@ function populatePeriodPicker() {
 }
 
 function wireEvents() {
+  $('#saveReliefSettings').addEventListener('click',async()=>{
+    if(!requireAdmin()) return;
+    const input=$('#dailyReliefLimit');
+    if(!input.reportValidity()) return;
+    db.reliefSettings={dailyLimit:Number(input.value)};
+    await remoteWrite('saveReliefSettings',db.reliefSettings,'Had relief harian disimpan ke Sheets.');
+    renderAll();
+  });
   wireAdminEvents();
   $("#reliefDate").addEventListener("change",renderDashboard);
   $("#scheduleType").addEventListener("change",()=>{renderTeacherLists();renderSchedule();});
@@ -483,9 +491,13 @@ init();
 
 async function resumeSession() {
   try {
-    const session=JSON.parse(sessionStorage.getItem('jadual-admin-session')||'null');
+    const session=JSON.parse(localStorage.getItem('jadual-admin-session')||'null');
     if(session?.token&&session.expiresAt>Date.now()&&api.isConfigured()) {api.token=session.token;await enterAdmin(session);return;}
-  } catch {api.token='';sessionStorage.removeItem('jadual-admin-session');}
+  } catch(error) {
+    api.token='';
+    if(error.code==='AUTH_REQUIRED'||error instanceof SyntaxError) localStorage.removeItem('jadual-admin-session');
+    else toast('Sesi disimpan, tetapi data sekolah belum dapat dimuatkan. Cuba segar semula apabila sambungan pulih.','error');
+  }
   if(api.isConfigured()&&navigator.onLine) syncData(false);
 }
 
@@ -515,14 +527,14 @@ async function enterAdmin(result) {
   if(!window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
   restoringBuilder=false;builderDirty=false;
   admin=true;window.systemAdminActive=true;sessionExpiry=result.expiresAt;
-  sessionStorage.setItem('jadual-admin-session',JSON.stringify({token:api.token,expiresAt:sessionExpiry}));
+  localStorage.setItem('jadual-admin-session',JSON.stringify({token:api.token,expiresAt:sessionExpiry}));
   document.body.classList.remove('public-mode');$('#loginButton').classList.add('hidden');
   $('#builderCloudStatus').textContent=snapshot.builder?.state?'Draf Sheets telah dimuatkan':'Draf baharu — simpan ke Sheets apabila siap';
   $('#passwordNotice').textContent=result.mustChangePassword?'Kata laluan awal masih digunakan. Tukar kepada kata laluan yang lebih kuat.':'';
   $('#loginDialog').close();$('#loginPassword').value='';renderAll();
 }
 async function leaveAdmin() {
-  const previous=api;admin=false;window.systemAdminActive=false;sessionExpiry=0;sessionStorage.removeItem('jadual-admin-session');
+  const previous=api;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');
   document.body.classList.add('public-mode');$('#loginButton').classList.remove('hidden');
   restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';

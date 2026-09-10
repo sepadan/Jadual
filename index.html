@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.0.2">
-  <link rel="stylesheet" href="./builder.css?v=3.0.2">
-  <link rel="stylesheet" href="./workspace.css?v=3.0.2">
-  <link rel="stylesheet" href="./public-ui.css?v=3.0.2"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
+  <link rel="stylesheet" href="./styles.css?v=3.0.3">
+  <link rel="stylesheet" href="./builder.css?v=3.0.3">
+  <link rel="stylesheet" href="./workspace.css?v=3.0.3">
+  <link rel="stylesheet" href="./public-ui.css?v=3.0.3"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
 <body class="public-mode">
   <div class="app-shell">
@@ -183,6 +183,8 @@
       </section>
 
       <section id="view-tetapan" class="view admin-only">
+        <article class="panel"><p class="step">RELIEF</p><h2>Had harian guru ganti</h2><label>Maksimum waktu relief sehari bagi setiap guru<input id="dailyReliefLimit" type="number" min="0" max="13" step="1" value="2" required></label><p>Lalai 2 waktu. Had ini tidak termasuk waktu mengajar asal. Nilai 0 menghentikan cadangan relief. Had baharu tidak membatalkan relief yang telah diterbitkan.</p><button id="saveReliefSettings" class="button primary">Simpan had relief</button></article>
+        <p>Sesi login kekal selama 7 hari pada peranti ini. Log keluar selepas menggunakan komputer berkongsi.</p>
         <div class="settings-grid"><article class="panel"><p class="step">AKAUN ADMIN</p><h2>Tukar kata laluan</h2><label>Kata laluan semasa<input id="currentPassword" type="password" autocomplete="current-password"></label><label>Kata laluan baharu<input id="newPassword" type="password" autocomplete="new-password" minlength="12"></label><button id="changePassword" class="button primary">Simpan kata laluan</button><p id="passwordNotice"></p></article>
           <article class="panel"><p class="step">PANGKALAN DATA</p><h2>Sambungan Google Sheets</h2><label>URL Web App Apps Script<input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><label class="check-row"><input id="autoSync" type="checkbox" checked> Segerak automatik apabila aplikasi dibuka</label><div class="button-row"><button id="testApi" class="button ghost">Uji sambungan</button><button id="saveSettings" class="button primary">Simpan</button></div></article>
           <article class="panel"><p class="step">APLIKASI</p><h2>Kemas kini PWA</h2><p>Versi aplikasi diperiksa secara automatik. Data Sheets pula disegerakkan tanpa perlu memasang semula aplikasi.</p><dl><div><dt>Versi</dt><dd id="appVersion"></dd></div><div><dt>Semakan data</dt><dd id="revisionLabel">0</dd></div><div><dt>Kemas kini terakhir</dt><dd id="lastUpdated">—</dd></div></dl><button id="checkUpdate" class="button ghost wide">Semak versi baharu</button></article>
@@ -208,7 +210,7 @@
       <div class="dialog-head"><div><p class="step">PROFIL GURU</p><h2 id="teacherDialogTitle">Tambah guru</h2></div><button type="button" class="close" data-close-teacher aria-label="Tutup">×</button></div>
       <input id="teacherId" type="hidden"><label>Nama penuh<input id="teacherName" required></label><label>Nama ringkas<input id="teacherShortName" required maxlength="24"></label><label>Jawatan<input id="teacherPosition" list="positionList" required></label>
       <datalist id="positionList"><option>Guru Besar</option><option>Penolong Kanan Pentadbiran</option><option>Penolong Kanan HEM</option><option>Penolong Kanan Kokurikulum</option><option>Guru Akademik</option><option>Guru Prasekolah</option><option>Guru Pendidikan Khas</option><option>Guru Praktikal</option><option>Personel MySTEP</option></datalist>
-      <label>Keutamaan relief <select id="teacherPriority"><option value="1">1 — Tinggi</option><option value="2">2</option><option value="3" selected>3 — Biasa</option><option value="4">4</option><option value="5">5</option><option value="6">6 — Rendah</option><option value="9">9 — Sangat rendah</option></select></label>
+      <p>Keutamaan relief automatik: jumlah waktu jadual dan relief hari tersebut paling sedikit didahulukan.</p>
       <label class="check-row"><input id="teacherEligible" type="checkbox" checked> Layak menerima tugasan relief</label>
       <div class="dialog-actions"><button type="button" class="button ghost" data-close-teacher>Batal</button><button type="submit" id="saveTeacher" class="button primary" value="default">Simpan guru</button></div>
     </form>
@@ -224,6 +226,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.0.2"></script>
+  <script type="module" src="./app.js?v=3.0.3"></script>
 </body>
 </html>

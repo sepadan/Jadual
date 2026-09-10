@@ -105,12 +105,25 @@ function doPost(e) {
 }
 
 function routeWrite_(action, data) {
+  if(action==='saveReliefSettings') {
+    var limit=Number(data.dailyLimit);
+    if(!Number.isInteger(limit)||limit<0||limit>13) throw new Error('Had relief mesti 0 hingga 13 waktu.');
+    setConfig_('RELIEF_DAILY_LIMIT',String(limit));
+    return {dailyLimit:limit};
+  }
   if(action==='saveBuilder') return saveBuilder_(data);
   if(action==='changePassword') return changePassword_(data);
   if (action === "saveTeacher") return upsert_("Teachers", "id", encodeTeacher_(data));
   if (action === "saveAbsence") return upsert_("Absences", "id", encodeAbsence_(data));
   if (action === "saveReliefs") {
     if (!Array.isArray(data)) throw new Error("Format relief tidak sah.");
+    var merged=readObjects_('Reliefs').filter(function(row){return !data.some(function(item){return item.id===row.id;});}).concat(data);
+    var limit=reliefDailyLimit_();
+    data.filter(function(item){return item.status!=='cancelled'&&item.replacementTeacherId;}).forEach(function(item){
+      var periods={};
+      merged.filter(function(row){return row.status!=='cancelled'&&row.date===item.date&&row.replacementTeacherId===item.replacementTeacherId;}).forEach(function(row){periods[row.period]=true;});
+      if(Object.keys(periods).length>limit) throw new Error('Had relief harian '+limit+' waktu dilepasi. Semak semula pilihan guru.');
+    });
     data.forEach(function(item) { upsert_("Reliefs", "id", encodeRelief_(item)); });
     audit_(action, data.length + " records", "Relief diterbitkan");
     return { count: data.length };
@@ -130,6 +143,7 @@ function bootstrap_(sinceRevision) {
     updatedAt: updatedAt,
     data: {
       school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar",
+      reliefSettings: {dailyLimit:reliefDailyLimit_()},
       revision: revision,
       updatedAt: updatedAt,
       teachers: readObjects_("Teachers"),
@@ -222,6 +236,12 @@ function configValue_(key) {
   var rows = readObjects_("Config");
   var record = rows.find(function(item) { return item.key === key; });
   return record ? record.value : "";
+}
+
+function reliefDailyLimit_() {
+  var raw=configValue_('RELIEF_DAILY_LIMIT');
+  var value=raw===''?2:Number(raw);
+  return Number.isInteger(value)&&value>=0&&value<=13?value:2;
 }
 
 function setConfig_(key, value) {

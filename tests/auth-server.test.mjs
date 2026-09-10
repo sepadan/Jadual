@@ -33,3 +33,16 @@ test('public data omits absence reasons, drafts, private notes and teacher privi
   const data=context.publicBootstrap_().data;assert.equal(data.absences[0].reason,undefined);assert.equal(data.teachers[0].priority,undefined);assert.equal(data.reliefs[0].note,undefined);assert.equal(data.reliefs.length,1);assert.equal(data.schedule.length,1);assert.equal(data.builder,undefined);
 });
 test('builder saves reject stale revisions before replacing the sheet',()=>{const {context}=server();context.configValue_=()=>4;assert.throws(()=>context.saveBuilder_({baseRevision:3,state:{guru:[],kelas:[],subjek:[]}}),/peranti lain/);});
+
+test('seven-day session survives cache eviction and expires server-side',()=>{
+  const {context,props,cache}=server();const before=Date.now();const login=context.login_({username:'admin',password:'admin'});
+  assert.ok(login.expiresAt>=before+7*24*60*60*1000);cache.clear();assert.doesNotThrow(()=>context.requireSession_(login.token));
+  const sessions=JSON.parse(props.get('ADMIN_SESSIONS'));Object.values(sessions).forEach(s=>s.expiresAt=Date.now()-1);props.set('ADMIN_SESSIONS',JSON.stringify(sessions));
+  assert.throws(()=>context.requireSession_(login.token),/AUTH_REQUIRED/);
+});
+test('server rejects over-limit relief batch before any write',()=>{
+  const {context}=server();let writes=0;context.configValue_=()=>'';context.readObjects_=()=>[];context.upsert_=()=>writes++;
+  const rows=[1,2,3].map(period=>({id:String(period),date:'2026-09-09',period,replacementTeacherId:'g',status:'published'}));
+  assert.throws(()=>context.routeWrite_('saveReliefs',rows),/Had relief/);assert.equal(writes,0);
+  context.configValue_=()=>3;context.audit_=()=>{};assert.equal(context.routeWrite_('saveReliefs',rows).count,3);
+});

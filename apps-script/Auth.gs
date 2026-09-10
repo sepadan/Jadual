@@ -20,17 +20,26 @@ function login_(data) {
       var count=Number(cache.get('login-fail')||0)+1;cache.put('login-fail',String(count),900);
       if(count>=5) cache.put('login-blocked','1',900);throw new Error('Nama pengguna atau kata laluan tidak sah.');
     }
-    cache.remove('login-fail');var token=Utilities.getUuid()+Utilities.getUuid(),expiresAt=Date.now()+7200000;
-    cache.put('session:'+passwordHash_(token),JSON.stringify({expiresAt:expiresAt,epoch:PropertiesService.getScriptProperties().getProperty('AUTH_EPOCH')||'0'}),7200);
+    cache.remove('login-fail');var token=Utilities.getUuid()+Utilities.getUuid(),expiresAt=Date.now()+7*24*60*60*1000;
+    var props=PropertiesService.getScriptProperties(), sessions=(parseJson_(props.getProperty('ADMIN_SESSIONS'),{})||{}),epoch=props.getProperty('AUTH_EPOCH')||'0';
+    Object.keys(sessions).forEach(function(key){if(sessions[key].expiresAt<=Date.now()||sessions[key].epoch!==epoch) delete sessions[key];});
+    var keys=Object.keys(sessions).sort(function(a,b){return sessions[a].expiresAt-sessions[b].expiresAt;});
+    while(keys.length>=20) delete sessions[keys.shift()];
+    sessions[passwordHash_(token)]={expiresAt:expiresAt,epoch:epoch};
+    props.setProperty('ADMIN_SESSIONS',JSON.stringify(sessions));
     return {ok:true,token:token,expiresAt:expiresAt,mustChangePassword:equalSecret_(expected,passwordHash_('admin'))};
   } finally {lock.releaseLock();}
 }
 function requireSession_(token) {
   if(!token||typeof token!=='string'||token.length>200) throw new Error('AUTH_REQUIRED');
-  var session=parseJson_(CacheService.getScriptCache().get('session:'+passwordHash_(token)),null);
-  if(!session||session.expiresAt<Date.now()||session.epoch!==(PropertiesService.getScriptProperties().getProperty('AUTH_EPOCH')||'0')) throw new Error('AUTH_REQUIRED');
+  var session=(parseJson_(PropertiesService.getScriptProperties().getProperty('ADMIN_SESSIONS'),{})||{})[passwordHash_(token)];
+  if(!session||session.expiresAt<=Date.now()||session.epoch!==(PropertiesService.getScriptProperties().getProperty('AUTH_EPOCH')||'0')) throw new Error('AUTH_REQUIRED');
 }
-function logout_(token) {CacheService.getScriptCache().remove('session:'+passwordHash_(token));return {ok:true};}
+function logout_(token) {
+  var lock=LockService.getScriptLock();lock.waitLock(10000);
+  try {var props=PropertiesService.getScriptProperties(),sessions=(parseJson_(props.getProperty('ADMIN_SESSIONS'),{})||{});delete sessions[passwordHash_(token)];props.setProperty('ADMIN_SESSIONS',JSON.stringify(sessions));return {ok:true};}
+  finally {lock.releaseLock();}
+}
 function changePassword_(data) {
   var props=PropertiesService.getScriptProperties();
   if(!equalSecret_(passwordHash_(data.currentPassword||''),props.getProperty('ADMIN_HASH'))) throw new Error('Kata laluan semasa tidak sah.');
