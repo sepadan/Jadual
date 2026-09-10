@@ -235,16 +235,19 @@ dialog form { padding: 25px; }
   .relief-print-title { text-align: center; font-size: 10pt; line-height: 1.35; letter-spacing: .02em; }
   .relief-print-title strong, .relief-print-title span { display: block; }
   .relief-print-meta { position: absolute; top: 0; left: 0; display: grid; gap: 2mm; font-size: 8.5pt; }
-  .relief-print-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7.5pt; }
-  .relief-print-table th, .relief-print-table td { height: 7mm; padding: 1mm; border: .35mm solid #000; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+  .relief-print-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 6.5pt; }
+  .relief-print-table th, .relief-print-table td { box-sizing: border-box; height: 7.5mm; padding: .7mm; border: .3mm solid #000 !important; text-align: center; vertical-align: middle; white-space: normal !important; overflow-wrap: anywhere; word-break: break-word; line-height: 1.08; }
   .relief-print-table thead { display: table-header-group; }
   .relief-print-table thead th { height: 13mm; font-size: 7.5pt; }
   .relief-print-table thead th b, .relief-print-table thead th span { display: block; }
   .relief-print-table thead th b { font-size: 8.5pt; }
-  .relief-print-time { width: 52mm; font-size: 9pt !important; }
-  .relief-print-name { width: 34mm; padding: 1.5mm !important; text-align: left !important; }
-  .relief-print-name span { display: block; margin-bottom: 2mm; font-size: 7pt; font-weight: 700; }
-  .relief-print-name strong { display: block; font-size: 8.5pt; line-height: 1.2; }
+  .relief-print-time { width: 52mm; font-size: 8pt !important; }
+  .relief-print-name-label, .relief-print-name-value, .relief-print-name-blank { width: 34mm; text-align: left !important; }
+  .relief-print-name-label { font-size: 6.5pt; }
+  .relief-print-name-value { font-size: 7.5pt; font-weight: 800; text-align: center !important; }
+  .relief-print-value { font-size: 6.5pt; }
+  .relief-fit-sm { font-size: 5.7pt !important; letter-spacing: -.02em; }
+  .relief-fit-xs { font-size: 4.9pt !important; letter-spacing: -.04em; }
   .relief-print-label { width: 18mm; font-size: 7.5pt; line-height: 1.1; }
   .relief-print-group { break-inside: avoid; page-break-inside: avoid; }
   .relief-print-footer { margin: 2mm 0 0; font-size: 6.5pt; }

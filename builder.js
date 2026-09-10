@@ -1171,8 +1171,8 @@ function semakJadual(){
       const gk=x.guruId+'|'+key, kk=x.kelasId+'|'+key;
       if(petaG[gk]) isu.push({t:'guru',m:`Guru ${namaGuru(x.guruId)} bertembung pada ${x.hari} waktu ${p} (${kodSubjek(petaG[gk].subjekId)} ${namaKelas(petaG[gk].kelasId)} vs ${kodSubjek(x.subjekId)} ${namaKelas(x.kelasId)})`});
       else petaG[gk]=x;
-      if(petaK[kk]) isu.push({t:'kelas',m:`Kelas ${namaKelas(x.kelasId)} bertembung pada ${x.hari} waktu ${p}`});
-      else petaK[kk]=x;
+      if(petaK[kk] && !(petaK[kk].pairing&&x.pairing)) isu.push({t:'kelas',m:`Kelas ${namaKelas(x.kelasId)} bertembung pada ${x.hari} waktu ${p}`});
+      else if(!petaK[kk]) petaK[kk]=x;
       const sb=subjekById(x.subjekId);
       if(sb&&sb.kemudahan){ const kk2=sb.kemudahan+'|'+key; kemP[kk2]=(kemP[kk2]||0)+1;
         const had=num((S.kekangan.kapasiti||{})[sb.kemudahan],2);
@@ -1211,8 +1211,10 @@ function semakJadual(){
   segerakAgihan();
   S.agihan.forEach(a=>{
     const perlu=waktuEfektif(a); if(perlu<=0) return;
-    const ada=S.jadual.slots.filter(x=>x.kelasId===a.kelasId&&x.subjekId===a.subjekId)
-      .reduce((s,x)=>s+num(x.panjang,1),0);
+    const waktuAda=new Set();
+    S.jadual.slots.filter(x=>x.kelasId===a.kelasId&&x.subjekId===a.subjekId)
+      .forEach(x=>{for(let o=0;o<num(x.panjang,1);o++) waktuAda.add(`${x.hari}|${num(x.mula,1)+o}`);});
+    const ada=waktuAda.size;
     if(ada!==perlu) isu.push({t:'kurang',m:`${namaKelas(a.kelasId)} — ${kodSubjek(a.subjekId)}: ${ada}/${perlu} waktu dijadualkan`});
   });
   return isu;
@@ -1337,7 +1339,12 @@ function matriks(mode,id){
   const slots=(S.jadual&&S.jadual.slots||[]).filter(x=>mode==='kelas'?x.kelasId===id:x.guruId===id);
   slots.forEach(x=>{ const d=S.hari.indexOf(x.hari); if(d<0) return;
     for(let o=0;o<num(x.panjang,1);o++){ const p=num(x.mula,1)+o; if(p<1||p>N) continue;
-      m[d][p]={jenis:'w',ref:x,mula:o===0,len:num(x.panjang,1)}; } });
+      const current=m[d][p];
+      if(mode==='kelas'&&current?.jenis==='w'&&current.ref.pairing&&x.pairing){
+        current.refs=current.refs||[current.ref];
+        if(!current.refs.some(ref=>ref.id===x.id)) current.refs.push(x);
+      } else m[d][p]={jenis:'w',ref:x,refs:[x],mula:o===0,len:num(x.panjang,1)};
+    } });
   acaraUntuk(mode,id).forEach(a=>{ const d=S.hari.indexOf(a.hari); if(d<0) return;
     for(let o=0;o<num(a.panjang,1);o++){ const p=num(a.mula,1)+o; if(p<1||p>N) continue;
       if(!m[d][p]) m[d][p]={jenis:'a',ref:a,mula:o===0,len:num(a.panjang,1)}; } });
@@ -1349,7 +1356,7 @@ function teksSel(mode,c){
     return {sudut:'', utama:esc(a.kod), kecil:'', warna:a.warna||'#eeeeee'}; }
   const x=c.ref;
   if(mode==='kelas') return {sudut:'', utama:esc(kodSubjek(x.subjekId)),
-    kecil:esc(namaGuru(x.guruId,true)), warna:warnaSubjek(x.subjekId)};
+    kecil:esc([...(c.refs||[x])].map(ref=>namaGuru(ref.guruId,true)).filter((nama,index,list)=>nama&&list.indexOf(nama)===index).join(' / ')), warna:warnaSubjek(x.subjekId)};
   return {sudut:esc(kodSubjek(x.subjekId)), utama:esc(namaKelas(x.kelasId)), kecil:'',
     warna:warnaSubjek(x.subjekId)};
 }

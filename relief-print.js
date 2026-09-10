@@ -68,15 +68,23 @@ function valuesCell(values) {
   return values?.length ? values.map(escapeHtml).join("<br>") : "";
 }
 
+function fitClass(values) {
+  const longest = (Array.isArray(values) ? values : [values]).reduce((length, value) => Math.max(length, clean(value).length), 0);
+  return longest > 18 ? " relief-fit-xs" : longest > 12 ? " relief-fit-sm" : "";
+}
+
 export function reliefPrintHtml(model) {
   const heading = model.periods.map((period) => `<th><b>${period.period}</b><span>${escapeHtml(period.startTime)}<br>${escapeHtml(period.endTime)}</span></th>`).join("");
   const groups = model.groups.map((group) => {
-    const cells = (field) => model.periods.map((period) => `<td>${valuesCell(group.slots[period.period]?.[field])}</td>`).join("");
+    const cells = (field) => model.periods.map((period) => {
+      const values=group.slots[period.period]?.[field]||[];
+      return `<td class="relief-print-value${fitClass(values)}">${valuesCell(values)}</td>`;
+    }).join("");
     const signatures = model.periods.map(() => "<td></td>").join("");
     return `<tbody class="relief-print-group">
-      <tr><th class="relief-print-name" rowspan="3"><span>NAMA GURU<br>TIDAK HADIR</span><strong>${escapeHtml(group.teacherName)}</strong></th><th class="relief-print-label">KELAS</th>${cells("classes")}</tr>
-      <tr><th class="relief-print-label">GURU<br>GANTI</th>${cells("replacements")}</tr>
-      <tr><th class="relief-print-label">T/TANGAN</th>${signatures}</tr>
+      <tr><th class="relief-print-name-label">NAMA GURU<br>TIDAK HADIR</th><th class="relief-print-label">KELAS</th>${cells("classes")}</tr>
+      <tr><th class="relief-print-name-value${fitClass(group.teacherName)}">${escapeHtml(group.teacherName)}</th><th class="relief-print-label">GURU<br>GANTI</th>${cells("replacements")}</tr>
+      <tr><th class="relief-print-name-blank"></th><th class="relief-print-label">T/TANGAN</th>${signatures}</tr>
     </tbody>`;
   }).join("");
   return `<div class="relief-print-heading">

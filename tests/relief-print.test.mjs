@@ -24,7 +24,8 @@ test('official relief sheet groups published periods by absent teacher',()=>{
 test('official relief sheet includes class, replacement and signature rows',()=>{
   const html=reliefPrintHtml(buildReliefPrintModel(db,'2026-09-10',periods));
   assert.match(html,/JADUAL GURU GANTI/);
-  assert.match(html,/NAMA GURU<br>TIDAK HADIR/);
+  assert.match(html,/relief-print-name-label[^>]*>NAMA GURU<br>TIDAK HADIR/);
+  assert.ok(!html.includes('rowspan="3"'));
   assert.match(html,/PN\. NORA/);
   assert.match(html,/KELAS/);
   assert.match(html,/GURU<br>GANTI/);

@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS, slug } from "./data.js?v=3.0.8";
+import { DAY_CODES, PERIODS, slug } from "./data.js?v=3.0.9";
 
 // Reference coordinate system from the original aSc export (792 x 612).
 // The decimal column width matters near periods 9-12; rounding it to 36
@@ -75,6 +75,38 @@ function classNameFromLabel(label) {
   return `${match[1]} ${match[2].toUpperCase() === "B" ? "BIJAK" : "CERDIK"}`;
 }
 
+function textLines(words) {
+  const lines=[];
+  words.slice().sort((a,b)=>a.top-b.top||a.x-b.x).forEach(word=>{
+    let line=lines.find(item=>Math.abs(item.top-word.top)<2.5);
+    if(!line){line={top:word.top,words:[]};lines.push(line);}
+    line.words.push(word);
+  });
+  return lines.sort((a,b)=>a.top-b.top).map(line=>({top:line.top,text:line.words.sort((a,b)=>a.x-b.x).map(word=>word.text).join(' ').replace(/\s+/g,' ').trim()}));
+}
+
+function pageMetadata(words) {
+  const lines=textLines(words);
+  const schoolLine=lines.find(line=>line.top<25&&/^(?:SK|SMK|SEKOLAH)\b/i.test(line.text));
+  const titleLine=lines.find(line=>line.top<50&&/JADUAL WAKTU PERSENDIRIAN GURU/i.test(line.text));
+  const classLine=lines.find(line=>line.top>50&&line.top<82&&/GURU KELAS\s*:/i.test(line.text));
+  const principalTitleIndex=lines.findIndex(line=>line.top>450&&/GURU BESAR|PENGETUA/i.test(line.text));
+  const principalName=principalTitleIndex>0?lines.slice(0,principalTitleIndex).reverse().find(line=>line.top>450&&/^(?:TN|EN|PN|CIK|DR)\b/i.test(line.text))?.text||'':'';
+  const generatedLine=lines.find(line=>/Jadual waktu terjana\s*:/i.test(line.text));
+  const periods=[];
+  words.filter(word=>word.top>108&&word.top<132&&/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(word.text)).forEach(word=>{
+    const rawColumn=Math.floor((word.x-GRID.x0+2)/GRID.columnWidth);
+    if(rawColumn<0||rawColumn>13||rawColumn===6) return;
+    const period=rawColumn>6?rawColumn-1:rawColumn;
+    const match=word.text.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
+    if(match) periods.push({period,startTime:match[1].padStart(5,'0'),endTime:match[2].padStart(5,'0')});
+  });
+  const year=titleLine?.text.match(/\b(20\d{2})\b/)?.[1]||'';
+  const generatedAt=generatedLine?.text.match(/:\s*([^ ]+)/)?.[1]||'';
+  const classTeacherClass=classNameFromLabel((classLine?.text||'').replace(/^.*GURU KELAS\s*:\s*/i,''));
+  return {schoolName:schoolLine?.text||'',teacherTitle:titleLine?.text||'',year,classTeacherClass,principalName,principalTitle:principalTitleIndex>=0?lines[principalTitleIndex].text:'',generatedAt,periods:periods.sort((a,b)=>a.period-b.period)};
+}
+
 function parsePageItems(items, pageView, teachers) {
   const pageHeight = Math.abs(pageView[3] - pageView[1]);
   const pageWidth = Math.abs(pageView[2] - pageView[0]);
@@ -106,6 +138,7 @@ function parsePageItems(items, pageView, teachers) {
   const rawName = getHeaderName(words);
   const normalized = normalizeName(rawName);
   const teacher = teachers.find((item) => normalizeName(item.name) === normalized);
+  const metadata=pageMetadata(words);
   const totalLabel = words.find((word) => /^Jumlah(?:\s+Waktu)?$/i.test(word.text) && word.x > 600 && word.top > 300 && word.top < 470);
   const totalWord = totalLabel && words.find((word) => /^\d+$/.test(word.text) && word.x > 690 && Math.abs(word.top - totalLabel.top) < 8);
   const expectedSlotCount = totalWord ? Number(totalWord.text) : null;
@@ -150,7 +183,7 @@ function parsePageItems(items, pageView, teachers) {
       duration = Math.max(1, Math.min(duration, 4));
       for (let offset = 0; offset < duration; offset += 1) {
         const actualPeriod = period + offset;
-        const periodInfo = PERIODS.find((item) => item.period === actualPeriod);
+        const periodInfo = metadata.periods.find((item) => item.period === actualPeriod) || PERIODS.find((item) => item.period === actualPeriod);
         if (!periodInfo) continue;
         rows.push({
           day,
@@ -175,11 +208,12 @@ function parsePageItems(items, pageView, teachers) {
       id: `g-${slug(normalized.split(" ").slice(0, 3).join("-"))}`,
       name: normalized,
       shortName: normalized.split(" ").filter((part) => !["BIN", "BINTI"].includes(part)).slice(0, 2).join(" "),
-      position: "Guru Akademik",
+      position: "Guru Akademik Biasa",
       reliefEligible: true,
       priority: 3,
       active: true,
     },
+    metadata,
     rows,
   };
 }
@@ -203,7 +237,10 @@ export async function parseTeacherPdf(file, pdfjsLib, teachers, onProgress = () 
   pages.filter((page) => page.expectedSlotCount != null && page.rows.length !== page.expectedSlotCount).forEach((page) => {
     structuralWarnings.push(`Semak ${page.rawName}: PDF menyatakan ${page.expectedSlotCount} waktu tetapi pembaca mengesan ${page.rows.length}.`);
   });
-  return { pageCount, pages, structuralWarnings, ...buildImportSelection(pages, teachers, structuralWarnings) };
+  const firstMetadata=pages.map(page=>page.metadata).find(item=>item?.schoolName)||pages[0]?.metadata||{};
+  const timing=pages.map(page=>page.metadata?.periods||[]).sort((a,b)=>b.length-a.length)[0]||[];
+  const metadata={...firstMetadata,periods:timing,pages:pages.map(page=>({teacherId:page.teacherId,rawName:page.rawName,classTeacherClass:page.metadata?.classTeacherClass||''}))};
+  return { pageCount, pages, metadata, structuralWarnings, ...buildImportSelection(pages, teachers, structuralWarnings) };
 }
 
 export function buildImportSelection(pages, teachers, structuralWarnings = []) {

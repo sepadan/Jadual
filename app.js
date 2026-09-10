@@ -1,11 +1,11 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.8";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.8";
-import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.8";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.8";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.8";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.8';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.8';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.8';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.9";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.9";
+import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.9";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.9";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.9";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.9';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.9';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.9';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -311,7 +311,12 @@ function openTeacherDialog(id = "") {
   $("#teacherId").value = teacher?.id || "";
   $("#teacherName").value = teacher?.name || "";
   $("#teacherShortName").value = teacher?.shortName || "";
-  $("#teacherPosition").value = teacher?.position || "Guru Akademik Biasa";
+  const position=teacher?.position==='Guru Akademik'?'Guru Akademik Biasa':teacher?.position||'Guru Akademik Biasa';
+  const positionSelect=$('#teacherPosition');
+  const standard=[...positionSelect.options].some(option=>option.value===position);
+  positionSelect.value=standard?position:'__other__';
+  $('#teacherPositionOther').value=standard?'':position;
+  toggleTeacherPositionOther();
   $("#teacherEligible").checked = teacher?.reliefEligible ?? true;
   $("#teacherDialog").showModal();
 }
@@ -321,14 +326,16 @@ function saveTeacherRecord(event) {
   if (!requireAdmin()) return;
   const existingId = $("#teacherId").value;
   const name = $("#teacherName").value.trim().toUpperCase();
+  const position=$('#teacherPosition').value==='__other__'?$('#teacherPositionOther').value.trim():$('#teacherPosition').value;
   const now = new Date().toISOString();
   if (!name) return toast("Nama guru diperlukan.", "error");
+  if (!position) return toast("Jawatan guru diperlukan.", "error");
   if (db.teachers.some((teacher) => teacher.active && teacher.name === name && teacher.id !== existingId)) return toast("Nama guru ini sudah wujud.", "error");
   const teacher = {
     id: existingId || `g-${slug($("#teacherShortName").value)}-${Date.now().toString(36)}`,
     name,
     shortName: $("#teacherShortName").value.trim().toUpperCase(),
-    position: $("#teacherPosition").value.trim(),
+    position,
     priority: db.teachers.find(item=>item.id===existingId)?.priority || 3,
     reliefEligible: $("#teacherEligible").checked,
     active: true,
@@ -339,6 +346,12 @@ function saveTeacherRecord(event) {
   if (index >= 0) db.teachers[index] = teacher; else db.teachers.push(teacher);
   persist(); $("#teacherDialog").close(); renderAll();
   remoteWrite("saveTeacher", teacher, "Maklumat guru disimpan.");
+}
+
+function toggleTeacherPositionOther() {
+  const custom=$('#teacherPosition').value==='__other__';
+  $('#teacherPositionOtherWrap').classList.toggle('hidden',!custom);
+  $('#teacherPositionOther').required=custom;
 }
 
 async function uploadTeacherDirectory(event) {
@@ -549,6 +562,7 @@ function wireEvents() {
   $$('[data-close-absence]').forEach(button=>button.addEventListener('click',()=>$('#absenceDialog').close()));
   $("#addTeacher").addEventListener("click", () => openTeacherDialog());
   $("#teacherForm").addEventListener("submit", saveTeacherRecord);
+  $('#teacherPosition').addEventListener('change',toggleTeacherPositionOther);
   $$('[data-close-teacher]').forEach(button=>button.addEventListener('click',()=>$('#teacherDialog').close()));
   $('#downloadTeachers').addEventListener('click',()=>{
     if(!requireAdmin()) return;
@@ -673,8 +687,17 @@ function wireAdminEvents() {
     try {
       await ensureBuilder();
       if(!confirm('Gantikan draf pembina semasa dengan jadual PDF yang dipadankan? Jadual aktif tidak berubah sehingga anda mengaktifkannya.')) return;
-      const draft=draftFromPdf(importResult.rows,db.teachers,window.jadualBuilder.getState());
-      window.jadualBuilder.setState(draft);builderDirty=true;$('#builderCloudStatus').textContent='Draf daripada PDF — semak agihan dan simpan ke Sheets';setScheduleMode('generator');showView('jadual');window.jadualBuilder.go('lihat');
+      const metadata={
+        ...(importResult.metadata||{}),
+        schoolName:importResult.metadata?.schoolName||db.school||'',
+        pages:(importResult.pages||[]).map(page=>({
+          teacherId:page.teacherId,
+          rawName:page.rawName,
+          classTeacherClass:page.metadata?.classTeacherClass||'',
+        })),
+      };
+      const draft=draftFromPdf(importResult.rows,db.teachers,window.jadualBuilder.getState(),metadata);
+      window.jadualBuilder.setState(draft);builderDirty=true;$('#builderCloudStatus').textContent='Draf PDF lengkap — sekolah, masa, guru, kelas, subjek, agihan dan slot sedia untuk disemak';setScheduleMode('generator');showView('jadual');window.jadualBuilder.go('lihat');
     } catch(error) {toast(error.message,'error');}
   });
   $('#loginButton').addEventListener('click',openLogin);$('#closeLogin').addEventListener('click',()=>$('#loginDialog').close());
