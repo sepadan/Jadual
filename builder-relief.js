@@ -1,4 +1,4 @@
-import { normalizeName } from './pdf-import.js?v=3.0.5';
+import { normalizeName } from './pdf-import.js?v=3.0.6';
 
 // Convert a validated builder timetable into the same per-period records as PDF import.
 export function convertBuilderSchedule(state, teachers, times) {

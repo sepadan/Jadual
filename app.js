@@ -1,10 +1,10 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.5";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.5";
-import { buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.5";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.5";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.5";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.5';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.5';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.6";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.6";
+import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.6";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.6";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.6";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.6';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.6';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -225,17 +225,48 @@ function openAbsenceDialog() {
 }
 
 async function saveAbsenceRecord(event) {
-  if (!requireAdmin()) return;
   event.preventDefault();
+  if (!requireAdmin()) return;
   const teacherId = $("#absenceTeacher").value;
   const date = $("#absenceDate").value;
   if (!teacherId || !date) return toast("Pilih guru dan tarikh.", "error");
   const allDay = $("#absenceAllDay").checked;
   const periods = allDay ? [] : $$('#periodPicker input:checked').map((input) => Number(input.value));
   if (!allDay && !periods.length) return toast("Pilih sekurang-kurangnya satu waktu.", "error");
+  if (db.absences.some((item) => item.teacherId === teacherId && item.date === date && item.status !== "cancelled")) {
+    return toast("Guru ini sudah direkodkan tidak hadir pada tarikh tersebut.", "error");
+  }
   const absence = { id: uuid("a"), date, teacherId, reason: $("#absenceReason").value.trim(), allDay, periods, status: "active", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-  db.absences.push(absence); persist(); $("#absenceDialog").close(); renderAll(); showView("hari-ini");
-  await remoteWrite("saveAbsence", absence, "Ketiadaan disimpan.");
+  db.absences.push(absence);
+  $("#reliefDate").value = date;
+  $("#absenceFilterDate").value = date;
+  currentDrafts = buildReliefDrafts(db, date);
+  generatedReliefKey = reliefInputKey();
+  persist(); $("#absenceDialog").close(); renderAll();
+  showView(currentDrafts.length ? "hari-ini" : "ketiadaan");
+  const message = currentDrafts.length
+    ? `Ketiadaan disimpan. ${currentDrafts.length} slot relief dijana untuk semakan.`
+    : reliefEmptyMessage(date, true);
+  await remoteWrite("saveAbsence", absence, message);
+}
+
+function reliefEmptyMessage(date, saved = false) {
+  const prefix = saved ? "Ketiadaan disimpan, tetapi " : "";
+  const rows = activeScheduleRows(db, date);
+  if (!rows.length) {
+    const next = db.scheduleVersions
+      .filter((version) => ["active", "superseded"].includes(version.status) && version.effectiveDate > date)
+      .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate))[0];
+    return next
+      ? `${prefix}tiada jadual yang berkuat kuasa pada ${formatDate(date)}. Jadual ${next.label || "seterusnya"} bermula ${formatDate(next.effectiveDate)}.`
+      : `${prefix}tiada jadual aktif untuk ${formatDate(date)}.`;
+  }
+  const absences = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
+  if (!absences.length) return `Tiada rekod guru tiada pada ${formatDate(date)}.`;
+  const day = dayCodeFromDate(date);
+  const hasTeachingSlot = rows.some((row) => row.day === day && row.className && absences.some((absence) => absence.teacherId === row.teacherId && (absence.allDay || (absence.periods || []).map(Number).includes(Number(row.period)))));
+  if (!hasTeachingSlot) return `${prefix}guru berkenaan tiada kelas yang memerlukan relief pada ${formatDate(date)}.`;
+  return `${prefix}tiada slot relief baharu. Slot mungkin dilindungi guru pairing atau reliefnya sudah diterbitkan.`;
 }
 
 async function cancelAbsence(id) {
@@ -437,7 +468,7 @@ function wireEvents() {
     const date=$('#reliefDate').value;
     if(!date||!dayCodeFromDate(date)) return toast('Pilih tarikh persekolahan Isnin hingga Jumaat.','error');
     currentDrafts=buildReliefDrafts(db,date);generatedReliefKey=reliefInputKey();renderDashboard();
-    toast(currentDrafts.length?`${currentDrafts.length} slot relief dijana. Semak sebelum terbitkan.`:'Tiada slot relief baharu. Semak jadual aktif, rekod guru tiada, pairing atau relief yang sudah diterbitkan.');
+    toast(currentDrafts.length?`${currentDrafts.length} slot relief dijana. Semak sebelum terbitkan.`:reliefEmptyMessage(date));
   });
   wireAdminEvents();
   $("#reliefDate").addEventListener("change",renderDashboard);
@@ -455,7 +486,8 @@ function wireEvents() {
   $("#mobileSettings").addEventListener("click", () => showView("tetapan"));
   $("#absenceFilterDate").addEventListener("change", renderAbsences);
   $("#absenceAllDay").addEventListener("change", (event) => $("#periodPicker").classList.toggle("hidden", event.target.checked));
-  $("#saveAbsence").addEventListener("click", saveAbsenceRecord);
+  $("#absenceForm").addEventListener("submit", saveAbsenceRecord);
+  $$('[data-close-absence]').forEach(button=>button.addEventListener('click',()=>$('#absenceDialog').close()));
   $("#addTeacher").addEventListener("click", () => openTeacherDialog());
   $("#teacherForm").addEventListener("submit", saveTeacherRecord);
   $$('[data-close-teacher]').forEach(button=>button.addEventListener('click',()=>$('#teacherDialog').close()));

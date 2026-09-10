@@ -25,3 +25,15 @@ test('teacher cancel controls cannot submit or trigger required field validation
   assert.equal(close.length,2);close.forEach(tag=>assert.match(tag,/type="button"/));
   assert.match(form,/<button type="submit" id="saveTeacher"/);
 });
+test('absence cancel controls cannot submit or trigger required field validation',()=>{
+  const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+  const form=html.slice(html.indexOf('<form id="absenceForm"'),html.indexOf('</form>',html.indexOf('<form id="absenceForm"')));
+  const close=form.match(/<button[^>]*data-close-absence[^>]*>/g);
+  assert.equal(close.length,2);close.forEach(tag=>assert.match(tag,/type="button"/));
+  assert.match(form,/<button type="submit" id="saveAbsence"/);
+  const app=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
+  assert.match(app,/\$\("#absenceForm"\)\.addEventListener\("submit", saveAbsenceRecord\)/);
+  assert.match(app,/\$\("#reliefDate"\)\.value = date/);
+  assert.match(app,/\$\("#absenceFilterDate"\)\.value = date/);
+  assert.match(app,/currentDrafts = buildReliefDrafts\(db, date\)/);
+});
