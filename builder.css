@@ -112,11 +112,17 @@
 #builderRoot .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r)}
 #builderRoot table.dt{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--panel)}
 #builderRoot table.dt th,#builderRoot table.dt td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
-#builderRoot table.dt th{background:var(--panel2);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink2);
+#builderRoot table.dt th{background:var(--panel2);font-size:12px;text-transform:uppercase;letter-spacing:.035em;color:var(--ink2);
   position:sticky;top:0;z-index:2}
 #builderRoot table.dt tr:last-child td{border-bottom:0}
 #builderRoot table.dt tbody tr:hover{background:var(--panel2)}
-#builderRoot table.dt td input,#builderRoot table.dt td select{padding:6px 8px;font-size:13px}
+#builderRoot table.dt td input,#builderRoot table.dt td select{padding:8px 9px;font-size:14px}
+#builderRoot .subject-table{min-width:1050px}
+#builderRoot .teacher-table{min-width:980px}
+#builderRoot .teacher-position{display:block;margin-top:5px;color:var(--ink2);font-size:12px;white-space:normal}
+#builderRoot .th-auto{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:750;text-transform:uppercase;cursor:pointer;padding:4px 2px}
+#builderRoot .th-auto span{display:block;color:var(--pri);font-size:10px;letter-spacing:0;text-transform:none}
+#builderRoot .th-auto:hover{color:var(--pri)}
 #builderRoot .empty{padding:26px;text-align:center;color:var(--ink2);font-size:14px}
 #builderRoot .alert{border-radius:var(--r2);padding:10px 12px;font-size:13.5px;margin:0 0 10px;border:1px solid transparent;line-height:1.5}
 #builderRoot .alert.ok{background:var(--ok-soft);color:var(--ok)}
@@ -137,7 +143,7 @@
 #builderRoot .cell{display:flex;flex-direction:column;justify-content:center;height:100%;gap:1px;border-radius:4px;padding:2px 1px;overflow:hidden}
 #builderRoot .cell .sub{font-size:10px;font-weight:750;letter-spacing:.02em;line-height:1.1}
 #builderRoot .cell .cls{font-weight:700;line-height:1.1;word-break:break-word}
-#builderRoot .cell .gr{font-size:9px;color:var(--ink2);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#builderRoot .cell .gr{font-size:9.5px;color:var(--ink2);line-height:1.15;white-space:normal;overflow-wrap:anywhere}
 #builderRoot td.has .cell{background:var(--sc,var(--pri-soft))}
 #builderRoot td.clash{outline:2px solid var(--bad);outline-offset:-2px}
 #builderRoot td.sel{outline:3px solid var(--pri);outline-offset:-3px}

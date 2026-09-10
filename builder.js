@@ -420,11 +420,10 @@ $('#logoIn').onchange=e=>{
    ============================================================ */
 VIEWS.subjek={t:'Subjek', r(){
   return `<div class="card"><h3>Senarai Subjek</h3>
-    <p class="hint">Kod dipaparkan dalam jadual. Tanda <b>Teras</b> + <b>Utamakan pagi</b> menjadikan subjek itu diletakkan pada waktu awal. <b>Kemudahan</b> menghadkan bilangan kelas yang boleh guna serentak (cth. PADANG).</p>
-    <div class="tblwrap"><table class="dt"><thead><tr>
-      <th style="width:80px">Kod</th><th>Nama Subjek</th><th style="width:70px">Warna</th>
+    <div class="tblwrap"><table class="dt subject-table"><thead><tr>
+      <th style="width:120px">Kod</th><th style="min-width:250px">Nama Subjek</th><th style="width:90px"><button class="th-auto" onclick="autoWarnaSubjek()" title="Tetapkan warna berlainan secara automatik">Warna <span>Auto</span></button></th>
       <th style="width:70px">Teras</th><th style="width:90px">Utama pagi</th>
-      <th style="width:100px">Waktu ganda</th><th style="width:130px">Kemudahan</th><th style="width:70px"></th>
+      <th style="width:125px" title="Benarkan subjek disusun dalam blok dua waktu berturut-turut">2 waktu terus</th><th style="width:145px">Kemudahan</th><th style="width:70px"></th>
     </tr></thead><tbody id="subBody">
     ${S.subjek.map((s,i)=>`<tr>
       <td><input value="${esc(s.kod)}" oninput="ubah(()=>S.subjek[${i}].kod=this.value.toUpperCase())"></td>
@@ -444,6 +443,14 @@ VIEWS.subjek={t:'Subjek', r(){
   </div>`;
 }};
 function tambahSubjek(){ ubah(()=>S.subjek.push({id:uid(),kod:'',nama:'',warna:PALET[S.subjek.length%PALET.length],teras:false,pagi:false,ganda:false,kemudahan:''})); ulang(); }
+function hslKeHex(h,s,l){
+  s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));
+  return '#'+[f(0),f(8),f(4)].map(x=>Math.round(255*x).toString(16).padStart(2,'0')).join('');
+}
+function autoWarnaSubjek(){
+  ubah(()=>S.subjek.forEach((subjek,index)=>subjek.warna=hslKeHex((index*137.508)%360,68,82)));
+  ulang();toast('Warna subjek dijana automatik');
+}
 function buangSubjek(id){ ask('Buang subjek ini beserta peruntukan &amp; agihannya?',()=>{
   ubah(()=>{ S.subjek=S.subjek.filter(s=>s.id!==id); delete S.peruntukan[id];
     S.agihan=S.agihan.filter(a=>a.subjekId!==id);
@@ -527,28 +534,25 @@ function doJanaKelas(){
 VIEWS.guru={t:'Guru', r(){
   const st=stat();
   return `<div class="card"><h3>Senarai Guru</h3>
-    <p class="hint">“Waktu tidak tersedia” menghalang guru daripada dijadualkan pada slot tersebut. Jawatan dan kelayakan relief diurus dalam tab utama Guru. Pada telefon, leret jadual ke sisi untuk melihat semua lajur.</p>
-    <div class="tblwrap"><table class="dt"><thead><tr>
-      <th style="width:70px">Gelaran</th><th style="min-width:240px">Nama / jawatan</th><th style="width:100px">Kod</th>
+    <div class="tblwrap"><table class="dt teacher-table"><thead><tr>
+      <th style="min-width:340px">Nama / jawatan</th><th style="width:135px">Kod</th>
       <th style="width:110px">Maks/hari</th><th style="width:120px">Beban</th>
       <th style="width:150px">Tidak tersedia</th><th style="width:60px"></th></tr></thead><tbody>
     ${S.guru.map((g,i)=>`<tr>
-      <td><select onchange="ubah(()=>S.guru[${i}].gelaran=this.value)">
-        ${['EN','PN','CIK','TN HJ','PN HJH','DR'].map(x=>`<option ${g.gelaran===x?'selected':''}>${x}</option>`).join('')}</select></td>
-      <td><input aria-label="Nama guru" value="${esc(g.nama)}" oninput="ubah(()=>S.guru[${i}].nama=this.value)"><small class="muted">${esc(g.jawatan || 'Profil pembina')}</small></td>
+      <td><input aria-label="Nama guru" value="${esc(g.nama)}" oninput="ubah(()=>S.guru[${i}].nama=this.value)">${g.jawatan?`<small class="teacher-position">${esc(g.jawatan)}</small>`:''}</td>
       <td><input value="${esc(g.kod||'')}" oninput="ubah(()=>S.guru[${i}].kod=this.value)"></td>
       <td><input type="number" min="1" max="20" value="${num(g.maxHari,8)}" oninput="ubah(()=>S.guru[${i}].maxHari=num(this.value,8))"></td>
       <td><span class="pill ${(st.bebanGuru[g.id]||0)>34?'warn':''}">${st.bebanGuru[g.id]||0} wkt</span></td>
       <td><button class="btn sm" onclick="editTidakAda('${g.id}')">${(g.tidakAda||[]).length} slot ▸</button></td>
       <td><button class="btn sm dgr" onclick="buangGuru('${g.id}')">✕</button></td></tr>`).join('')
-      ||`<tr><td colspan="7" class="empty">Belum ada guru.</td></tr>`}
+      ||`<tr><td colspan="6" class="empty">Belum ada guru.</td></tr>`}
     </tbody></table></div>
     <div class="row" style="margin-top:12px">
       <button class="btn pri" onclick="tambahGuru()">+ Tambah guru</button>
       <button class="btn" onclick="importGuruPukal()">📋 Tampal senarai nama</button>
     </div></div>`;
 }};
-function tambahGuru(){ ubah(()=>S.guru.push({id:uid(),nama:'',gelaran:'EN',kod:'',maxHari:8,tidakAda:[]})); ulang(); }
+function tambahGuru(){ ubah(()=>S.guru.push({id:uid(),nama:'',kod:'',maxHari:8,tidakAda:[]})); ulang(); }
 function buangGuru(id){ ask('Buang guru ini? Agihan subjeknya akan dikosongkan.',()=>{
   ubah(()=>{ S.guru=S.guru.filter(g=>g.id!==id);
     S.agihan.forEach(a=>{ if(a.guruId===id) a.guruId=''; a.pairGuruIds=(a.pairGuruIds||[]).filter(gid=>gid!==id); });
@@ -557,8 +561,8 @@ function buangGuru(id){ ask('Buang guru ini? Agihan subjeknya akan dikosongkan.'
   ulang(); }); }
 function importGuruPukal(){
   $('#dlgBody').innerHTML=`<h3>Tampal senarai nama guru</h3>
-    <p class="hint">Satu nama satu baris. Boleh guna format <code>Gelaran|Nama|Kod</code>.</p>
-    <textarea id="gpTxt" style="min-height:180px" placeholder="EN|MOHAMAD AZIZI BIN BASRI|AZIZI&#10;PN|NORHAYATI BINTI OSMAN|NORHA"></textarea>
+    <p class="hint">Satu nama satu baris. Kod ringkas boleh ditambah selepas tanda |.</p>
+    <textarea id="gpTxt" style="min-height:180px" placeholder="MOHAMAD AZIZI BIN BASRI|AZIZI&#10;NORHAYATI BINTI OSMAN|NORHA"></textarea>
     <div class="row" style="justify-content:flex-end;margin-top:12px">
       <button class="btn" onclick="dlg.close()">Batal</button>
       <button class="btn pri" onclick="doImportGuru()">Tambah</button></div>`;
@@ -568,8 +572,9 @@ function doImportGuru(){
   const baris=$('#gpTxt').value.split('\n').map(x=>x.trim()).filter(Boolean);
   ubah(()=>baris.forEach(b=>{
     const p=b.split('|').map(x=>x.trim());
-    const gelaran=p.length>1?p[0]:'EN', nama=p.length>1?p[1]:p[0], kod=p[2]||'';
-    if(nama) S.guru.push({id:uid(),nama:nama.toUpperCase(),gelaran,kod,maxHari:8,tidakAda:[]});
+    const gelaranLama=/^(EN|PN|CIK|TN HJ|PN HJH|DR)$/i.test(p[0]);
+    const nama=gelaranLama?p[1]:p[0],kod=gelaranLama?(p[2]||''):(p[1]||'');
+    if(nama) S.guru.push({id:uid(),nama:nama.toUpperCase(),kod,maxHari:8,tidakAda:[]});
   }));
   $('#dlg').close(); ulang(); toast(baris.length+' guru ditambah');
 }
@@ -696,7 +701,7 @@ function agihanIkutKelas(){
       <div style="align-self:flex-end"><span class="pill ${jum+acaraSemua>kap?'bad':''}">${jum} waktu + ${acaraSemua} slot tetap / ${kap}</span></div></div>
     <div class="tblwrap" style="margin-top:12px"><table class="dt"><thead><tr>
       <th style="min-width:170px">Subjek</th><th style="width:100px">Waktu</th>
-      <th style="width:110px">Blok 2 waktu</th><th style="min-width:200px">Guru utama</th><th style="min-width:170px">Kelas pairing</th></tr></thead><tbody>
+      <th style="width:130px">Bil. blok 2 waktu</th><th style="min-width:200px">Guru utama</th><th style="min-width:170px">Kelas pairing</th></tr></thead><tbody>
     ${rows.map(a=>{ const sb=subjekById(a.subjekId); if(!sb) return '';
       const i=S.agihan.indexOf(a);
       const asas=waktuDiperuntuk(a.kelasId,a.subjekId);
@@ -705,7 +710,7 @@ function agihanIkutKelas(){
       <td><input type="number" min="0" max="30" style="text-align:center" value="${waktuEfektif(a)}"
         title="Asas tahun: ${asas}" oninput="ubah(()=>S.agihan[${i}].waktu=this.value===''?'':num(this.value,0))"></td>
       <td><input type="number" min="0" max="6" style="text-align:center" value="${num(a.ganda,0)}"
-        ${sb.ganda?'':'disabled title="Aktifkan “Waktu ganda” pada subjek"'} oninput="ubah(()=>S.agihan[${i}].ganda=num(this.value,0))"></td>
+        ${sb.ganda?'':'disabled title="Aktifkan “2 waktu terus” pada subjek"'} oninput="ubah(()=>S.agihan[${i}].ganda=num(this.value,0))"></td>
       <td><select onchange="ubah(()=>{S.agihan[${i}].guruId=this.value;S.agihan[${i}].pairGuruIds=(S.agihan[${i}].pairGuruIds||[]).filter(id=>id!==this.value)});ulang()" style="${a.guruId?'':'border-color:var(--bad)'}">
         <option value="">— pilih guru —</option>
         ${S.guru.map(g=>`<option value="${g.id}" ${a.guruId===g.id?'selected':''}>${esc(g.nama)}</option>`).join('')}</select></td>
@@ -1666,7 +1671,7 @@ function lembaranGuru(id,padat){
   const kelasNya=S.kelas.filter(k=>k.guruKelas===id).map(k=>k.nama).join(', ');
   const rh=padat?'13mm':`min(30mm, calc(158mm / ${S.hari.length}))`;
   return `<div class="sheet ${padat?'compact':''}" style="--rowh:${rh}">
-    ${kepalaLembaran(S.sekolah.tajukGuru,(g.gelaran?g.gelaran+' ':'')+g.nama,`GURU KELAS:<br><span style="font-weight:400">${esc(kelasNya||'—')}</span>`)}
+    ${kepalaLembaran(S.sekolah.tajukGuru,g.nama,`GURU KELAS:<br><span style="font-weight:400">${esc(kelasNya||'—')}</span>`)}
     <div class="sh-body">
       <div class="sh-main">${jadualCetak('guru',id)}</div>
       <div class="sh-side">

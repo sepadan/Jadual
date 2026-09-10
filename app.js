@@ -1,11 +1,11 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.10";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.10";
-import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.10";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.10";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.10";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.10';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.10';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.10';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.11";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.11";
+import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.11";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.11";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.11";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.11';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.11';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.11';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -33,6 +33,16 @@ function uuid(prefix) { return `${prefix}-${Date.now().toString(36)}-${crypto.ge
 function todayIso() { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" }); }
 function formatDate(value, options = { day: "numeric", month: "short", year: "numeric" }) { return new Intl.DateTimeFormat("ms-MY", options).format(new Date(`${value}T12:00:00`)); }
 function teacherById(id) { return db.teachers.find((teacher) => teacher.id === id); }
+function clockValue(value,period,field='startTime') {
+  const raw=String(value??'').trim();
+  const clock=raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if(clock) return `${clock[1].padStart(2,'0')}:${clock[2]}`;
+  return PERIODS.find(item=>item.period===Number(period))?.[field]||'';
+}
+function normalizeDatabaseTimes(data) {
+  const normalize=row=>({...row,startTime:clockValue(row.startTime,row.period,'startTime'),endTime:clockValue(row.endTime,row.period,'endTime')});
+  return {...data,schedule:(data.schedule||[]).map(normalize),reliefs:(data.reliefs||[]).map(normalize)};
+}
 function storedAdminSession() {
   try {
     const session=JSON.parse(localStorage.getItem('jadual-admin-session')||'null');
@@ -182,7 +192,7 @@ function reliefCard(item) {
     candidateHtml = `<select class="candidate-select" data-id="${esc(item.id)}">${item.candidates.map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === item.replacementTeacherId ? "selected" : ""}>${esc(teacher.shortName)} · ${teacher.teachingToday} jadual + ${teacher.todayReliefs} relief</option>`).join("")}</select><div class="candidate-note">Jumlah waktu hari ini paling sedikit · had ${dailyReliefLimit(db)} relief sehari</div>`;
   }
   return `<article class="relief-card">
-    <div class="time-chip"><span class="period-bubble">${item.period}</span><span><strong>${esc(item.startTime)}–${esc(item.endTime)}</strong><small>Waktu ${item.period}</small></span></div>
+    <div class="time-chip"><span class="period-bubble">${item.period}</span><span><strong>${esc(clockValue(item.startTime,item.period,'startTime'))}–${esc(clockValue(item.endTime,item.period,'endTime'))}</strong><small>Waktu ${item.period}</small></span></div>
     <div class="lesson"><strong>${esc(item.className || "Aktiviti sekolah")} · ${esc(item.subject)}</strong><small class="teacher-away">Tiada: ${esc(absent?.shortName || absent?.name || "Guru")}</small></div>
     <div class="candidate">${candidateHtml}</div>
   </article>`;
@@ -248,7 +258,8 @@ function renderSchedule() {
   }
   $("#scheduleGrid").innerHTML = PERIODS.map((period) => {
     const row = rows.find((item) => Number(item.period) === period.period);
-    const time = row?.startTime || db.schedule.find(r => r.versionId === version.id && r.day === day && Number(r.period) === period.period)?.startTime || period.startTime;
+    const storedTime = row?.startTime || db.schedule.find(r => r.versionId === version.id && r.day === day && Number(r.period) === period.period)?.startTime;
+    const time = clockValue(storedTime,period.period,'startTime');
     return `<div class="schedule-cell ${row ? "" : "free"}"><span class="period">${period.period} · ${esc(time)}</span>${row ? `<strong>${esc(row.subject)}</strong><span>${esc(row.className || "Aktiviti")}</span>` : `<span style="margin-top:28px;color:#91a09c">Lapangan</span>`}</div>`;
   }).join("");
 }
@@ -509,7 +520,7 @@ async function syncData(showSuccess = true) {
     const wasAdmin=admin;
     const result = wasAdmin ? await api.bootstrap() : await api.publicData();
     if (wasAdmin !== admin) return;
-    if (result.data) db = { ...emptyDatabase(), ...result.data };
+    if (result.data) db = { ...emptyDatabase(), ...normalizeDatabaseTimes(result.data) };
     confirmedDb=structuredClone(db);failedWrites=0;renderAll();
     if (showSuccess) toast("Data Google Sheets telah dikemas kini.", "success");
   } catch (error) {
@@ -672,7 +683,7 @@ async function ensureBuilder() {
 }
 async function enterAdmin(result) {
   const snapshot=result.snapshot||await api.bootstrap();
-  db={...emptyDatabase(),...snapshot.data};confirmedDb=structuredClone(db);
+  db={...emptyDatabase(),...normalizeDatabaseTimes(snapshot.data)};confirmedDb=structuredClone(db);
   builderCloudLoaded=false;builderDirty=false;
   admin=true;window.systemAdminActive=true;sessionExpiry=result.expiresAt;
   localStorage.setItem('jadual-admin-session',JSON.stringify({token:api.token,expiresAt:sessionExpiry}));

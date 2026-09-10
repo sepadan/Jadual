@@ -10,3 +10,10 @@ test('teacher allocation exposes manual class pairing controls',()=>{
   assert.match(source,/pairGuruIds/);
   assert.match(source,/Guru yang dipilih akan dijadualkan bersama guru utama/);
 });
+
+test('builder uses readable subject controls and removes teacher title column',()=>{
+  assert.match(source,/onclick="autoWarnaSubjek\(\)"/);
+  assert.match(source,/2 waktu terus/);
+  assert.doesNotMatch(source,/<th style="width:70px">Gelaran<\/th>/);
+  assert.match(source,/class="dt teacher-table"/);
+});

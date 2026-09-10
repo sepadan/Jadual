@@ -214,7 +214,7 @@ function readObjects_(sheetName) {
     var object = {};
     headers.forEach(function(header, index) {
       var value = row[index];
-      if (value instanceof Date) value = Utilities.formatDate(value, Session.getScriptTimeZone() || "Asia/Kuala_Lumpur", "yyyy-MM-dd");
+      if (value instanceof Date) value = Utilities.formatDate(value, Session.getScriptTimeZone() || "Asia/Kuala_Lumpur", /Time$/i.test(header) ? "HH:mm" : "yyyy-MM-dd");
       object[header] = value;
     });
     return object;
