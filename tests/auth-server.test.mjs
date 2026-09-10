@@ -19,6 +19,11 @@ test('only admin with the correct password receives a session',()=>{
   const login=context.login_({username:'admin',password:'admin'});assert.ok(login.token);assert.equal(login.mustChangePassword,true);assert.doesNotThrow(()=>context.requireSession_(login.token));
   context.logout_(login.token);assert.throws(()=>context.requireSession_(login.token),/AUTH_REQUIRED/);
 });
+test('login can return the data snapshot in the same request',()=>{
+  const {context}=server();context.bootstrap_=()=>({ok:true,data:{teachers:[{id:'t1'}]}});
+  const reply=context.doPost({postData:{contents:JSON.stringify({action:'login',data:{username:'admin',password:'admin',includeBootstrap:true}})}});
+  assert.equal(reply.ok,true);assert.equal(reply.snapshot.data.teachers[0].id,'t1');
+});
 test('password change revokes existing sessions and requires current password',()=>{
   const {context}=server();const login=context.login_({username:'admin',password:'admin'});
   assert.throws(()=>context.changePassword_({currentPassword:'wrong',newPassword:'new-strong-password'}));

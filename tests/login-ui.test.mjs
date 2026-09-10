@@ -27,8 +27,12 @@ test('login shows progress, rejects duplicate submissions and restores button',a
   h.resolve();await pending;
   assert.equal(h.$('#submitLogin').disabled,false);assert.equal(h.$('#submitLogin').textContent,'Login');
 });
-test('builder is parallel with bootstrap and appears only inside Jadual navigation',()=>{
-  assert.ok(source.includes('Promise.all([api.bootstrap(),ensureBuilder()])'));
+test('builder is lazy-loaded outside the login path and appears only inside Jadual navigation',()=>{
+  const openLogin=source.slice(source.indexOf('function openLogin()'),source.indexOf('\nasync function ensureBuilder()'));
+  const enterAdmin=source.slice(source.indexOf('async function enterAdmin'),source.indexOf('\nasync function leaveAdmin'));
+  assert.ok(!openLogin.includes('ensureBuilder'));
+  assert.ok(enterAdmin.includes('result.snapshot||await api.bootstrap()'));
+  assert.ok(!enterAdmin.includes('ensureBuilder'));
   const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const nav=html.slice(html.indexOf('<nav'),html.indexOf('</nav>'));
   assert.ok(!nav.includes('data-builder-open'));

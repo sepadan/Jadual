@@ -1,10 +1,10 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.6";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.6";
-import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.6";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.6";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.6";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.6';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.6';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.7";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.7";
+import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.7";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.7";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.7";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.7';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.7';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -13,7 +13,8 @@ let api = new ApiClient(config);
 let db = emptyDatabase();
 db.teachers = [];
 let confirmedDb = structuredClone(db);
-let admin = false, writeBusy = false, builderRevision = 0, builderDirty = false, restoringBuilder = false;
+let admin = false, builderRevision = 0, builderDirty = false, restoringBuilder = false, builderSaving = false, builderCloudLoaded = false;
+let pendingWrites = 0, failedWrites = 0, writeQueue = Promise.resolve(), syncPromise = null;
 let sessionExpiry = 0;
 let importResult = null;
 let currentDrafts = [];
@@ -86,9 +87,17 @@ function setScheduleMode(mode) {
 
 function updateConnectionUi() {
   const configured = api.isConfigured();
-  $("#syncDot").classList.toggle("online", configured && navigator.onLine);
-  $("#syncLabel").textContent = configured ? (navigator.onLine ? "Google Sheets" : "Luar talian") : "Belum disambungkan";
-  $("#systemNotice").textContent = !configured ? "Sambungan sekolah belum disediakan. Login admin memerlukan pelayan sekolah." : admin ? "Admin · semua perubahan disimpan dalam Google Sheets sekolah" : "Paparan umum · jadual diterbitkan oleh admin";
+  $("#syncDot").classList.toggle("online", configured && navigator.onLine && !failedWrites);
+  $("#syncLabel").textContent = pendingWrites ? `Menyimpan ${pendingWrites}…` : failedWrites ? "Belum tersimpan" : configured ? (navigator.onLine ? "Google Sheets · masa nyata" : "Luar talian") : "Belum disambungkan";
+  $("#systemNotice").textContent = !configured
+    ? "Sambungan sekolah belum disediakan. Login admin memerlukan pelayan sekolah."
+    : admin
+      ? failedWrites
+        ? `${failedWrites} perubahan belum sampai ke Google Sheets. Tekan segar semula untuk mendapatkan keadaan pelayan.`
+        : pendingWrites
+          ? "Perubahan sudah dipaparkan · sedang disimpan di belakang"
+          : "Admin · perubahan dipaparkan serta-merta dan disegerakkan ke Google Sheets"
+      : "Paparan umum · jadual dikemas kini hampir masa nyata";
   $("#revisionLabel").textContent = db.revision || 0;
   $("#lastUpdated").textContent = db.updatedAt ? new Intl.DateTimeFormat("ms-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date(db.updatedAt)) : "—";
 }
@@ -224,7 +233,7 @@ function openAbsenceDialog() {
   $("#absenceDialog").showModal();
 }
 
-async function saveAbsenceRecord(event) {
+function saveAbsenceRecord(event) {
   event.preventDefault();
   if (!requireAdmin()) return;
   const teacherId = $("#absenceTeacher").value;
@@ -247,7 +256,7 @@ async function saveAbsenceRecord(event) {
   const message = currentDrafts.length
     ? `Ketiadaan disimpan. ${currentDrafts.length} slot relief dijana untuk semakan.`
     : reliefEmptyMessage(date, true);
-  await remoteWrite("saveAbsence", absence, message);
+  remoteWrite("saveAbsence", absence, message);
 }
 
 function reliefEmptyMessage(date, saved = false) {
@@ -269,12 +278,12 @@ function reliefEmptyMessage(date, saved = false) {
   return `${prefix}tiada slot relief baharu. Slot mungkin dilindungi guru pairing atau reliefnya sudah diterbitkan.`;
 }
 
-async function cancelAbsence(id) {
+function cancelAbsence(id) {
   if (!requireAdmin()) return;
   const item = db.absences.find((absence) => absence.id === id);
   if (!item || !confirm("Batalkan rekod ketiadaan ini?")) return;
   item.status = "cancelled"; item.updatedAt = new Date().toISOString(); persist(); renderAll();
-  await remoteWrite("saveAbsence", item, "Rekod dibatalkan.");
+  remoteWrite("saveAbsence", item, "Rekod dibatalkan.");
 }
 
 function openTeacherDialog(id = "") {
@@ -289,7 +298,7 @@ function openTeacherDialog(id = "") {
   $("#teacherDialog").showModal();
 }
 
-async function saveTeacherRecord(event) {
+function saveTeacherRecord(event) {
   event.preventDefault();
   if (!requireAdmin()) return;
   const existingId = $("#teacherId").value;
@@ -311,13 +320,13 @@ async function saveTeacherRecord(event) {
   const index = db.teachers.findIndex((item) => item.id === teacher.id);
   if (index >= 0) db.teachers[index] = teacher; else db.teachers.push(teacher);
   persist(); $("#teacherDialog").close(); renderAll();
-  await remoteWrite("saveTeacher", teacher, "Maklumat guru disimpan.");
+  remoteWrite("saveTeacher", teacher, "Maklumat guru disimpan.");
 }
 
 async function uploadTeacherDirectory(event) {
   const file=event.target.files[0];event.target.value='';
   if(!file||!requireAdmin()) return;
-  const status=$('#teacherTransferStatus');let saved=0, total=0, ownsWrite=false;
+  const status=$('#teacherTransferStatus');let total=0;
   try {
     if(file.size>2*1024*1024) throw new Error('Fail terlalu besar. Maksimum 2 MB.');
     const preview=importTeachers(await file.text(),db.teachers);
@@ -325,38 +334,41 @@ async function uploadTeacherDirectory(event) {
     if(!total) {status.textContent=`Tiada guru baharu. ${preview.skipped} nama sedia ada atau berulang diabaikan.`;return;}
     if(!confirm(`Tambah ${total} guru baharu ke Sheets? ${preview.skipped} nama sedia ada/berulang diabaikan. Rekod sedia ada tidak diubah.`)) return;
     if(!requireAdmin()) return;
-    writeBusy=true;ownsWrite=true;
-    $('#uploadTeachers').disabled=true;
-    for(const entry of preview.teachers) {
-      if(!admin||Date.now()>=sessionExpiry) throw new Error('Sesi tamat. Login semula untuk menyambung.');
-      status.textContent=`Menyimpan guru ${saved+1} daripada ${total}… Jangan tutup halaman.`;
+    const writes=preview.teachers.map(entry=>{
       const now=new Date().toISOString();
       const teacher={...entry,id:`g-${crypto.randomUUID()}`,createdAt:now,updatedAt:now};
-      await api.write('saveTeacher',teacher);
-      db.teachers.push(teacher);confirmedDb=structuredClone(db);saved++;
-    }
-    status.textContent=`Selesai: ${saved} guru ditambah; ${preview.skipped} nama diabaikan.`;
+      db.teachers.push(teacher);
+      return remoteWrite('saveTeacher',teacher,"");
+    });
+    persist();renderAll();
+    status.textContent=`${total} guru ditambah pada paparan. Penyimpanan ke Sheets berjalan di belakang…`;
+    Promise.all(writes).then(results=>{
+      const saved=results.filter(Boolean).length;
+      status.textContent=saved===total
+        ? `Selesai: ${saved} guru disimpan; ${preview.skipped} nama diabaikan.`
+        : `${saved} daripada ${total} guru disimpan. Semak status Google Sheets di bawah menu.`;
+    });
   } catch(error) {
-    status.textContent=`${saved} daripada ${total} guru disahkan disimpan. ${error.message} Jika sambungan terputus, muat semula data sebelum mengimport semula.`;
-  } finally {if(ownsWrite) writeBusy=false;$('#uploadTeachers').disabled=false;persist();renderAll();}
+    status.textContent=`Import tidak dapat dimulakan. ${error.message}`;
+  }
 }
 
-async function archiveTeacher(id) {
+function archiveTeacher(id) {
   if (!requireAdmin()) return;
   const teacher = teacherById(id);
   if (!teacher || !confirm(`Nyahaktifkan ${teacher.name}? Rekod sejarah tidak akan dipadam.`)) return;
   teacher.active = false; teacher.updatedAt = new Date().toISOString(); persist(); renderAll();
-  await remoteWrite("saveTeacher", teacher, "Guru dinyahaktifkan.");
+  remoteWrite("saveTeacher", teacher, "Guru dinyahaktifkan.");
 }
 
-async function publishReliefs() {
+function publishReliefs() {
   if (!requireAdmin()) return;
   const errors = validateReliefs(db, currentDrafts);
   if (errors.length) return toast(errors[0], "error");
   const now = new Date().toISOString();
   const records = currentDrafts.map(({ candidates, ...item }) => ({ ...item, status: "published", createdAt: now, updatedAt: now }));
   db.reliefs.push(...records); persist(); renderAll();
-  await remoteWrite("saveReliefs", records, `${records.length} relief diterbitkan.`);
+  remoteWrite("saveReliefs", records, `${records.length} relief diterbitkan.`);
 }
 
 async function parsePdf() {
@@ -414,39 +426,62 @@ async function saveImportedSchedule() {
   if (version.status === "active") db.scheduleVersions.forEach((item) => { if (item.status === "active") item.status = "superseded"; });
   const rows = importResult.rows.map((row) => ({ ...row, versionId: version.id }));
   db.scheduleVersions.push(version); db.schedule.push(...rows); persist(); renderAll(); setScheduleMode("relief"); showView("jadual");
-  await remoteWrite("importSchedule", { version, rows }, `${rows.length} slot jadual disimpan.`);
+  remoteWrite("importSchedule", { version, rows }, `${rows.length} slot jadual disimpan.`);
 }
 
-async function remoteWrite(action, data, successMessage) {
-  if (!admin) return;
-  writeBusy = true;
-  try {
-    const result = await api.write(action, data);
-    if (!admin) return;
-    db.revision = result.revision ?? db.revision; db.updatedAt = result.updatedAt || db.updatedAt; persist();
-    confirmedDb = structuredClone(db);
-    toast(successMessage, "success");
-  } catch (error) {
-    db = structuredClone(confirmedDb); renderAll();
-    toast(`Simpanan tidak dapat disahkan. Segerakkan data sebelum cuba lagi. ${error.message}`, "error");
-    if (error.code === 'AUTH_REQUIRED') await leaveAdmin();
-  } finally {writeBusy=false;}
+function remoteWrite(action, data, successMessage) {
+  if (!admin) return Promise.resolve(false);
+  const client=new ApiClient({...config});client.token=api.token;
+  const payload=structuredClone(data);
+  const queuedToken=api.token;
+  pendingWrites+=1;updateConnectionUi();
+  const run=async()=>{
+    try {
+      const result=await client.write(action,payload);
+      if(admin&&api.token===queuedToken) {
+        db.revision=Math.max(Number(db.revision||0),Number(result.revision||0));
+        db.updatedAt=result.updatedAt||db.updatedAt;confirmedDb=structuredClone(db);persist();
+      }
+      if(successMessage) toast(successMessage,"success");
+      return true;
+    } catch(error) {
+      failedWrites+=1;
+      toast(`Perubahan kekal pada paparan tetapi belum tersimpan. ${error.message}`,"error");
+      if(error.code==='AUTH_REQUIRED'&&admin&&api.token===queuedToken) setTimeout(()=>leaveAdmin(),0);
+      return false;
+    } finally {pendingWrites-=1;updateConnectionUi();}
+  };
+  const operation=writeQueue.then(run,run);
+  writeQueue=operation.then(()=>undefined,()=>undefined);
+  return operation;
 }
 
 async function syncData(showSuccess = true) {
   if (!api.isConfigured()) return showSuccess && toast("Tetapkan URL API di bahagian Tetapan.");
+  if(syncPromise) return syncPromise;
+  if(pendingWrites) return showSuccess&&toast("Simpanan sedang berjalan di belakang.");
+  if(failedWrites&&showSuccess&&!confirm("Ada perubahan yang belum sampai ke Sheets. Segerakkan semula dan gunakan data pelayan?")) return;
   $("#syncButton").disabled = true;
-  try {
+  syncPromise=(async()=>{try {
     const wasAdmin=admin;
     const result = wasAdmin ? await api.bootstrap() : await api.publicData();
     if (wasAdmin !== admin) return;
     if (result.data) db = { ...emptyDatabase(), ...result.data };
-    confirmedDb=structuredClone(db); renderAll();
+    confirmedDb=structuredClone(db);failedWrites=0;renderAll();
     if (showSuccess) toast("Data Google Sheets telah dikemas kini.", "success");
   } catch (error) {
     if (showSuccess) toast(error.message, "error");
     if(error.code==='AUTH_REQUIRED') await leaveAdmin();
-  } finally { $("#syncButton").disabled = false; }
+  } finally { $("#syncButton").disabled = false;syncPromise=null; }})();
+  return syncPromise;
+}
+
+async function syncIfChanged() {
+  if(document.hidden||!navigator.onLine||!api.isConfigured()||pendingWrites||failedWrites||syncPromise) return;
+  try {
+    const status=await api.status();
+    if(Number(status.revision||0)>Number(db.revision||0)) await syncData(false);
+  } catch {}
 }
 
 function populatePeriodPicker() {
@@ -454,12 +489,12 @@ function populatePeriodPicker() {
 }
 
 function wireEvents() {
-  $('#saveReliefSettings').addEventListener('click',async()=>{
+  $('#saveReliefSettings').addEventListener('click',()=>{
     if(!requireAdmin()) return;
     const input=$('#dailyReliefLimit');
     if(!input.reportValidity()) return;
     db.reliefSettings={dailyLimit:Number(input.value),ignorePairingWhenCovered:$('#ignorePairingWhenCovered').checked};
-    await remoteWrite('saveReliefSettings',db.reliefSettings,'Had relief harian disimpan ke Sheets.');
+    remoteWrite('saveReliefSettings',db.reliefSettings,'Had relief harian disimpan ke Sheets.');
     renderAll();
   });
   $('#generateRelief').addEventListener('click',()=>{
@@ -480,7 +515,13 @@ function wireEvents() {
   $("#useBuilderSchedule").addEventListener("click", previewBuilderSchedule);
   $("#confirmBuilderPublish").addEventListener("click", publishBuilderSchedule);
   $$('[data-view]').forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
-  $$('[data-schedule-mode]').forEach((button) => button.addEventListener("click", () => setScheduleMode(button.dataset.scheduleMode)));
+  $$('[data-schedule-mode]').forEach((button) => button.addEventListener("click", async () => {
+    if(button.dataset.scheduleMode==='generator') {
+      if(!requireAdmin()) return;
+      try {await ensureBuilder();} catch(error) {return toast(error.message,'error');}
+    }
+    setScheduleMode(button.dataset.scheduleMode);
+  }));
   $$('[data-open-absence]').forEach((button) => button.addEventListener("click", openAbsenceDialog));
   $("#openAbsence").addEventListener("click", openAbsenceDialog);
   $("#mobileSettings").addEventListener("click", () => showView("tetapan"));
@@ -517,6 +558,9 @@ function wireEvents() {
   window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; $("#installButton").classList.remove("hidden"); });
   window.addEventListener("online", () => { updateConnectionUi(); if (config.autoSync) syncData(false); });
   window.addEventListener("offline", updateConnectionUi);
+  window.addEventListener("focus",syncIfChanged);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden) syncIfChanged();});
+  setInterval(syncIfChanged,8000);
 }
 
 function init() {
@@ -547,49 +591,54 @@ async function resumeSession() {
 
 function requireAdmin() {
   if(!admin || Date.now()>=sessionExpiry) {openLogin();return false;}
-  if(writeBusy) {toast('Tunggu simpanan semasa selesai.');return false;}
   return true;
 }
 function openLogin() {
   $('#loginError').textContent='';$('#loginSetup').classList.toggle('hidden',api.isConfigured());
   $('#loginApiUrl').value=config.apiUrl;$('#loginDialog').showModal();
   $('#loginPassword').focus();
-  // Public static code only: no private data is requested before authentication.
-  ensureBuilder().catch(() => {});
 }
 async function ensureBuilder() {
-  if(window.jadualBuilder) return;
-  if (!builderLoadPromise) builderLoadPromise = new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`./builder.js?v=${APP_VERSION}`;script.onload=resolve;script.onerror=()=>{script.remove();builderLoadPromise=null;reject(new Error('Pembina gagal dimuatkan. Cuba login semula.'));};document.body.appendChild(script);});
+  if (!window.jadualBuilder&&!builderLoadPromise) builderLoadPromise = new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`./builder.js?v=${APP_VERSION}`;script.onload=resolve;script.onerror=()=>{script.remove();builderLoadPromise=null;reject(new Error('Pembina gagal dimuatkan. Cuba lagi.'));};document.body.appendChild(script);});
   await builderLoadPromise;
+  if(!admin||builderCloudLoaded) return;
+  let cloud;
+  try {cloud=await api.builderData();}
+  catch(error) {
+    if(error.code==='AUTH_REQUIRED') throw error;
+    const snapshot=await api.bootstrap();cloud={builder:snapshot.builder};
+  }
+  restoringBuilder=true;
+  if(cloud.builder?.state) window.jadualBuilder.setState(cloud.builder.state);
+  builderRevision=cloud.builder?.revision||0;
+  if(!window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
+  restoringBuilder=false;builderDirty=false;builderCloudLoaded=true;
+  $('#builderCloudStatus').textContent=cloud.builder?.state?'Draf Sheets telah dimuatkan':'Draf baharu — simpan ke Sheets apabila siap';
 }
 async function enterAdmin(result) {
-  const [snapshot]=await Promise.all([api.bootstrap(),ensureBuilder()]);
+  const snapshot=result.snapshot||await api.bootstrap();
   db={...emptyDatabase(),...snapshot.data};confirmedDb=structuredClone(db);
-  restoringBuilder=true;
-  if(snapshot.builder?.state) window.jadualBuilder.setState(snapshot.builder.state);
-  builderRevision=snapshot.builder?.revision||0;
-  if(!window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
-  restoringBuilder=false;builderDirty=false;
+  builderCloudLoaded=false;builderDirty=false;
   admin=true;window.systemAdminActive=true;sessionExpiry=result.expiresAt;
   localStorage.setItem('jadual-admin-session',JSON.stringify({token:api.token,expiresAt:sessionExpiry}));
   document.body.classList.remove('public-mode');$('#loginButton').classList.add('hidden');
-  $('#builderCloudStatus').textContent=snapshot.builder?.state?'Draf Sheets telah dimuatkan':'Draf baharu — simpan ke Sheets apabila siap';
+  $('#builderCloudStatus').textContent='Pembina akan dimuatkan apabila dibuka';
   $('#passwordNotice').textContent=result.mustChangePassword?'Kata laluan awal masih digunakan. Tukar kepada kata laluan yang lebih kuat.':'';
   $('#loginDialog').close();$('#loginPassword').value='';renderAll();
 }
 async function leaveAdmin() {
-  const previous=api;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');
+  const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');
   document.body.classList.add('public-mode');$('#loginButton').classList.remove('hidden');
-  restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;
+  restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;builderCloudLoaded=false;
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';
   $$('dialog').forEach(d=>{d.close();d.querySelector('form')?.reset();});
   db=emptyDatabase();db.teachers=[];confirmedDb=structuredClone(db);$('#scheduleType').value='teacher';setScheduleMode('relief');showView('jadual');
-  api=new ApiClient(config);await previous.logout().catch(()=>{});await syncData(false);
+  api=new ApiClient(config);await finalWrites;await previous.logout().catch(()=>{});await syncData(false);
 }
 async function saveBuilderCloud() {
   if(!admin||restoringBuilder) return;
-  if(writeBusy) {$('#builderCloudStatus').textContent='Belum disimpan — tunggu simpanan semasa selesai.';return;}
-  writeBusy=true;const state=window.jadualBuilder.getState();const fingerprint=JSON.stringify(state);
+  if(builderSaving) {$('#builderCloudStatus').textContent='Simpanan sedang berjalan · perubahan baharu boleh diteruskan';return;}
+  builderSaving=true;const state=window.jadualBuilder.getState();const fingerprint=JSON.stringify(state);
   $('#builderCloudStatus').textContent='Menyimpan draf ke Sheets…';
   try {
     const result=await api.write('saveBuilder',{baseRevision:builderRevision,state});
@@ -597,7 +646,7 @@ async function saveBuilderCloud() {
     builderRevision=result.result.builderRevision;builderDirty=JSON.stringify(window.jadualBuilder.getState())!==fingerprint;
     $('#builderCloudStatus').textContent=builderDirty?'Ada perubahan baharu — tekan Simpan draf':'Semua perubahan draf disimpan di Sheets';
   } catch(error) {builderDirty=true;$('#builderCloudStatus').textContent=`Belum disimpan: ${error.message}`;if(error.code==='AUTH_REQUIRED') await leaveAdmin();}
-  finally {writeBusy=false;}
+  finally {builderSaving=false;}
 }
 function wireAdminEvents() {
   $('#pdfToBuilder').addEventListener('click',async()=>{
@@ -680,6 +729,6 @@ async function publishBuilderSchedule(event) {
     db.scheduleVersions.forEach(v => {if(v.status === "active") v.status = "superseded";});
     db.scheduleVersions.push(version); db.schedule.push(...rows); persist();
     $("#builderPublishDialog").close(); setScheduleMode("relief"); renderAll();
-    await remoteWrite("importSchedule", {version,rows}, "Jadual binaan diaktifkan untuk relief.");
+    remoteWrite("importSchedule", {version,rows}, "Jadual binaan diaktifkan untuk relief.");
   } catch (error) { toast(error.message, "error"); }
 }

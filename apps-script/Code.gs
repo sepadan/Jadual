@@ -74,7 +74,8 @@ function database_() {
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.0.0", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.0.7", auth: "session" });
+    if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     if (action === "public") {var lock=LockService.getScriptLock();lock.waitLock(20000);try{return output_(publicBootstrap_());}finally{lock.releaseLock();}}
     return output_({ ok: false, error: "Tindakan GET tidak dikenali." });
   } catch (error) {
@@ -85,13 +86,21 @@ function doGet(e) {
 function doPost(e) {
   try {
     var request = JSON.parse((e && e.postData && e.postData.contents) || "{}");
-    if(request.action==='login') return output_(login_(request.data||{}));
+    if(request.action==='login') {
+      var login=login_(request.data||{});
+      if(request.data&&request.data.includeBootstrap) {
+        var loginLock=LockService.getScriptLock();loginLock.waitLock(20000);
+        try {login.snapshot=bootstrap_(-1);} finally {loginLock.releaseLock();}
+      }
+      return output_(login);
+    }
     requireSession_(request.token);
     if(request.action==='logout') return output_(logout_(request.token));
     var lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
       if(request.action==='bootstrap') {var snapshot=bootstrap_(-1);snapshot.builder=readBuilder_();return output_(snapshot);}
+      if(request.action==='builder') return output_({ok:true,builder:readBuilder_()});
       var result = routeWrite_(request.action, request.data || {});
       var revision = bumpRevision_();
       return output_({ ok: true, revision: revision, updatedAt: configValue_("UPDATED_AT"), result: result });
