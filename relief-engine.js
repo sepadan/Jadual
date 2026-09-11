@@ -1,5 +1,5 @@
-import { coverageRows, fullyCoveredIds, sharedPairKey, sharedPairs } from "./teacher-coverage.js?v=3.1.21";
-import { DAY_CODES, PERIODS } from "./data.js?v=3.1.21";
+import { coverageRows, fullyCoveredIds, sharedPairKey, sharedPairs } from "./teacher-coverage.js?v=3.1.22";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.1.22";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
@@ -133,7 +133,22 @@ function mondayOf(dateText) {
   return date.toISOString().slice(0, 10);
 }
 
-export function rankCandidates({ db, date, day, period, absentTeacherId }) {
+function clockMinutes(value) {
+  const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59 ? hours * 60 + minutes : null;
+}
+
+function preschoolAvailable(teacher, startTime) {
+  if (teacher.position !== "Guru Prasekolah") return true;
+  const sessionEnd = clockMinutes(teacher.preschoolEndTime);
+  const reliefStart = clockMinutes(startTime);
+  return sessionEnd !== null && reliefStart !== null && reliefStart >= sessionEnd;
+}
+
+export function rankCandidates({ db, date, day, period, startTime, absentTeacherId }) {
   const rows = activeScheduleRows(db, date);
   const hidden = coverageHiddenIds(db);
   const absent = new Set((db.absences || [])
@@ -157,7 +172,7 @@ export function rankCandidates({ db, date, day, period, absentTeacherId }) {
   rows.filter((row) => row.day === day).forEach((row) => teachingCounts.set(row.teacherId, (teachingCounts.get(row.teacherId) || 0) + 1));
 
   return (db.teachers || [])
-    .filter((teacher) => teacher.active && !hidden.has(teacher.id) && teacher.reliefEligible && teacher.id !== absentTeacherId)
+    .filter((teacher) => teacher.active && !hidden.has(teacher.id) && teacher.reliefEligible && preschoolAvailable(teacher, startTime) && teacher.id !== absentTeacherId)
     .filter((teacher) => !absent.has(teacher.id) && !busy.has(teacher.id) && !reliefBusy.has(teacher.id))
     .map((teacher) => {
       const today = todayCounts.get(teacher.id) || 0;
@@ -199,13 +214,14 @@ export function buildReliefDrafts(db, date) {
           if (coveredSlots.has(slot)) return;
           coveredSlots.add(slot);
           if(db.reliefSettings?.ignorePairingWhenCovered && hasPresentPair(db,date,row,rows)) return;
-          const candidates = rankCandidates({ db: {...db, reliefs:[...db.reliefs,...drafts]}, date, day, period: row.period, absentTeacherId: absence.teacherId });
+          const startTime = row.startTime || PERIODS.find((p) => p.period === Number(row.period))?.startTime || "";
+          const candidates = rankCandidates({ db: {...db, reliefs:[...db.reliefs,...drafts]}, date, day, period: row.period, startTime, absentTeacherId: absence.teacherId });
           drafts.push({
             id: `r-${date}-${absence.teacherId}-${row.period}`,
             date,
             day,
             period: Number(row.period),
-            startTime: row.startTime || PERIODS.find((p) => p.period === Number(row.period))?.startTime || "",
+            startTime,
             endTime: row.endTime || PERIODS.find((p) => p.period === Number(row.period))?.endTime || "",
             absentTeacherId: absence.teacherId,
             replacementTeacherId: candidates[0]?.id || "",
@@ -244,6 +260,7 @@ export function validateReliefs(db, reliefs) {
       date: item.date,
       day: item.day,
       period: item.period,
+      startTime: item.startTime || PERIODS.find((p) => p.period === Number(item.period))?.startTime || "",
       absentTeacherId: item.absentTeacherId,
     }).some((teacher) => teacher.id === item.replacementTeacherId);
     if (item.replacementTeacherId && !eligible) errors.push(`Pilihan guru ganti bagi waktu ${item.period} sudah tidak tersedia.`);

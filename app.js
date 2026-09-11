@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.21";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.21";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.21";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.21";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.21";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.21";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.21';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.21';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.21';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.21';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.22";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.22";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.22";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.22";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.22";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.22";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.22';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.22';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.22';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.22';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -389,18 +389,52 @@ function renderTeachers() {
   if (!admin) {$("#teacherList").innerHTML="";return;}
   const query = $("#teacherSearch").value.trim().toUpperCase();
   const teachers = activeTeachers().filter((teacher) => !query || `${teacher.name} ${teacher.position}`.includes(query));
-  $("#teacherList").innerHTML = teachers.map((teacher) => `<article class="teacher-card">
-    <span class="avatar">${esc(initials(teacher.name))}</span><div><h3>${esc(teacher.name)}</h3><p>${esc(teacher.position)} · ${teacher.reliefEligible ? "Layak relief" : "Dikecualikan"}</p>${coverLine(teacher)}</div>
+  $("#teacherList").innerHTML = teachers.map((teacher) => `<article class="teacher-card ${teacherReliefReady(teacher) ? "relief-eligible" : "relief-excluded"}">
+    <button type="button" class="teacher-card-toggle" data-toggle-relief="${esc(teacher.id)}" aria-pressed="${teacherReliefReady(teacher)}" title="Tukar kelayakan relief ${esc(teacher.name)}">
+      <span class="avatar">${esc(initials(teacher.name))}</span><span class="teacher-card-copy"><span class="teacher-name">${esc(teacher.name)}</span><span class="teacher-status">${esc(teacher.position)} · ${esc(teacherReliefStatus(teacher))}</span>${coverLine(teacher)}</span>
+    </button>
     <div class="teacher-actions"><button class="mini-button" data-edit-teacher="${esc(teacher.id)}" title="Ubah">✎</button><button class="mini-button delete" data-delete-teacher="${esc(teacher.id)}" title="Padam">×</button></div>
   </article>`).join("");
+  $$('[data-toggle-relief]').forEach((button) => button.addEventListener("click", () => toggleTeacherReliefEligibility(button.dataset.toggleRelief)));
   $$('[data-edit-teacher]').forEach((button) => button.addEventListener("click", () => openTeacherDialog(button.dataset.editTeacher)));
   $$('[data-delete-teacher]').forEach((button) => button.addEventListener("click", () => removeTeacherRecord(button.dataset.deleteTeacher)));
+}
+
+function validClockTime(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value || "");
+}
+
+function teacherReliefReady(teacher) {
+  return !!teacher.reliefEligible && (teacher.position !== "Guru Prasekolah" || validClockTime(teacher.preschoolEndTime));
+}
+
+function teacherReliefStatus(teacher) {
+  if (!teacher.reliefEligible) return "Dikecualikan";
+  if (teacher.position === "Guru Prasekolah" && !validClockTime(teacher.preschoolEndTime)) return "Dikecualikan · tetapkan masa tamat";
+  return teacher.position === "Guru Prasekolah" ? `Layak relief selepas ${teacher.preschoolEndTime}` : "Layak relief";
+}
+
+function toggleTeacherReliefEligibility(id) {
+  if (!requireAdmin()) return;
+  const teacher = teacherById(id);
+  if (!teacher) return;
+  if (teacher.position === "Guru Prasekolah" && !validClockTime(teacher.preschoolEndTime)) {
+    openTeacherDialog(id);
+    $("#teacherEligible").checked = true;
+    toast("Tetapkan masa tamat sesi prasekolah sebelum melayakkan guru ini.", "info");
+    return;
+  }
+  teacher.reliefEligible = !teacher.reliefEligible;
+  teacher.updatedAt = new Date().toISOString();
+  persist();
+  renderAll();
+  remoteWrite("saveTeacher", teacher, teacher.reliefEligible ? "Guru layak menerima relief." : "Guru dikecualikan daripada relief.");
 }
 
 // The covering teacher's card names who they replace, so the link is visible without opening the dialog.
 function coverLine(teacher) {
   const label = coverageLabel({ teachers: db.teachers, teacherId: teacher.id });
-  return label ? `<p class="cover-line">Menggantikan ${esc(label)}</p>` : "";
+  return label ? `<span class="cover-line">Menggantikan ${esc(label)}</span>` : "";
 }
 
 function renderSchedule() {
@@ -512,6 +546,8 @@ function openTeacherDialog(id = "") {
   positionSelect.value=standard?position:'__other__';
   $('#teacherPositionOther').value=standard?'':position;
   toggleTeacherPositionOther();
+  $("#teacherPreschoolEndTime").value = teacher?.preschoolEndTime || "";
+  togglePreschoolEndTime();
   coverDraft = coverList(teacher || {}).map((entry) => ({ teacherId: entry.teacherId, all: !entry.subjects.length, subjects: entry.subjects }));
   renderTeacherCover();
   $("#teacherEligible").checked = teacher?.reliefEligible ?? true;
@@ -669,8 +705,10 @@ function saveTeacherRecord(event) {
   const name = $("#teacherName").value.trim().toUpperCase();
   const position=$('#teacherPosition').value==='__other__'?$('#teacherPositionOther').value.trim():$('#teacherPosition').value;
   const now = new Date().toISOString();
+  const preschoolEndTime = position === "Guru Prasekolah" ? $("#teacherPreschoolEndTime").value : "";
   if (!name) return toast("Nama guru diperlukan.", "error");
   if (!position) return toast("Jawatan guru diperlukan.", "error");
+  if (position === "Guru Prasekolah" && !validClockTime(preschoolEndTime)) return toast("Tetapkan masa tamat sesi prasekolah.", "error");
   if (db.teachers.some((teacher) => teacher.active && teacher.name === name && teacher.id !== existingId)) return toast("Nama guru ini sudah wujud.", "error");
   if (canCover({ position })) {
     syncCoverDraft();
@@ -684,6 +722,7 @@ function saveTeacherRecord(event) {
     position,
     priority: db.teachers.find(item=>item.id===existingId)?.priority || 3,
     reliefEligible: $("#teacherEligible").checked,
+    preschoolEndTime,
     coversJson: covers.length ? JSON.stringify(covers) : "",
     active: true,
     createdAt: db.teachers.find((item) => item.id === existingId)?.createdAt || now,
@@ -699,6 +738,13 @@ function toggleTeacherPositionOther() {
   const custom=$('#teacherPosition').value==='__other__';
   $('#teacherPositionOtherWrap').classList.toggle('hidden',!custom);
   $('#teacherPositionOther').required=custom;
+}
+
+function togglePreschoolEndTime() {
+  const position = currentTeacherPosition();
+  const preschool = position === "Guru Prasekolah";
+  $("#teacherPreschoolEndWrap").classList.toggle("hidden", !preschool);
+  $("#teacherPreschoolEndTime").required = preschool;
 }
 
 async function uploadTeacherDirectory(event) {
@@ -835,7 +881,7 @@ function remoteWrite(action, data, successMessage) {
 }
 
 async function syncData(showSuccess = true) {
-  if (!api.isConfigured()) return showSuccess && toast("Tetapkan URL API di bahagian Tetapan.");
+  if (!api.isConfigured()) return showSuccess && toast("Sambungan Apps Script belum tersedia. Log keluar dan login semula.");
   if(syncPromise) return syncPromise;
   if(pendingWrites) return showSuccess&&toast("Simpanan sedang berjalan di belakang.");
   if(failedWrites&&showSuccess&&!confirm("Ada perubahan yang belum sampai ke Sheets. Segerakkan semula dan gunakan data pelayan?")) return;
@@ -911,7 +957,7 @@ function wireEvents() {
   $$('[data-close-absence]').forEach(button=>button.addEventListener('click',()=>$('#absenceDialog').close()));
   $("#addTeacher").addEventListener("click", () => openTeacherDialog());
   $("#teacherForm").addEventListener("submit", saveTeacherRecord);
-  $('#teacherPosition').addEventListener('change',()=>{toggleTeacherPositionOther();renderTeacherCover();});
+  $('#teacherPosition').addEventListener('change',()=>{toggleTeacherPositionOther();togglePreschoolEndTime();renderTeacherCover();});
   $('#teacherPositionOther').addEventListener('input',renderTeacherCover);
   $('#teacherCoverAdd').addEventListener('click',()=>{ syncCoverDraft(); coverDraft.push({ teacherId:'', all:true, subjects:[] }); renderCoverRows(); });
   $$('[data-close-teacher]').forEach(button=>button.addEventListener('click',()=>$('#teacherDialog').close()));

@@ -119,6 +119,35 @@ test('ketiadaan separa guru ganti hanya membatalkan waktu yang diliputi',()=>{
   assert.equal(db.reliefs[1].status,'published');
 });
 
+test('guru prasekolah hanya layak selepas masa tamat sesi yang sah',()=>{
+  const db=fixture();
+  db.schedule=db.schedule.filter(row=>row.teacherId!=='busy');
+  db.teachers.push({id:'pra',name:'Guru Prasekolah',position:'Guru Prasekolah',active:true,reliefEligible:true,priority:3,preschoolEndTime:'11:30'});
+  const args={db,date:'2026-09-09',day:'RAB',period:2,absentTeacherId:'absent'};
+  assert.equal(rankCandidates({...args,startTime:'11:00'}).some(t=>t.id==='pra'),false);
+  assert.equal(rankCandidates({...args,startTime:'11:30'}).some(t=>t.id==='pra'),true);
+  assert.equal(rankCandidates({...args,startTime:'12:00'}).some(t=>t.id==='pra'),true);
+  db.teachers.find(t=>t.id==='pra').preschoolEndTime='';
+  assert.equal(rankCandidates({...args,startTime:'12:00'}).some(t=>t.id==='pra'),false);
+  db.teachers.find(t=>t.id==='pra').preschoolEndTime='tidak-sah';
+  assert.equal(rankCandidates({...args,startTime:'12:00'}).some(t=>t.id==='pra'),false);
+  db.teachers.find(t=>t.id==='pra').position='Guru Akademik Biasa';
+  assert.equal(rankCandidates({...args,startTime:'11:00'}).some(t=>t.id==='pra'),true);
+});
+
+test('jana dan sahkan relief menguatkuasakan masa tamat prasekolah',()=>{
+  const db=fixture();
+  db.teachers.find(t=>t.id==='free').reliefEligible=false;
+  db.teachers.push({id:'pra',name:'Guru Prasekolah',position:'Guru Prasekolah',active:true,reliefEligible:true,priority:3,preschoolEndTime:'08:30'});
+  assert.equal(buildReliefDrafts(db,'2026-09-09')[0].replacementTeacherId,'');
+  db.teachers.find(t=>t.id==='pra').preschoolEndTime='07:30';
+  const drafts=buildReliefDrafts(db,'2026-09-09');
+  assert.equal(drafts[0].replacementTeacherId,'pra');
+  assert.deepEqual(validateReliefs(db,drafts),[]);
+  db.teachers.find(t=>t.id==='pra').preschoolEndTime='08:30';
+  assert.match(validateReliefs(db,drafts)[0],/sudah tidak tersedia/);
+});
+
 test('pairing setting skips only when another active teacher is present for that slot',()=>{
   const db=fixture();db.schedule.push({...db.schedule[0],teacherId:'busy'});
   assert.equal(buildReliefDrafts(db,'2026-09-09').length,1);

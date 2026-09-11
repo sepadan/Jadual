@@ -140,7 +140,16 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 .badge.neutral { color: #52635f; background: #e8eeeb; }
 .badge.warn { color: #85560e; background: #fff0cf; }
 .teacher-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.teacher-card { position: relative; display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 12px; }
+.teacher-card { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.teacher-card.relief-eligible { border-color: #8bcdb6; background: #eaf8f1; }
+.teacher-card.relief-excluded { border-color: #e3a7ad; background: #fcebed; }
+.teacher-card-toggle { display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.teacher-card-toggle:focus-visible { border-radius: 10px; outline: 3px solid rgba(17,128,108,.24); outline-offset: 4px; }
+.teacher-card-copy, .teacher-name, .teacher-status { display: block; min-width: 0; }
+.teacher-name { margin-bottom: 4px; font-size: 14px; font-weight: 750; }
+.teacher-status { font-size: 12px; }
+.teacher-card.relief-eligible .avatar { color: #0c684e; background: #cceede; }
+.teacher-card.relief-excluded .avatar { color: #8f3038; background: #f7cfd3; }
 .avatar { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: var(--green-800); background: var(--green-100); font-size: 13px; font-weight: 850; }
 .teacher-actions { display: flex; gap: 4px; }
 .mini-button { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: #fff; }
@@ -319,7 +328,7 @@ dialog form { padding: 25px; }
 .chip:has(input:checked) { border-color: var(--brand, #0d7a6a); background: rgba(13,122,106,.08); }
 .chip input { margin: 0; }
 .chip:has(input:disabled) { opacity: .6; cursor: default; }
-.teacher-card .cover-line { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--brand, #0d7a6a); }
+.teacher-card .cover-line { display: block; margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--brand, #0d7a6a); }
 
 /* Alat data: arkib, reset */
 .danger-panel { border-color: #e7c9c9; }
