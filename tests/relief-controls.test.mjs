@@ -63,8 +63,9 @@ test("the relief block holds two panels: senarai and preview", () => {
   assert.match(body, /tabIndex/);
 });
 
-test("arrow keys move focus as well as the selected state", () => {
-  assert.match(app, /next\.focus\(\);\n    next\.click\(\);/, "a programmatic click does not move focus, so the next arrow press would stall");
+test("arrow keys are handled by the shared, testable helper", () => {
+  assert.match(app, /if \(moveTabFocus\(list, event\.key\)\) event\.preventDefault\(\);/);
+  assert.match(functionBody("moveTabFocus"), /next\.focus\(\);\n  next\.click\(\)/, "a programmatic click does not move focus, so the next arrow press would stall");
 });
 
 test("the relief screen has two sub tabs: Ketiadaan guru and Relief", () => {

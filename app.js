@@ -1,12 +1,12 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.7";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.7";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.7";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.7";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.7";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.7';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.7';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.7';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.7';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.8";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.8";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.8";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.8";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.8";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.8';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.8';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.8';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.8';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -274,6 +274,18 @@ function reliefCard(item) {
     <div class="lesson"><strong>${esc(item.className || "Aktiviti sekolah")} · ${esc(item.subject)}</strong><small class="teacher-away">Tiada: ${esc(absent?.shortName || absent?.name || "Guru")}</small></div>
     <div class="candidate">${candidateHtml}</div>
   </article>`;
+}
+
+// Moves within one tablist only: arrow keys on the sub tabs must not also move the view switch
+// inside them. Focus is moved explicitly because a programmatic click does not.
+function moveTabFocus(list, direction) {
+  const tabs = $$('[role="tab"]', list);
+  const index = tabs.indexOf(document.activeElement);
+  if (tabs.length < 2 || index < 0) return null;
+  const next = tabs[(index + (direction === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+  next.focus();
+  next.click();
+  return next;
 }
 
 function updateDraftActions() {
@@ -707,22 +719,15 @@ function wireEvents() {
   $("#scheduleDay").addEventListener("change", renderSchedule);
   $("#publishRelief").addEventListener("click", publishReliefs);
   $("#printRelief").addEventListener("click", printReliefSheet);
-  $('#exportReliefPdf').addEventListener('click', exportReliefPdf);
+  $("#exportReliefPdf").addEventListener("click", exportReliefPdf);
   $$('[data-relief-panel]').forEach((button) => button.addEventListener("click", () => setReliefPanel(button.dataset.reliefPanel)));
   setReliefPanel(reliefPanel);
   $$('[data-relief-tab]').forEach((button) => button.addEventListener("click", () => setReliefTab(button.dataset.reliefTab)));
-  // One arrow-key handler serves both tab levels: each tablist moves only its own tabs.
+  // One arrow-key handler serves every tablist in the app (relief sub tabs, the view switch
+  // inside Relief, and the timetable switch); each moves only its own tabs.
   $$('[role="tablist"]').forEach((list) => list.addEventListener("keydown", (event) => {
     if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
-    const tabs = $$('[role="tab"]', list);
-    const index = tabs.indexOf(document.activeElement);
-    if (tabs.length < 2 || index < 0) return;
-    event.preventDefault();
-    const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
-    // A programmatic click does not move focus, so the next arrow press would start from the
-    // tab the admin just left and navigation would stall.
-    next.focus();
-    next.click();
+    if (moveTabFocus(list, event.key)) event.preventDefault();
   }));
   setReliefTab(reliefTab);
   $("#pdfFile").addEventListener("change", (event) => {
