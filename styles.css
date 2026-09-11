@@ -70,6 +70,11 @@ p { color: var(--muted); line-height: 1.55; }
 .segmented button { padding: 7px 10px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; }
 .segmented button.active { color: var(--ink); background: #fff; box-shadow: 0 2px 8px rgba(17,48,42,.08); }
 .relief-list, .card-list { display: grid; gap: 10px; }
+
+/* Senarai guru tiada kini berada dalam skrin relief, dipisahkan daripada senarai relief. */
+.absence-block { margin: 2px 0 26px; padding: 20px 0 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.absence-block .section-head { margin-bottom: 14px; }
+@media (max-width: 720px) { .absence-block { padding: 16px 0; margin-bottom: 20px; } }
 .relief-print-sheet { display: none; }
 .relief-card { display: grid; grid-template-columns: 112px 1fr minmax(210px, 260px); align-items: center; gap: 20px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .time-chip { display: flex; align-items: center; gap: 11px; }

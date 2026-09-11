@@ -1,16 +1,16 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.3";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.3";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.3";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.3";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.3";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.3';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.3';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.3';
-import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.1.3';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.4";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.4";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.4";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.4";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.4";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.4';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.4';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.4';
+import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.1.4';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
-const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
+const titleByView = { "hari-ini": "Jadual relief", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
 let config = loadConfig();
 let api = new ApiClient(config);
 let db = loadDb();
@@ -115,7 +115,7 @@ function toast(message, type = "info") {
 }
 
 function showView(name) {
-  if (!admin && !["hari-ini","ketiadaan","jadual"].includes(name)) return openLogin();
+  if (!admin && !["hari-ini","jadual"].includes(name)) return openLogin();
   if (!titleByView[name]) name = "hari-ini";
   document.body.classList.toggle("print-builder", name === "jadual" && scheduleMode === "generator");
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `view-${name}`));
@@ -245,8 +245,10 @@ function updateDraftActions() {
 }
 
 function renderAbsences() {
-  const date = $("#absenceFilterDate").value || todayIso();
-  $("#absenceFilterDate").value = date;
+  // One date for the whole screen: the relief list and the absence list always describe the day
+  // selected in the header.
+  const date = $("#reliefDate").value || todayIso();
+  $("#reliefDate").value = date;
   const list = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
   $("#absenceList").innerHTML = list.length ? list.map((item) => {
     const teacher = teacherById(item.teacherId);
@@ -316,15 +318,16 @@ function openAbsenceDialog() {
   $("#absenceDialog").showModal();
 }
 
-// The relief screen sends the admin to the absence page instead of opening the form straight
-// away: the list of who is away is the first thing to look at, and the form is one tap further.
-function openKetiadaanPage() {
+// The absence list now lives inside the relief screen, so the button takes the admin to it
+// instead of to another page. The form itself stays one tap further, behind + Tambah.
+function showAbsenceBlock() {
   if (!requireAdmin()) return;
   const date = $("#reliefDate").value || todayIso();
   $("#reliefDate").value = date;
-  $("#absenceFilterDate").value = date;
   renderAbsences();
-  showView("ketiadaan");
+  document.getElementById("absenceBlock")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const first = $("#absenceList input, #absenceList button, #absenceBlock [data-open-absence]");
+  if (first && typeof first.focus === "function") first.focus({ preventScroll: true });
 }
 
 function saveAbsenceRecord(event) {
@@ -343,11 +346,11 @@ function saveAbsenceRecord(event) {
   db.absences.push(absence);
   const invalidatedReliefs = cancelReliefsAssignedToAbsence(db, absence, absence.updatedAt);
   $("#reliefDate").value = date;
-  $("#absenceFilterDate").value = date;
   currentDrafts = buildReliefDrafts(db, date);
   generatedReliefKey = reliefInputKey();
   persist(); $("#absenceDialog").close(); renderAll();
-  showView(currentDrafts.length ? "hari-ini" : "ketiadaan");
+  showView("hari-ini");
+  document.getElementById("absenceBlock")?.scrollIntoView({ behavior: "smooth", block: "start" });
   const message = currentDrafts.length
     ? `Ketiadaan disimpan. ${invalidatedReliefs.length ? `${invalidatedReliefs.length} tugasan lama dibatalkan dan ` : ""}${currentDrafts.length} slot relief dijana untuk semakan.`
     : reliefEmptyMessage(date, true);
@@ -624,7 +627,7 @@ function wireEvents() {
     toast(currentDrafts.length?`${currentDrafts.length} slot relief dijana. Semak sebelum terbitkan.`:reliefEmptyMessage(date));
   });
   wireAdminEvents();
-  $("#reliefDate").addEventListener("change",renderDashboard);
+  $("#reliefDate").addEventListener("change",()=>{renderDashboard();renderAbsences();});
   $("#scheduleType").addEventListener("change",()=>{renderTeacherLists();renderSchedule();});
   $("#builderSection").addEventListener("change", event => window.jadualBuilder.go(event.target.value));
   document.addEventListener("builder-view", event => { $("#builderSection").value = event.detail; });
@@ -641,9 +644,9 @@ function wireEvents() {
     setScheduleMode(button.dataset.scheduleMode);
   }));
   $$('[data-open-absence]').forEach((button) => button.addEventListener("click", openAbsenceDialog));
-  $("#openAbsence").addEventListener("click", openKetiadaanPage);
+  $("#openAbsence").addEventListener("click", showAbsenceBlock);
   $("#mobileSettings").addEventListener("click", () => showView("tetapan"));
-  $("#absenceFilterDate").addEventListener("change", renderAbsences);
+
   $("#absenceAllDay").addEventListener("change", (event) => $("#periodPicker").classList.toggle("hidden", event.target.checked));
   $("#absenceForm").addEventListener("submit", saveAbsenceRecord);
   $$('[data-close-absence]').forEach(button=>button.addEventListener('click',()=>$('#absenceDialog').close()));
@@ -689,7 +692,7 @@ function init() {
   const date = todayIso();
   $("#reliefDate").value = date;
   $("#todayLabel").textContent = new Intl.DateTimeFormat("ms-MY", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${date}T12:00:00`)).toUpperCase();
-  $("#absenceFilterDate").value = date; $("#effectiveDate").value = date;
+  $("#effectiveDate").value = date;
   $("#apiUrl").value = config.apiUrl || ""; $("#autoSync").checked = config.autoSync !== false;
   $("#appVersion").textContent = APP_VERSION;
   populatePeriodPicker(); wireEvents(); renderAll(); showView("jadual");

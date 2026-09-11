@@ -28,18 +28,30 @@ test("the generate button still exists and carries its own label", () => {
   assert.equal(button[1], "Jana");
 });
 
-test("rekod guru tiada opens the absence page instead of the form", () => {
-  assert.ok(app.includes('$("#openAbsence").addEventListener("click", openKetiadaanPage);'), "the relief button is not wired to the absence page");
-  const body = functionBody("openKetiadaanPage");
-  assert.match(body, /showView\("ketiadaan"\)/);
-  assert.match(body, /absenceFilterDate/);
+test("the absence list lives inside the relief screen, not in its own tab", () => {
+  const reliefScreen = html.slice(html.indexOf('id="view-hari-ini"'), html.indexOf('id="view-jadual"'));
+  assert.ok(reliefScreen.includes('id="absenceList"'), "the absence list is not part of the relief screen");
+  assert.ok(reliefScreen.includes('data-open-absence'), "the + Tambah control is not part of the relief screen");
+  assert.equal(html.includes('id="view-ketiadaan"'), false, "the separate absence tab is still present");
+  assert.equal(html.includes('data-view="ketiadaan"'), false, "a navigation entry still points at the absence tab");
+  assert.equal(html.includes("absenceFilterDate"), false, "a second date control is still present");
+  assert.equal(app.includes('showView("ketiadaan")'), false, "app.js still navigates to the removed tab");
+});
+
+test("rekod guru tiada points at the embedded list instead of the form", () => {
+  assert.ok(app.includes('$("#openAbsence").addEventListener("click", showAbsenceBlock);'), "the relief button is not wired to the absence list");
+  const body = functionBody("showAbsenceBlock");
   assert.match(body, /renderAbsences\(\)/);
+  assert.match(body, /absenceBlock/);
   assert.equal(app.includes('$("#openAbsence").addEventListener("click", openAbsenceDialog)'), false, "the form must not open straight from the relief screen");
 });
 
-test("the absence page keeps the + Tambah control that opens the form", () => {
-  assert.ok(html.includes('data-open-absence'), "the + Tambah control is missing");
+test("+ Tambah opens the absence form, and one date drives both lists", () => {
+  assert.ok(html.includes("data-open-absence"), "the + Tambah control is missing");
   assert.ok(app.includes("$$('[data-open-absence]').forEach((button) => button.addEventListener(\"click\", openAbsenceDialog))"), "+ Tambah no longer opens the form");
+  const body = functionBody("renderAbsences");
+  assert.match(body, /#reliefDate/);
+  assert.match(app, /#reliefDate"\)\.addEventListener\("change",\(\)=>\{renderDashboard\(\);renderAbsences\(\);\}\)/);
 });
 
 test("the guide text no longer describes numbered steps", () => {

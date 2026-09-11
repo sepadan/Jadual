@@ -17,6 +17,6 @@
   "shortcuts": [
     { "name": "Hari ini", "short_name": "Hari ini", "url": "./index.html#hari-ini", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
     { "name": "Jadual guru", "short_name": "Jadual", "url": "./index.html#jadual", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
-    { "name": "Tambah ketiadaan", "short_name": "Guru tiada", "url": "./index.html#ketiadaan", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+    { "name": "Rekod guru tiada", "short_name": "Guru tiada", "url": "./index.html#hari-ini", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
   ]
 }

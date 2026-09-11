@@ -34,6 +34,5 @@ test('absence cancel controls cannot submit or trigger required field validation
   const app=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
   assert.match(app,/\$\("#absenceForm"\)\.addEventListener\("submit", saveAbsenceRecord\)/);
   assert.match(app,/\$\("#reliefDate"\)\.value = date/);
-  assert.match(app,/\$\("#absenceFilterDate"\)\.value = date/);
   assert.match(app,/currentDrafts = buildReliefDrafts\(db, date\)/);
 });
