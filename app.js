@@ -1,16 +1,17 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.23";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.23";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.23";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.23";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.23";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.23";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.23';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.23';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.23';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.23';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.24";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.24";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.24";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.24";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.24";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.24";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.24';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.24';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.24';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.24';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
+const WRITE_OUTBOX_KEY = "sistem-jadual-write-outbox-v1";
 const titleByView = { "hari-ini": "Jadual relief", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
 let config = loadConfig();
 let api = new ApiClient(config);
@@ -19,6 +20,8 @@ if (!db.revision) db.teachers = [];
 let confirmedDb = structuredClone(db);
 let admin = false, builderRevision = 0, builderDirty = false, restoringBuilder = false, builderSaving = false, builderCloudLoaded = false;
 let pendingWrites = 0, failedWrites = 0, writeQueue = Promise.resolve(), syncPromise = null;
+let writeOutbox = loadWriteOutbox();
+failedWrites = writeOutbox.length;
 let sessionExpiry = 0;
 let importResult = null;
 let currentDrafts = [];
@@ -136,6 +139,20 @@ function restoreDrafts() {
 // only ever used as a starting point: the server still decides what is current, and a revision check
 // (one config read, no sheet reads) is what keeps it honest.
 const ADMIN_DB_KEY = "sistem-jadual-data-admin-v1";
+function loadWriteOutbox() {
+  try {
+    const entries = JSON.parse(localStorage.getItem(WRITE_OUTBOX_KEY) || "[]");
+    return Array.isArray(entries)
+      ? entries.filter((item) => item && item.id && item.action && item.data !== undefined)
+      : [];
+  } catch { localStorage.removeItem(WRITE_OUTBOX_KEY); return []; }
+}
+function saveWriteOutbox() {
+  try {
+    if (writeOutbox.length) localStorage.setItem(WRITE_OUTBOX_KEY, JSON.stringify(writeOutbox));
+    else localStorage.removeItem(WRITE_OUTBOX_KEY);
+  } catch {}
+}
 function cacheAdminDb() {
   try { localStorage.setItem(ADMIN_DB_KEY, JSON.stringify({ savedAt: Date.now(), data: db })); } catch {}
 }
@@ -148,7 +165,8 @@ function cachedAdminDb() {
 
 function persist() {
   db.updatedAt = new Date().toISOString();
-  // Private administration data stays in memory; Sheets is the source of truth.
+  // Optimistic changes are durable on this device before the slower Sheets request starts.
+  cacheAdminDb();
   updateConnectionUi();
 }
 
@@ -189,14 +207,14 @@ function setScheduleMode(mode) {
 function updateConnectionUi() {
   const configured = api.isConfigured();
   $("#syncDot").classList.toggle("online", configured && navigator.onLine && !failedWrites);
-  $("#syncLabel").textContent = pendingWrites ? `Menyimpan ${pendingWrites}…` : failedWrites ? "Belum tersimpan" : configured ? (navigator.onLine ? "Google Sheets · masa nyata" : "Luar talian") : "Belum disambungkan";
+  $("#syncLabel").textContent = pendingWrites ? `Disimpan di peranti · segerak ${pendingWrites}` : failedWrites ? "Tersimpan di peranti · menunggu Sheets" : configured ? (navigator.onLine ? "Google Sheets · masa nyata" : "Luar talian") : "Belum disambungkan";
   $("#systemNotice").textContent = !configured
     ? "Sambungan sekolah belum disediakan. Login admin memerlukan pelayan sekolah."
     : admin
       ? failedWrites
-        ? `${failedWrites} perubahan belum sampai ke Google Sheets. Tekan segar semula untuk mendapatkan keadaan pelayan.`
+        ? `${failedWrites} perubahan sudah selamat pada peranti dan akan dihantar semula ke Google Sheets apabila sambungan pulih.`
         : pendingWrites
-          ? "Perubahan sudah dipaparkan · sedang disimpan di belakang"
+          ? "Perubahan sudah disimpan pada peranti · sedang dihantar ke Google Sheets di belakang"
           : "Admin · perubahan dipaparkan serta-merta dan disegerakkan ke Google Sheets"
       : "Paparan umum · jadual dikemas kini hampir masa nyata";
   $("#revisionLabel").textContent = db.revision || 0;
@@ -870,36 +888,58 @@ async function saveImportedSchedule() {
 
 function remoteWrite(action, data, successMessage) {
   if (!admin) return Promise.resolve(false);
+  const entry={id:uuid("w"),action,data:structuredClone(data),queuedAt:new Date().toISOString()};
+  writeOutbox.push(entry);
+  // Save both the command and the optimistic database before starting the slow network request.
+  saveWriteOutbox();cacheAdminDb();
+  return sendStoredWrite(entry,successMessage);
+}
+
+function sendStoredWrite(entry, successMessage = "") {
   const client=new ApiClient({...config});client.token=api.token;
-  const payload=structuredClone(data);
+  const action=entry.action,payload=structuredClone(entry.data);
   const queuedToken=api.token;
   pendingWrites+=1;updateConnectionUi();
   const run=async()=>{
     try {
       const result=await client.write(action,payload);
+      writeOutbox=writeOutbox.filter((item) => item.id !== entry.id);saveWriteOutbox();
       if(admin&&api.token===queuedToken) {
         db.revision=Math.max(Number(db.revision||0),Number(result.revision||0));
-        db.updatedAt=result.updatedAt||db.updatedAt;confirmedDb=structuredClone(db);cacheAdminDb();persist();
+        db.updatedAt=result.updatedAt||db.updatedAt;confirmedDb=structuredClone(db);persist();
       }
       if(successMessage) toast(successMessage,"success");
       return true;
     } catch(error) {
-      failedWrites+=1;
-      toast(`Perubahan kekal pada paparan tetapi belum tersimpan. ${error.message}`,"error");
+      failedWrites=Math.max(failedWrites,1);
+      toast(`Perubahan sudah disimpan pada peranti tetapi belum sampai ke Sheets. Akan dicuba semula. ${error.message}`,"error");
       if(error.code==='AUTH_REQUIRED'&&admin&&api.token===queuedToken) setTimeout(()=>leaveAdmin(),0);
       return false;
-    } finally {pendingWrites-=1;updateConnectionUi();}
+    } finally {
+      pendingWrites-=1;
+      if(!pendingWrites) failedWrites=writeOutbox.length;
+      updateConnectionUi();
+    }
   };
   const operation=writeQueue.then(run,run);
   writeQueue=operation.then(()=>undefined,()=>undefined);
   return operation;
 }
 
+function retryStoredWrites() {
+  if(!admin||!navigator.onLine||!writeOutbox.length) return Promise.resolve(!writeOutbox.length);
+  failedWrites=0;updateConnectionUi();
+  return Promise.all([...writeOutbox].map((entry) => sendStoredWrite(entry))).then((results) => results.every(Boolean));
+}
+
 async function syncData(showSuccess = true) {
   if (!api.isConfigured()) return showSuccess && toast("Sambungan Apps Script belum tersedia. Log keluar dan login semula.");
   if(syncPromise) return syncPromise;
-  if(pendingWrites) return showSuccess&&toast("Simpanan sedang berjalan di belakang.");
-  if(failedWrites&&showSuccess&&!confirm("Ada perubahan yang belum sampai ke Sheets. Segerakkan semula dan gunakan data pelayan?")) return;
+  if(pendingWrites) return showSuccess&&toast("Penghantaran ke Sheets sedang berjalan di belakang.");
+  if(admin&&writeOutbox.length) {
+    const saved=await retryStoredWrites();
+    if(!saved) return showSuccess&&toast("Perubahan masih selamat pada peranti dan akan dicuba semula.","error");
+  }
   $("#syncButton").disabled = true;
   syncPromise=(async()=>{try {
     const wasAdmin=admin;
@@ -916,7 +956,12 @@ async function syncData(showSuccess = true) {
 }
 
 async function syncIfChanged() {
-  if(document.hidden||!navigator.onLine||!api.isConfigured()||pendingWrites||failedWrites||syncPromise) return;
+  if(document.hidden||!navigator.onLine||!api.isConfigured()||pendingWrites||syncPromise) return;
+  if(admin&&writeOutbox.length) {
+    const saved=await retryStoredWrites();
+    if(!saved) return;
+  }
+  if(failedWrites) return;
   try {
     // A timetable version can take effect at midnight, so a cached public timetable stops being
     // current the moment the calendar day changes even when no admin has written anything.
@@ -1011,7 +1056,7 @@ function wireEvents() {
   $("#checkUpdate").addEventListener("click", async () => { const registration = await navigator.serviceWorker?.getRegistration(); await registration?.update(); toast("Semakan kemas kini selesai.", "success"); });
   $("#installButton").addEventListener("click", async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; $("#installButton").classList.add("hidden"); });
   window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; $("#installButton").classList.remove("hidden"); });
-  window.addEventListener("online", () => { updateConnectionUi(); if (config.autoSync) syncData(false); });
+  window.addEventListener("online", () => { updateConnectionUi(); if (config.autoSync) syncIfChanged(); });
   window.addEventListener("offline", updateConnectionUi);
   window.addEventListener('afterprint',()=>document.body.classList.remove('print-relief'));
   window.addEventListener("focus",syncIfChanged);
@@ -1093,6 +1138,12 @@ async function enterAdmin(result) {
   // what changed: a matching revision comes back as a tiny "no change" answer, so a refresh no longer
   // waits on the whole database.
   if(cached) { db={...emptyDatabase(),...normalizeDatabaseTimes(cached)};confirmedDb=structuredClone(db);renderAll(); }
+  if(writeOutbox.length && cached) {
+    // Preserve the optimistic snapshot, replay its durable commands, then reconcile with Sheets.
+    cacheAdminDb();restoreDrafts();builderCloudLoaded=false;builderDirty=false;
+    retryStoredWrites().then((saved) => { if (saved) syncData(false); });
+    return;
+  }
   const since=Number(cached?.revision||0);
   const snapshot=result.snapshot||await api.bootstrap(since);
   if(snapshot.changed===false && cached) {
@@ -1103,6 +1154,7 @@ async function enterAdmin(result) {
   cacheAdminDb();renderAll();
   restoreDrafts();
   builderCloudLoaded=false;builderDirty=false;
+  if(writeOutbox.length) retryStoredWrites().then((saved) => { if (saved) syncData(false); });
 }
 async function leaveAdmin(remoteLogout=true) {
   const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');localStorage.removeItem(ADMIN_DB_KEY);localStorage.removeItem(DRAFT_KEY);currentDrafts=[];generatedReliefKey='';
@@ -1111,7 +1163,7 @@ async function leaveAdmin(remoteLogout=true) {
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';
   $$('dialog').forEach(d=>{d.close();d.querySelector('form')?.reset();});
   db=loadDb();if(!db.revision) db.teachers=[];confirmedDb=structuredClone(db);$('#scheduleType').value='teacher';setScheduleMode('relief');showView('jadual');
-  api=new ApiClient(config);await finalWrites;if(remoteLogout) await previous.logout().catch(()=>{});await syncData(false);
+  api=new ApiClient(config);await finalWrites;writeOutbox=[];failedWrites=0;saveWriteOutbox();if(remoteLogout) await previous.logout().catch(()=>{});await syncData(false);
 }
 async function saveBuilderCloud() {
   if(!admin||restoringBuilder) return;
@@ -1147,7 +1199,7 @@ function wireAdminEvents() {
     } catch(error) {toast(error.message,'error');}
   });
   $('#loginButton').addEventListener('click',openLogin);$('#closeLogin').addEventListener('click',()=>$('#loginDialog').close());
-  $('#logoutButton').addEventListener('click',()=>{if(builderDirty&&!confirm('Draf belum disimpan. Log keluar tanpa menyimpannya?')) return;leaveAdmin();});
+  $('#logoutButton').addEventListener('click',()=>{if(builderDirty&&!confirm('Draf belum disimpan. Log keluar tanpa menyimpannya?')) return;if((pendingWrites||failedWrites)&&!confirm('Ada perubahan yang masih menunggu Google Sheets. Log keluar akan membuang salinan simpanan peranti itu. Teruskan?')) return;leaveAdmin();});
   $('#loginForm').addEventListener('submit',async event=>{
     event.preventDefault();
     if ($('#submitLogin').disabled) return;

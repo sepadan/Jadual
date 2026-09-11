@@ -31,5 +31,5 @@ test("Google Sheets connection remains internal and is not configurable in Setti
     assert.equal(referenced.has(id), false, `app.js still dereferences removed Settings control: ${id}`);
   }
   assert.equal(htmlIds.has("loginApiUrl"), true, "login connection field must remain available");
-  assert.match(app, /if \(config\.autoSync\) syncData\(false\)/, "background Sheets synchronization was removed");
+  assert.match(app, /if \(config\.autoSync\) syncIfChanged\(\)/, "background Sheets synchronization and outbox retry were removed");
 });
