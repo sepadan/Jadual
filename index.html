@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.19">
-  <link rel="stylesheet" href="./builder.css?v=3.1.19">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.19">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.19"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
+  <link rel="stylesheet" href="./styles.css?v=3.1.20">
+  <link rel="stylesheet" href="./builder.css?v=3.1.20">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.20">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.20"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
 <body class="public-mode">
   <div class="app-shell">
@@ -201,6 +201,24 @@
           <article class="panel"><p class="step">PANGKALAN DATA</p><h2>Sambungan Google Sheets</h2><label>URL Web App Apps Script<input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><label class="check-row"><input id="autoSync" type="checkbox" checked> Segerak automatik apabila aplikasi dibuka</label><div class="button-row"><button id="testApi" class="button ghost">Uji sambungan</button><button id="saveSettings" class="button primary">Simpan</button></div></article>
           <article class="panel"><p class="step">APLIKASI</p><h2>Kemas kini PWA</h2><p>Versi aplikasi diperiksa secara automatik. Data Sheets pula disegerakkan tanpa perlu memasang semula aplikasi.</p><dl><div><dt>Versi</dt><dd id="appVersion"></dd></div><div><dt>Semakan data</dt><dd id="revisionLabel">0</dd></div><div><dt>Kemas kini terakhir</dt><dd id="lastUpdated">—</dd></div></dl><button id="checkUpdate" class="button ghost wide">Semak versi baharu</button></article>
         </div>
+        <article class="panel danger-panel">
+          <p class="step">DATA SEKOLAH</p><h2>Arkib &amp; reset data</h2>
+          <p>Arkibkan jadual lama supaya ia tidak lagi digunakan untuk relief tetapi masih boleh dilihat di Sheets.</p>
+          <div class="button-row"><button id="archiveTimetables" class="button ghost">Arkibkan jadual lama</button><button id="deleteArchived" class="button ghost">Padam jadual yang diarkib</button></div>
+          <p id="archiveNotice" class="muted"></p>
+          <hr>
+          <p>Reset membuang data dari <b>Sheets dan aplikasi ini</b>. Tandakan apa yang mahu dibuang; biarkan “Rekod relief” tidak ditanda jika mahu sejarahnya kekal.</p>
+          <div class="reset-grid">
+            <label class="check-row"><input type="checkbox" class="reset-target" value="teachers"> Profil guru</label>
+            <label class="check-row"><input type="checkbox" class="reset-target" value="absences"> Rekod ketiadaan</label>
+            <label class="check-row"><input type="checkbox" class="reset-target" value="reliefs"> Rekod relief (sejarah)</label>
+            <label class="check-row"><input type="checkbox" class="reset-target" value="timetable"> Jadual waktu (semua versi)</label>
+            <label class="check-row"><input type="checkbox" class="reset-target" value="builder"> Draf pembina jadual</label>
+          </div>
+          <label>Taip PADAM untuk mengesahkan<input id="resetConfirm" placeholder="PADAM" autocomplete="off"></label>
+          <button id="resetData" class="button danger">Reset data terpilih</button>
+          <p id="resetNotice" class="muted"></p>
+        </article>
       </section>
     </main>
 
@@ -246,6 +264,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.19"></script>
+  <script type="module" src="./app.js?v=3.1.20"></script>
 </body>
 </html>

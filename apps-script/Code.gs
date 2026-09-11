@@ -91,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.19", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.20", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -149,6 +149,10 @@ function routeWrite_(action, data) {
   if (action === "saveTeacher") return upsert_("Teachers", "id", encodeTeacher_(data));
   if (action === "saveAbsence") return saveAbsence_(data);
   if (action === "cancelAbsence") return cancelAbsence_(data);
+  if (action === "deleteAbsence") return deleteAbsence_(data);
+  if (action === "deleteTeacher") return deleteTeacher_(data);
+  if (action === "archiveVersions") return archiveVersions_(data);
+  if (action === "resetData") return resetData_(data);
   if (action === "saveReliefs") {
     if (!Array.isArray(data)) throw new Error("Format relief tidak sah.");
     var activeAbsences=readObjects_("Absences").filter(function(item){return item.status!=="cancelled";});
@@ -176,6 +180,111 @@ function routeWrite_(action, data) {
   }
   if (action === "importSchedule") return importSchedule_(data);
   throw new Error("Tindakan tulis tidak dikenali.");
+}
+
+// ===== Padam sebenar, arkib dan reset =====
+// What the admin deletes in the app must be gone from Sheets too. A deleted absence takes its relief
+// rows with it: a relief that points at a record that no longer exists is worse than no record.
+
+function deleteRows_(sheetName, match) {
+  var sheet = database_().getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  var rows = readObjects_(sheetName);
+  var removed = 0;
+  for (var index = rows.length - 1; index >= 0; index -= 1) {
+    if (match(rows[index])) { sheet.deleteRow(index + 2); removed += 1; }
+  }
+  return removed;
+}
+
+function deleteAbsence_(data) {
+  var id = text_(data && data.id);
+  if (!id) throw new Error("Rekod ketiadaan tidak dikenal pasti.");
+  var target = readObjects_("Absences").filter(function(item) { return String(item.id) === id; })[0];
+  if (!target) return { ok: true, deleted: 0, reliefs: 0 };
+  var reliefs = deleteRows_("Reliefs", function(relief) {
+    return String(relief.date) === String(target.date) && String(relief.absentTeacherId) === String(target.teacherId);
+  });
+  var deleted = deleteRows_("Absences", function(item) { return String(item.id) === id; });
+  bumpRevision_();
+  audit_("deleteAbsence", id, "Rekod ketiadaan dipadam" + (reliefs ? " bersama " + reliefs + " relief" : ""));
+  return { ok: true, deleted: deleted, reliefs: reliefs };
+}
+
+// A teacher may only be removed outright when nothing else refers to them; otherwise the records
+// would point at a teacher the app can no longer name.
+function deleteTeacher_(data) {
+  var id = text_(data && data.id);
+  if (!id) throw new Error("Guru tidak dikenal pasti.");
+  var schedule = readObjects_("Schedule").filter(function(row) { return String(row.teacherId) === id; }).length;
+  if (schedule) throw new Error("Guru ini masih ada " + schedule + " waktu dalam jadual. Buang waktu itu dahulu (atau guna Nyahaktif).");
+  var absences = readObjects_("Absences").filter(function(row) { return String(row.teacherId) === id; }).length;
+  if (absences) throw new Error("Guru ini masih ada " + absences + " rekod ketiadaan. Padam rekod itu dahulu.");
+  var reliefs = readObjects_("Reliefs").filter(function(row) {
+    return String(row.absentTeacherId) === id || String(row.replacementTeacherId) === id;
+  }).length;
+  if (reliefs) throw new Error("Guru ini disebut dalam " + reliefs + " rekod relief. Guna Nyahaktif supaya sejarah kekal.");
+  var deleted = deleteRows_("Teachers", function(item) { return String(item.id) === id; });
+  bumpRevision_();
+  audit_("deleteTeacher", id, "Profil guru dipadam");
+  return { ok: true, deleted: deleted };
+}
+
+// Old timetables are archived, not deleted: the school keeps last year's timetable to look back at,
+// while relief only ever follows the versions still in force.
+function archiveVersions_(data) {
+  var ids = (data && Array.isArray(data.ids)) ? data.ids.map(String) : null;
+  var sheet = database_().getSheetByName("ScheduleVersions");
+  var versions = readObjects_("ScheduleVersions");
+  // Deleting is only ever allowed for versions already archived, and never for the timetable in
+  // force: the school's current timetable cannot be removed by a stray click.
+  if (data && data.remove === true && ids && ids.length) {
+    var removable = versions.filter(function(version) {
+      return String(version.status) === "archived" && ids.indexOf(String(version.id)) >= 0;
+    }).map(function(version) { return String(version.id); });
+    if (!removable.length) throw new Error("Tiada jadual yang diarkib untuk dipadam.");
+    var rows = 0;
+    removable.forEach(function(id) { rows += deleteRows_("Schedule", function(row) { return String(row.versionId) === id; }); });
+    var removed = deleteRows_("ScheduleVersions", function(version) { return removable.indexOf(String(version.id)) >= 0; });
+    bumpRevision_();
+    audit_("deleteArchived", removable.join(","), removed + " jadual, " + rows + " baris waktu");
+    return { ok: true, removed: removed, rows: rows };
+  }
+  var archived = 0;
+  versions.forEach(function(version, index) {
+    if (version.status === "active") return;
+    if (ids && ids.indexOf(String(version.id)) < 0) return;
+    if (version.status === "archived") return;
+    sheet.getRange(index + 2, 5).setValue("archived");
+    archived += 1;
+  });
+  if (archived) { bumpRevision_(); audit_("archiveVersions", String(archived), "Jadual lama diarkibkan"); }
+  return { ok: true, archived: archived };
+}
+
+// Wipes the selected tables. The client must send the confirmation word, so a stray request cannot
+// empty the school's database.
+var RESET_TABLES_ = {
+  teachers: ["Teachers"],
+  absences: ["Absences"],
+  reliefs: ["Reliefs"],
+  timetable: ["Schedule", "ScheduleVersions"],
+  builder: ["BuilderState"]
+};
+function resetData_(data) {
+  if (text_(data && data.confirm) !== "PADAM") throw new Error("Taip PADAM untuk mengesahkan reset data.");
+  var targets = (data && data.targets) || {};
+  var chosen = Object.keys(RESET_TABLES_).filter(function(key) { return targets[key] === true; });
+  if (!chosen.length) throw new Error("Pilih sekurang-kurangnya satu jenis data untuk direset.");
+  var cleared = {};
+  chosen.forEach(function(key) {
+    var total = 0;
+    RESET_TABLES_[key].forEach(function(name) { total += deleteRows_(name, function() { return true; }); });
+    cleared[key] = total;
+  });
+  bumpRevision_();
+  audit_("resetData", chosen.join(","), JSON.stringify(cleared));
+  return { ok: true, cleared: cleared };
 }
 
 function absenceCoversPeriod_(absence, period) {

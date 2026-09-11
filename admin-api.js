@@ -1,4 +1,4 @@
-import { SITE_CONFIG } from './site-config.js?v=3.1.19';
+import { SITE_CONFIG } from './site-config.js?v=3.1.20';
 const CONFIG_KEY='relief-skpr-config-v1';
 export function loadConfig() {
   let saved={};try {saved=JSON.parse(localStorage.getItem(CONFIG_KEY)||'{}');} catch {}
@@ -32,7 +32,7 @@ export class ApiClient {
   // the private data in the background.
   async login(username,password) {const result=await this.request('login',{username,password,includeBootstrap:false});this.token=result.token;return result;}
   async logout() {try {if(this.token) await this.request('logout',{},true);} finally {this.token='';}}
-  bootstrap() {return this.request('bootstrap',{},true);}
+  bootstrap(sinceRevision) {return this.request('bootstrap',sinceRevision?{sinceRevision}:{},true);}
   builderData() {return this.request('builder',{},true);}
   write(action,data) {return this.request(action,data,true);}
   async readResponse(response) {

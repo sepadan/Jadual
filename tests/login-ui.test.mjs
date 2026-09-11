@@ -31,7 +31,7 @@ test('builder is lazy-loaded outside the login path and appears only inside Jadu
   const openLogin=source.slice(source.indexOf('function openLogin()'),source.indexOf('\nasync function ensureBuilder()'));
   const enterAdmin=source.slice(source.indexOf('async function enterAdmin'),source.indexOf('\nasync function leaveAdmin'));
   assert.ok(!openLogin.includes('ensureBuilder'));
-  assert.ok(enterAdmin.includes('result.snapshot||await api.bootstrap()'));
+  assert.ok(enterAdmin.includes('result.snapshot||await api.bootstrap(since)'),'enterAdmin must ask the server only for changes since the cached revision');
   assert.ok(!enterAdmin.includes('ensureBuilder'));
   const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const nav=html.slice(html.indexOf('<nav'),html.indexOf('</nav>'));

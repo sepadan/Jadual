@@ -320,3 +320,10 @@ dialog form { padding: 25px; }
 .chip input { margin: 0; }
 .chip:has(input:disabled) { opacity: .6; cursor: default; }
 .teacher-card .cover-line { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--brand, #0d7a6a); }
+
+/* Alat data: arkib, reset */
+.danger-panel { border-color: #e7c9c9; }
+.danger-panel .reset-grid { display: grid; gap: 8px; margin: 10px 0; }
+.button.danger { background: #8f3038; color: #fff; border-color: #8f3038; }
+.button.danger:hover { background: #7a262d; }
+.danger-panel hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }

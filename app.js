@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.19";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.19";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.19";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.19";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.19";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.19";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.19';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.19';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.19';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.19';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.20";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.20";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.20";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.20";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.20";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.20";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.20';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.20';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.20';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.20';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -129,6 +129,21 @@ function restoreDrafts() {
     renderAll();
     toast(`${currentDrafts.length} draf relief dipulihkan. Semak sebelum terbitkan.`, "info");
   } catch {}
+}
+
+// The private records the admin last saw are kept on the device as well, so a refresh paints the
+// real data at once instead of showing an empty timetable while six sheet reads happen. The copy is
+// only ever used as a starting point: the server still decides what is current, and a revision check
+// (one config read, no sheet reads) is what keeps it honest.
+const ADMIN_DB_KEY = "sistem-jadual-data-admin-v1";
+function cacheAdminDb() {
+  try { localStorage.setItem(ADMIN_DB_KEY, JSON.stringify({ savedAt: Date.now(), data: db })); } catch {}
+}
+function cachedAdminDb() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(ADMIN_DB_KEY) || "null");
+    return stored && stored.data && stored.data.revision ? stored : null;
+  } catch { return null; }
 }
 
 function persist() {
@@ -348,9 +363,9 @@ function renderAbsences() {
   const list = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
   $("#absenceList").innerHTML = list.length ? list.map((item) => {
     const teacher = teacherById(item.teacherId);
-    return `<article class="absence-card"><div><h3>${esc(teacher?.name || "Guru tidak ditemui")}</h3><p>${admin ? esc(item.reason || "Tiada sebab dinyatakan") + " · " : ""}${item.allDay ? "Sepanjang hari" : `Waktu ${(item.periods || []).join(", ")}`}</p></div><button class="mini-button delete admin-only" data-cancel-absence="${esc(item.id)}" title="Batalkan">×</button></article>`;
+    return `<article class="absence-card"><div><h3>${esc(teacher?.name || "Guru tidak ditemui")}</h3><p>${admin ? esc(item.reason || "Tiada sebab dinyatakan") + " · " : ""}${item.allDay ? "Sepanjang hari" : `Waktu ${(item.periods || []).join(", ")}`}</p></div><button class="mini-button delete admin-only" data-cancel-absence="${esc(item.id)}" title="Padam rekod ini">🗑</button>>×</button></article>`;
   }).join("") : `<div class="empty-state"><strong>Tiada rekod</strong>Tiada guru direkodkan tidak hadir pada ${formatDate(date)}.</div>`;
-  $$('[data-cancel-absence]').forEach((button) => button.addEventListener("click", () => cancelAbsence(button.dataset.cancelAbsence)));
+  $$('[data-cancel-absence]').forEach((button) => button.addEventListener("click", () => deleteAbsenceRecord(button.dataset.cancelAbsence)));
 }
 
 // A teacher a Personel MySTEP has taken over completely is hidden everywhere.
@@ -376,10 +391,10 @@ function renderTeachers() {
   const teachers = activeTeachers().filter((teacher) => !query || `${teacher.name} ${teacher.position}`.includes(query));
   $("#teacherList").innerHTML = teachers.map((teacher) => `<article class="teacher-card">
     <span class="avatar">${esc(initials(teacher.name))}</span><div><h3>${esc(teacher.name)}</h3><p>${esc(teacher.position)} · ${teacher.reliefEligible ? "Layak relief" : "Dikecualikan"}</p>${coverLine(teacher)}</div>
-    <div class="teacher-actions"><button class="mini-button" data-edit-teacher="${esc(teacher.id)}" title="Ubah">✎</button><button class="mini-button delete" data-delete-teacher="${esc(teacher.id)}" title="Nyahaktif">×</button></div>
+    <div class="teacher-actions"><button class="mini-button" data-edit-teacher="${esc(teacher.id)}" title="Ubah">✎</button><button class="mini-button delete" data-delete-teacher="${esc(teacher.id)}" title="Padam">×</button></div>
   </article>`).join("");
   $$('[data-edit-teacher]').forEach((button) => button.addEventListener("click", () => openTeacherDialog(button.dataset.editTeacher)));
-  $$('[data-delete-teacher]').forEach((button) => button.addEventListener("click", () => archiveTeacher(button.dataset.deleteTeacher)));
+  $$('[data-delete-teacher]').forEach((button) => button.addEventListener("click", () => removeTeacherRecord(button.dataset.deleteTeacher)));
 }
 
 // The covering teacher's card names who they replace, so the link is visible without opening the dialog.
@@ -575,6 +590,78 @@ function coverDraftEntries() {
     .map((entry) => ({ teacherId: entry.teacherId, subjects: entry.all ? [] : entry.subjects }));
 }
 
+// ===== Padam sebenar: apa yang dibuang di paparan mesti hilang dari Sheets =====
+// A record the admin deletes is removed here and on the server, so the next refresh never brings it
+// back. A deleted absence takes its relief rows with it: a relief that points at a record which no
+// longer exists is worse than no record at all.
+function deleteAbsenceRecord(id) {
+  if (!requireAdmin()) return;
+  const item = db.absences.find((absence) => absence.id === id);
+  if (!item) return;
+  const name = teacherById(item.teacherId)?.name || "guru";
+  const related = db.reliefs.filter((relief) => String(relief.date) === String(item.date) && String(relief.absentTeacherId) === String(item.teacherId));
+  if (!confirm(`Padam rekod ketiadaan ${name} pada ${formatDate(item.date)}?\n\nRekod ini akan dibuang dari Google Sheets juga${related.length ? `, bersama ${related.length} relief berkaitan` : ""}.`)) return;
+  db.reliefs = db.reliefs.filter((relief) => !(String(relief.date) === String(item.date) && String(relief.absentTeacherId) === String(item.teacherId)));
+  db.absences = db.absences.filter((absence) => absence.id !== id);
+  currentDrafts = currentDrafts.filter((draft) => !(String(draft.date) === String(item.date) && String(draft.absentTeacherId) === String(item.teacherId)));
+  generatedReliefKey = "";
+  saveDrafts(); cacheAdminDb(); persist(); renderAll();
+  remoteWrite("deleteAbsence", { id }, `Rekod dipadam dari Sheets${related.length ? ` bersama ${related.length} relief` : ""}.`);
+}
+
+// A teacher with timetable rows, absences or relief history cannot vanish without leaving records
+// that point at nobody, so those are archived instead and the reason is spelled out.
+function removeTeacherRecord(id) {
+  if (!requireAdmin()) return;
+  const teacher = db.teachers.find((item) => item.id === id);
+  if (!teacher) return;
+  const rows = db.schedule.filter((row) => row.teacherId === id).length;
+  const absences = db.absences.filter((row) => row.teacherId === id).length;
+  const reliefs = db.reliefs.filter((row) => row.absentTeacherId === id || row.replacementTeacherId === id).length;
+  if (rows || absences || reliefs) {
+    toast(`Guru ini masih ada ${rows} waktu jadual, ${absences} rekod ketiadaan dan ${reliefs} rekod relief — dinyahaktifkan supaya sejarah tidak rosak.`, "info");
+    return archiveTeacher(id);
+  }
+  if (!confirm(`Padam profil ${teacher.name}? Profil ini akan hilang dari Google Sheets.`)) return;
+  db.teachers = db.teachers.filter((item) => item.id !== id);
+  cacheAdminDb(); persist(); renderAll();
+  remoteWrite("deleteTeacher", { id }, "Profil guru dipadam dari Sheets.");
+}
+
+function wireDataTools() {
+  $("#archiveTimetables").addEventListener("click", () => {
+    if (!requireAdmin()) return;
+    const old = db.scheduleVersions.filter((version) => version.status !== "active" && version.status !== "archived");
+    if (!old.length) return toast("Tiada jadual lama untuk diarkibkan.", "info");
+    if (!confirm(`Arkibkan ${old.length} versi jadual lama? Ia tidak lagi digunakan untuk relief tetapi kekal di Sheets.`)) return;
+    old.forEach((version) => { version.status = "archived"; });
+    cacheAdminDb(); persist(); renderAll();
+    remoteWrite("archiveVersions", { ids: old.map((version) => version.id) }, `${old.length} jadual lama diarkibkan.`);
+  });
+  $("#deleteArchived").addEventListener("click", async () => {
+    if (!requireAdmin()) return;
+    const archived = db.scheduleVersions.filter((version) => version.status === "archived");
+    if (!archived.length) return toast("Tiada jadual diarkib untuk dipadam.", "info");
+    if (!confirm(`Padam ${archived.length} jadual yang diarkib? Ini membuang barisnya dari Sheets dan tidak boleh dibatalkan.`)) return;
+    await remoteWrite("archiveVersions", { ids: archived.map((version) => version.id), remove: true }, "Jadual yang diarkib dipadam.");
+    await syncData(false);
+  });
+  $("#resetData").addEventListener("click", async () => {
+    if (!requireAdmin()) return;
+    const targets = {};
+    $$(".reset-target").forEach((box) => { if (box.checked) targets[box.value] = true; });
+    const chosen = Object.keys(targets);
+    if (!chosen.length) return toast("Tandakan sekurang-kurangnya satu jenis data.", "error");
+    if ($("#resetConfirm").value.trim() !== "PADAM") return toast("Taip PADAM dalam kotak pengesahan.", "error");
+    const label = { teachers: "profil guru", absences: "rekod ketiadaan", reliefs: "rekod relief", timetable: "jadual waktu", builder: "draf pembina" };
+    if (!confirm(`Reset ${chosen.map((key) => label[key]).join(", ")}?\n\nData ini dibuang dari Google Sheets dan dari aplikasi ini. Tidak boleh dibatalkan.`)) return;
+    $("#resetNotice").textContent = "Mereset…";
+    const ok = await remoteWrite("resetData", { targets, confirm: "PADAM" }, "Data terpilih telah dibuang dari Sheets.");
+    if (ok) { $("#resetConfirm").value = ""; $$(".reset-target").forEach((box) => { box.checked = false; }); await syncData(false); $("#resetNotice").textContent = "Selesai. Susunan data dikemas kini."; }
+    else $("#resetNotice").textContent = "Reset gagal — data tidak berubah.";
+  });
+}
+
 function saveTeacherRecord(event) {
   event.preventDefault();
   if (!requireAdmin()) return;
@@ -731,7 +818,7 @@ function remoteWrite(action, data, successMessage) {
       const result=await client.write(action,payload);
       if(admin&&api.token===queuedToken) {
         db.revision=Math.max(Number(db.revision||0),Number(result.revision||0));
-        db.updatedAt=result.updatedAt||db.updatedAt;confirmedDb=structuredClone(db);persist();
+        db.updatedAt=result.updatedAt||db.updatedAt;confirmedDb=structuredClone(db);cacheAdminDb();persist();
       }
       if(successMessage) toast(successMessage,"success");
       return true;
@@ -799,7 +886,7 @@ function wireEvents() {
     currentDrafts=buildReliefDrafts(db,date);generatedReliefKey=reliefInputKey();saveDrafts();renderDashboard();
     toast(currentDrafts.length?`${currentDrafts.length} slot relief dijana. Semak sebelum terbitkan.`:reliefEmptyMessage(date));
   });
-  wireAdminEvents();
+  wireAdminEvents();wireDataTools();
   $("#reliefDate").addEventListener("change",()=>{renderDashboard();renderAbsences();});
   $("#scheduleType").addEventListener("change",()=>{renderTeacherLists();renderSchedule();});
   $("#builderSection").addEventListener("change", event => window.jadualBuilder.go(event.target.value));
@@ -894,8 +981,7 @@ async function resumeSession(session=storedAdminSession()) {
   restoreAdminShell(session);
   $('#systemNotice').textContent='Sesi admin dipulihkan · memuatkan data Google Sheets…';
   try {
-    const snapshot=await api.bootstrap();
-    await enterAdmin({...session,snapshot});
+    await enterAdmin({...session});
   } catch(error) {
     if(error.code==='AUTH_REQUIRED') {
       await leaveAdmin(false);
@@ -934,23 +1020,31 @@ async function ensureBuilder() {
   $('#builderCloudStatus').textContent=cloud.builder?.state?'Draf Sheets telah dimuatkan':'Draf baharu — simpan ke Sheets apabila siap';
 }
 async function enterAdmin(result) {
-  const cached = db && db.revision ? db : null;
+  const stored = cachedAdminDb();
+  const cached = stored && stored.data.revision ? stored.data : (db && db.revision ? db : null);
   admin=true;window.systemAdminActive=true;sessionExpiry=result.expiresAt;
   localStorage.setItem('jadual-admin-session',JSON.stringify({token:api.token,expiresAt:sessionExpiry}));
   document.body.classList.remove('public-mode');$('#loginButton').classList.add('hidden');
   $('#builderCloudStatus').textContent='Pembina akan dimuatkan apabila dibuka';
   $('#passwordNotice').textContent=result.mustChangePassword?'Kata laluan awal masih digunakan. Tukar kepada kata laluan yang lebih kuat.':'';
   $('#loginDialog').close();$('#loginPassword').value='';
-  // Show the admin screens straight away from the last published data, then pull the private
-  // records: waiting for six sheet reads before the first paint is what made login feel slow.
-  if(cached) renderAll();
-  const snapshot=result.snapshot||await api.bootstrap();
-  db={...emptyDatabase(),...normalizeDatabaseTimes(snapshot.data)};confirmedDb=structuredClone(db);renderAll();
+  // Show the admin screens straight away from what this device already has, then ask the server only
+  // what changed: a matching revision comes back as a tiny "no change" answer, so a refresh no longer
+  // waits on the whole database.
+  if(cached) { db={...emptyDatabase(),...normalizeDatabaseTimes(cached)};confirmedDb=structuredClone(db);renderAll(); }
+  const since=Number(cached?.revision||0);
+  const snapshot=result.snapshot||await api.bootstrap(since);
+  if(snapshot.changed===false && cached) {
+    db.revision=Number(snapshot.revision||db.revision);db.updatedAt=snapshot.updatedAt||db.updatedAt;confirmedDb=structuredClone(db);
+  } else {
+    db={...emptyDatabase(),...normalizeDatabaseTimes(snapshot.data)};confirmedDb=structuredClone(db);
+  }
+  cacheAdminDb();renderAll();
   restoreDrafts();
   builderCloudLoaded=false;builderDirty=false;
 }
 async function leaveAdmin(remoteLogout=true) {
-  const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');
+  const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');localStorage.removeItem(ADMIN_DB_KEY);localStorage.removeItem(DRAFT_KEY);currentDrafts=[];generatedReliefKey='';
   document.body.classList.add('public-mode');$('#loginButton').classList.remove('hidden');
   restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;builderCloudLoaded=false;
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';

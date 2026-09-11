@@ -154,5 +154,33 @@ test("login no longer waits for the whole database", () => {
   const api = readFileSync(new URL("../admin-api.js", import.meta.url), "utf8");
   assert.match(api, /includeBootstrap:false/);
   assert.equal(api.includes("includeBootstrap:true"), false, "login still pulls the full bootstrap");
-  assert.match(app, /if\(cached\) renderAll\(\);[\s\S]*?const snapshot=result\.snapshot\|\|await api\.bootstrap\(\);/);
+  assert.match(app, /if\(cached\) \{ db=\{\.\.\.emptyDatabase\(\),\.\.\.normalizeDatabaseTimes\(cached\)\};[\s\S]*?renderAll\(\); \}/);
+  assert.match(app, /const snapshot=result\.snapshot\|\|await api\.bootstrap\(since\)/);
+});
+
+test("deleting in the app deletes in Sheets, and the list re-sorts", () => {
+  assert.match(app, /function deleteAbsenceRecord\(id\)/);
+  assert.match(app, /remoteWrite\("deleteAbsence", \{ id \}/);
+  assert.equal(app.includes("cancelAbsence(button.dataset.cancelAbsence)"), false, "the cross still only cancels");
+  assert.match(app, /db\.absences = db\.absences\.filter\(\(absence\) => absence\.id !== id\)/);
+  assert.match(app, /function removeTeacherRecord\(id\)/);
+  assert.match(app, /remoteWrite\("deleteTeacher", \{ id \}/);
+});
+
+test("the data tools cover archive, purge and a guarded reset", () => {
+  assert.match(app, /remoteWrite\("archiveVersions", \{ ids: old\.map/);
+  assert.match(app, /remoteWrite\("archiveVersions", \{ ids: archived\.map\(\(version\) => version\.id\), remove: true \}/);
+  assert.match(app, /remoteWrite\("resetData", \{ targets, confirm: "PADAM" \}/);
+  assert.match(html, /id="resetData"/);
+  assert.match(html, /class="reset-target" value="reliefs"/);
+  assert.match(html, /id="archiveTimetables"/);
+});
+
+test("a refresh paints the private data from the device instead of waiting for Sheets", () => {
+  assert.match(app, /const ADMIN_DB_KEY = "sistem-jadual-data-admin-v1"/);
+  assert.match(app, /function cacheAdminDb\(\)/);
+  assert.match(app, /const snapshot=result\.snapshot\|\|await api\.bootstrap\(since\)/);
+  assert.match(app, /if\(snapshot\.changed===false && cached\)/);
+  const apiSource = readFileSync(new URL("../admin-api.js", import.meta.url), "utf8");
+  assert.match(apiSource, /bootstrap\(sinceRevision\) \{return this\.request\('bootstrap',sinceRevision\?\{sinceRevision\}:\{\},true\);\}/);
 });
