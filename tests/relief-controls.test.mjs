@@ -124,3 +124,9 @@ test("the guide text no longer describes numbered steps", () => {
   assert.equal(app.includes("1. Rekod guru tiada → 2. Jana relief"), false);
   assert.ok(app.includes("Buka Rekod guru tiada"));
 });
+
+test("the preview stacks the period number above its clock", () => {
+  const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  assert.match(css, /\.relief-preview \.relief-print-period \{ display: block;/, "without this the number and clock run together as 107:30 on screen");
+  assert.match(css, /\.relief-preview \.relief-print-clock \{ display: block;/);
+});

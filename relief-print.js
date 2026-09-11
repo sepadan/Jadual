@@ -1,4 +1,4 @@
-import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.1.8";
+import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.1.9";
 
 function clean(value) {
   return String(value || "").trim();
@@ -87,7 +87,10 @@ function fitClass(values) {
 }
 
 export function reliefPrintHtml(model) {
-  const heading = model.periods.map((period) => `<th><b>${period.period}</b><span>${escapeHtml(period.startTime)}<br>${escapeHtml(period.endTime)}</span></th>`).join("");
+  // The period number sits on its own line and the clock below it. Both are wrapped in their own
+  // elements so the printed sheet and the on-screen preview can style them without depending on
+  // the other's rules.
+  const heading = model.periods.map((period) => `<th><b class="relief-print-period">${period.period}</b><span class="relief-print-clock">${escapeHtml(period.startTime)}<br>${escapeHtml(period.endTime)}</span></th>`).join("");
   const columns = model.periods.map(() => '<col class="relief-col-period">').join("");
   const groups = model.groups.map((group) => {
     const cells = (field) => model.periods.map((period) => {

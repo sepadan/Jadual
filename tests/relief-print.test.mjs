@@ -50,3 +50,9 @@ test('the preview model can include drafts while the official sheet stays publis
   assert.equal(slots(buildReliefPrintModel(db,'2026-09-10',periods)),1);
   assert.equal(slots(buildReliefPrintModel(db,'2026-09-10',periods,{includeDrafts:true})),2);
 });
+
+test('the time header keeps the period number and the clock in their own elements',()=>{
+  const html=reliefPrintHtml(buildReliefPrintModel(db,'2026-09-10',periods));
+  assert.match(html,/<b class="relief-print-period">1<\/b><span class="relief-print-clock">07:30<br>08:00<\/span>/);
+  assert.match(html,/<b class="relief-print-period">2<\/b><span class="relief-print-clock">08:30<br>09:00<\/span>/);
+});

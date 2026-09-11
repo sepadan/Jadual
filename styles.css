@@ -100,7 +100,12 @@ p { color: var(--muted); line-height: 1.55; }
 .relief-preview .relief-print-name-caption { display: block; margin-bottom: 4px; font-size: 9px; font-weight: 600; color: var(--muted); }
 .relief-preview .relief-print-name-text { display: block; font-weight: 700; }
 .relief-preview .relief-print-label { width: 76px; font-size: 10px; color: var(--muted); }
+/* Nombor waktu di baris atas, jam di bawahnya di dalam sel yang sama. Tanpa peraturan ini kedua-
+   duanya bergabung menjadi "107:30" pada skrin (CSS cetak tidak terpakai pada pratonton). */
+.relief-preview .relief-print-period { display: block; font-size: 12px; font-weight: 800; color: var(--ink); }
+.relief-preview .relief-print-clock { display: block; margin-top: 3px; font-size: 10px; color: var(--muted); line-height: 1.25; }
 .relief-preview .relief-print-time { font-weight: 700; }
+.relief-preview .relief-print-table thead th { padding: 7px 5px; }
 .relief-preview .relief-print-footer { margin: 10px 0 0; font-size: 10px; color: var(--muted); text-align: right; }
 .relief-preview .relief-print-group + .relief-print-group { border-top: 2px solid var(--line); }
 
