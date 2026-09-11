@@ -1,12 +1,12 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.6";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.6";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.6";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.6";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.6";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.6';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.6';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.6';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.6';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.7";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.7";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.7";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.7";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.7";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.7';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.7';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.7';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.7';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -27,6 +27,7 @@ let deferredInstallPrompt = null;
 let toastTimer = null;
 let scheduleMode = "relief";
 let reliefPanel = "senarai";
+let reliefTab = "ketiadaan";
 let builderLoadPromise;
 
 function $(selector, root = document) { return root.querySelector(selector); }
@@ -223,6 +224,7 @@ function setReliefPanel(name) {
     const active = button.dataset.reliefPanel === reliefPanel;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
   });
 }
 
@@ -275,9 +277,25 @@ function reliefCard(item) {
 }
 
 function updateDraftActions() {
-  $("#reliefActions").classList.toggle("hidden", !currentDrafts.length);
+  // The publish bar belongs to the relief sub tab: on the absence sub tab it would offer to
+  // publish a list the admin is not looking at.
+  $("#reliefActions").classList.toggle("hidden", !currentDrafts.length || reliefTab !== "relief");
   const filled = currentDrafts.filter((item) => item.replacementTeacherId).length;
   $("#draftCount").textContent = `${filled}/${currentDrafts.length} relief ditetapkan`;
+}
+
+// Parent sub tab of the relief screen: "ketiadaan" (who is away) or "relief" (the cover plan).
+function setReliefTab(name) {
+  reliefTab = ["ketiadaan","relief"].includes(name) ? name : "ketiadaan";
+  $("#absenceBlock")?.classList.toggle("hidden", reliefTab !== "ketiadaan");
+  $("#reliefBlock")?.classList.toggle("hidden", reliefTab !== "relief");
+  $$("[data-relief-tab]").forEach((button) => {
+    const active = button.dataset.reliefTab === reliefTab;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  updateDraftActions();
 }
 
 function renderAbsences() {
@@ -689,9 +707,24 @@ function wireEvents() {
   $("#scheduleDay").addEventListener("change", renderSchedule);
   $("#publishRelief").addEventListener("click", publishReliefs);
   $("#printRelief").addEventListener("click", printReliefSheet);
-  $("#exportReliefPdf").addEventListener("click", exportReliefPdf);
+  $('#exportReliefPdf').addEventListener('click', exportReliefPdf);
   $$('[data-relief-panel]').forEach((button) => button.addEventListener("click", () => setReliefPanel(button.dataset.reliefPanel)));
   setReliefPanel(reliefPanel);
+  $$('[data-relief-tab]').forEach((button) => button.addEventListener("click", () => setReliefTab(button.dataset.reliefTab)));
+  // One arrow-key handler serves both tab levels: each tablist moves only its own tabs.
+  $$('[role="tablist"]').forEach((list) => list.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    const tabs = $$('[role="tab"]', list);
+    const index = tabs.indexOf(document.activeElement);
+    if (tabs.length < 2 || index < 0) return;
+    event.preventDefault();
+    const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+    // A programmatic click does not move focus, so the next arrow press would start from the
+    // tab the admin just left and navigation would stall.
+    next.focus();
+    next.click();
+  }));
+  setReliefTab(reliefTab);
   $("#pdfFile").addEventListener("change", (event) => {
     const file = event.target.files[0]; $("#fileName").textContent = file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB` : "Maksimum 25 MB"; $("#parsePdf").disabled = !file;
     if (file) { const date = file.name.match(/(\d{2})[.\-_](\d{2})[.\-_](\d{4})/); if (date) { $("#effectiveDate").value = `${date[3]}-${date[2]}-${date[1]}`; $("#versionLabel").value = `Jadual ${date[1]}.${date[2]}.${date[3]}`; } }

@@ -71,10 +71,16 @@ p { color: var(--muted); line-height: 1.55; }
 .segmented button.active { color: var(--ink); background: #fff; box-shadow: 0 2px 8px rgba(17,48,42,.08); }
 .relief-list, .card-list { display: grid; gap: 10px; }
 
-/* Dua blok kerja skrin relief: rekod guru tiada dan relief, sebelah-menyebelah pada skrin lebar. */
-.work-columns { display: grid; gap: 22px; align-items: start; }
-.section-block { min-width: 0; margin: 0; }
-.section-block + .section-block { padding-top: 20px; border-top: 1px solid var(--line); }
+/* Sub-tab skrin relief: bar bergaris bawah untuk tab induk (Ketiadaan guru | Relief), manakala
+   .segmented menandakan paparan dalam Relief supaya dua tahap itu tidak kelihatan sama. */
+.relief-tabs { display: flex; gap: 6px; margin: 0 0 18px; border-bottom: 2px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.relief-tabs::-webkit-scrollbar { display: none; }
+.relief-tab { appearance: none; margin-bottom: -2px; padding: 11px 18px; border: 0; border-bottom: 3px solid transparent; border-radius: 8px 8px 0 0; color: var(--muted); background: transparent; font: inherit; font-size: 15px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.relief-tab:hover { color: var(--ink); }
+.relief-tab.active { color: var(--green-800); border-bottom-color: var(--green-800); }
+.relief-tab:focus-visible { outline: 2px solid var(--green-800); outline-offset: 2px; }
+.relief-tabpanel { min-width: 0; }
+.segmented button:focus-visible { outline: 2px solid var(--green-800); outline-offset: 1px; }
 .head-tools { display: flex; align-items: end; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .head-tools .button-row { margin: 0; }
 .relief-switch { display: inline-flex; margin: 0 0 14px; }

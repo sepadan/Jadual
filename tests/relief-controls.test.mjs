@@ -14,6 +14,10 @@ function functionBody(name) {
   return rest.slice(0, end < 0 ? rest.length : end);
 }
 
+// Quote style is a formatting choice, so comparisons flatten it rather than pin it.
+const flat = (source) => source.replace(/['"]/g, '"');
+const has = (source, snippet) => flat(source).includes(flat(snippet));
+
 test("the relief screen offers plain actions instead of numbered steps", () => {
   for (const label of [">Rekod guru tiada<", ">Jana<", ">Terbitkan<", ">Cetak<", ">Eksport PDF<"]) {
     assert.ok(html.includes(label), `${label} is missing from the relief screen`);
@@ -56,11 +60,43 @@ test("the relief block holds two panels: senarai and preview", () => {
   const body = functionBody("setReliefPanel");
   assert.match(body, /reliefPanelPreview/);
   assert.match(body, /aria-selected/);
+  assert.match(body, /tabIndex/);
+});
+
+test("arrow keys move focus as well as the selected state", () => {
+  assert.match(app, /next\.focus\(\);\n    next\.click\(\);/, "a programmatic click does not move focus, so the next arrow press would stall");
+});
+
+test("the relief screen has two sub tabs: Ketiadaan guru and Relief", () => {
+  const tabs = [...html.matchAll(/data-relief-tab="([^"]+)"[^>]*>([^<]+)</g)].map((match) => [match[1], match[2].trim()]);
+  assert.deepEqual(tabs, [["ketiadaan", "Ketiadaan guru"], ["relief", "Relief"]]);
+  assert.ok(html.includes('role="tablist" aria-label="Pengurusan relief harian"'), "the sub tab bar is not a tablist");
+  assert.ok(html.includes('id="absenceBlock" class="relief-tabpanel"') && html.includes('id="reliefBlock" class="relief-tabpanel hidden"'), "only one panel may be visible at a time");
+  assert.equal(html.includes("work-columns"), false, "the rejected two-column layout is still in the markup");
+  assert.ok(app.includes("$$('[data-relief-tab]').forEach((button) => button.addEventListener(\"click\", () => setReliefTab(button.dataset.reliefTab)))"), "the sub tabs are not wired");
+  const body = functionBody("setReliefTab");
+  assert.match(body, /absenceBlock/);
+  assert.match(body, /reliefBlock/);
+  assert.match(body, /tabIndex/);
+});
+
+test("the publish bar only appears on the relief sub tab", () => {
+  const body = functionBody("updateDraftActions");
+  assert.match(body, /reliefTab !== "relief"/);
+  assert.match(functionBody("setReliefTab"), /updateDraftActions\(\)/);
+  assert.ok(has(app, 'setReliefTab(reliefTab);'), "the sub tabs are not initialised on start-up");
+});
+
+test("arrow keys move within one tab level only", () => {
+  assert.match(app, /\[role="tablist"\]'\)\.forEach\(\(list\) => list\.addEventListener\("keydown"/);
+  assert.ok(has(app, "const tabs = $$('[role=\"tab\"]', list);"), "the handler does not scope itself to its own tablist");
+  assert.match(app, /ArrowLeft/);
+  assert.match(app, /ArrowRight/);
 });
 
 test("print and export are separate buttons, and export always writes a PDF", () => {
-  assert.ok(app.includes('$("#printRelief").addEventListener("click", printReliefSheet);'), "the print button is not wired");
-  assert.ok(app.includes('$("#exportReliefPdf").addEventListener("click", exportReliefPdf);'), "the export button is not wired");
+  assert.ok(has(app, '$("#printRelief").addEventListener("click", printReliefSheet);'), "the print button is not wired");
+  assert.ok(has(app, '$("#exportReliefPdf").addEventListener("click", exportReliefPdf);'), "the export button is not wired");
   const printBody = functionBody("printReliefSheet");
   assert.match(printBody, /window\.print\(\)/);
   assert.equal(printBody.includes("openReliefPdf"), false, "printing must not silently export instead");
