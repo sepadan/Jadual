@@ -98,13 +98,35 @@ function publicBootstrap_() {
 }
 
 // Permanent cover, mirrored from teacher-coverage.js so the public timetable shows the same teacher
-// the school runs with: lessons a Personel MySTEP/practical teacher has taken over, and a Personel
-// MySTEP's fully replaced teacher removed from the payload.
-function coverSubjects_(teacher) { return String(teacher&&teacher.coversSubjects||"").split(",").map(function(item){return item.trim().toUpperCase();}).filter(function(item){return item;}); }
+// the school runs with. Personel MySTEP replaces (the covered teacher's lessons move over and a fully
+// replaced teacher is dropped from the payload); Guru Praktikal shares (the lesson is added to the
+// practical teacher while the original keeps it).
+function coverSubjects_(entry) {
+  var list = entry && entry.subjects;
+  if (!Array.isArray(list)) list = String(list == null ? "" : list).split(",");
+  return list.map(function(item){return String(item).trim().toUpperCase();}).filter(function(item){return item;});
+}
+function coverList_(teacher) {
+  if (!teacher) return [];
+  var raw = teacher.coversJson;
+  if (raw) {
+    var parsed = raw;
+    if (typeof raw === "string") { try { parsed = JSON.parse(raw); } catch (e) { parsed = null; } }
+    if (Array.isArray(parsed)) {
+      return parsed.filter(function(entry){return entry && entry.teacherId;})
+        .map(function(entry){return {teacherId:String(entry.teacherId),subjects:coverSubjects_(entry)};});
+    }
+  }
+  return teacher.coversTeacherId ? [{teacherId:String(teacher.coversTeacherId),subjects:coverSubjects_({subjects:teacher.coversSubjects})}] : [];
+}
 function coverLinks_(teachers) {
-  return (teachers||[]).filter(function(teacher){return teacher.active!==false&&teacher.coversTeacherId;})
-    .map(function(teacher){return {coveringId:teacher.id,covering:teacher,coveredId:teacher.coversTeacherId,subjects:coverSubjects_(teacher)};})
-    .filter(function(link){return link.coveredId&&link.coveredId!==link.coveringId;});
+  var links = [];
+  (teachers||[]).filter(function(teacher){return teacher.active!==false;}).forEach(function(teacher){
+    coverList_(teacher).forEach(function(entry){
+      if (entry.teacherId && entry.teacherId !== teacher.id) links.push({coveringId:teacher.id,covering:teacher,coveredId:entry.teacherId,subjects:entry.subjects,replace:String(teacher.position||"")==="Personel MySTEP"});
+    });
+  });
+  return links;
 }
 function coverTakes_(link,row) {
   if (link.coveredId!==row.teacherId) return false;
@@ -114,14 +136,20 @@ function coverTakes_(link,row) {
 function coverRows_(rows,teachers) {
   var links=coverLinks_(teachers);
   if (!links.length) return rows||[];
-  return (rows||[]).map(function(row){
-    for (var i=0;i<links.length;i++) { if (coverTakes_(links[i],row)) { var copy=Object.assign({},row); copy.teacherId=links[i].coveringId; return copy; } }
-    return row;
+  var out=[];
+  (rows||[]).forEach(function(row){
+    var link=null;
+    for (var i=0;i<links.length;i++) { if (coverTakes_(links[i],row)) { link=links[i]; break; } }
+    if (!link) { out.push(row); return; }
+    if (link.replace) { var moved=Object.assign({},row); moved.teacherId=link.coveringId; out.push(moved); return; }
+    out.push(row);
+    var shared=Object.assign({},row); shared.teacherId=link.coveringId; out.push(shared);
   });
+  return out;
 }
 function coverHiddenIds_(teachers,officialRows) {
   var hidden={};
-  coverLinks_(teachers).filter(function(link){return String(link.covering.position||"")==="Personel MySTEP";}).forEach(function(link){
+  coverLinks_(teachers).filter(function(link){return link.replace;}).forEach(function(link){
     var own=(officialRows||[]).filter(function(row){return row.teacherId===link.coveredId;});
     if (!own.length) return;
     if (!own.some(function(row){return !coverTakes_(link,row);})) hidden[String(link.coveredId)]=true;

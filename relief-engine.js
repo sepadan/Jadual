@@ -1,5 +1,5 @@
-import { coverageRows, fullyCoveredIds } from "./teacher-coverage.js?v=3.1.12";
-import { DAY_CODES, PERIODS } from "./data.js?v=3.1.12";
+import { coverageRows, fullyCoveredIds, sharedPairKey, sharedPairs } from "./teacher-coverage.js?v=3.1.13";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.1.13";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
@@ -58,6 +58,20 @@ export function coverageHiddenIds(db) {
 // Rows as the school runs them today, for every view that shows "who teaches this".
 export function effectiveScheduleRows(db) {
   return coverageRows(db.schedule || [], db.teachers);
+}
+
+// Raw rows of the timetable in force, before any cover link is applied.
+function rawVersionRows(db, dateText) {
+  const version = selectedScheduleVersion(db, dateText);
+  return version ? (db.schedule || []).filter((row) => row.versionId === version.id) : [];
+}
+
+// A lesson taught together with a Guru Praktikal needs no relief while the other teacher of the
+// pair is in school: the class already has a teacher.
+function pairAlreadyCovered(db, date, row, absenceTeacherId) {
+  const pair = sharedPairs(rawVersionRows(db, date), db.teachers).get(sharedPairKey(row));
+  if (!pair) return false;
+  return [...pair].some((id) => id !== absenceTeacherId && !teacherIsAbsent(db, id, date, row.period));
 }
 
 export function absenceCovers(absence, period) {
@@ -169,14 +183,21 @@ export function buildReliefDrafts(db, date) {
     (db.reliefs || []).filter((item) => item.date === date && item.status !== "cancelled" && reliefHasActiveAbsence(db, item)).map((item) => `${item.absentTeacherId}|${item.period}`),
   );
   const drafts = [];
+  // One relief per class period: when two teachers of the same shared lesson are both away, the
+  // class still needs a single replacement.
+  const coveredSlots = new Set();
   (db.absences || [])
     .filter((absence) => absence.date === date && absence.status !== "cancelled")
     .forEach((absence) => {
       rows
         .filter((row) => row.teacherId === absence.teacherId && row.day === day && row.className && absenceCovers(absence, row.period))
+        .filter((row) => !pairAlreadyCovered(db, date, row, absence.teacherId))
         .forEach((row) => {
           const key = `${absence.teacherId}|${row.period}`;
           if (existingKeys.has(key)) return;
+          const slot = `${row.day}|${Number(row.period)}|${row.className}`;
+          if (coveredSlots.has(slot)) return;
+          coveredSlots.add(slot);
           if(db.reliefSettings?.ignorePairingWhenCovered && hasPresentPair(db,date,row,rows)) return;
           const candidates = rankCandidates({ db: {...db, reliefs:[...db.reliefs,...drafts]}, date, day, period: row.period, absentTeacherId: absence.teacherId });
           drafts.push({

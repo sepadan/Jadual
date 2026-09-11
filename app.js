@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.12";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.12";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.12";
-import { canCover, coverSubjects, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.12";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.12";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.12";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.12';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.12';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.12';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.12';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.13";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.13";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.13";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.13";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.13";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.13";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.13';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.13';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.13';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.13';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -468,8 +468,7 @@ function openTeacherDialog(id = "") {
   positionSelect.value=standard?position:'__other__';
   $('#teacherPositionOther').value=standard?'':position;
   toggleTeacherPositionOther();
-  $('#teacherCovers').value = teacher?.coversTeacherId || "";
-  $('#teacherCoverAll').checked = !coverSubjects(teacher || {}).length;
+  coverDraft = coverList(teacher || {}).map((entry) => ({ teacherId: entry.teacherId, all: !entry.subjects.length, subjects: entry.subjects }));
   renderTeacherCover();
   $("#teacherEligible").checked = teacher?.reliefEligible ?? true;
   $("#teacherDialog").showModal();
@@ -479,38 +478,72 @@ function currentTeacherPosition() {
   return $('#teacherPosition').value === '__other__' ? $('#teacherPositionOther').value.trim() : $('#teacherPosition').value;
 }
 
-// The replace-a-teacher controls only apply to Personel MySTEP and Guru Praktikal, and the teacher
-// they replace must still be on the timetable, so the subject list can be read from their own rows.
+// The replace-a-teacher controls apply to Personel MySTEP and Guru Praktikal. A practical teacher
+// may share the lessons of more than one teacher, so the dialog works on a list of rows.
+let coverDraft = [];
+
 function renderTeacherCover() {
   const wrap = $('#teacherCoverWrap');
   if (!canCover({ position: currentTeacherPosition() })) { wrap.classList.add('hidden'); return; }
   wrap.classList.remove('hidden');
-  const selfId = $('#teacherId').value;
-  const alreadyCovered = new Set(coverLinks(db.teachers).filter((link) => link.coveringId !== selfId).map((link) => link.coveredId));
-  // Read the full list, not activeTeachers(): the teacher this record already replaces is hidden
-  // from the rest of the app, and that is exactly the option that must stay selected here.
-  const options = db.teachers.filter((teacher) => teacher.active && teacher.id !== selfId && !alreadyCovered.has(teacher.id));
-  const keep = $('#teacherCovers').value || db.teachers.find((teacher) => teacher.id === selfId)?.coversTeacherId || "";
-  $('#teacherCovers').innerHTML = `<option value="">— tidak menggantikan —</option>${options.map((teacher) => `<option value="${esc(teacher.id)}">${esc(teacher.name)}</option>`).join("")}`;
-  $('#teacherCovers').value = options.some((teacher) => teacher.id === keep) ? keep : "";
-  renderTeacherCoverSubjects();
+  renderCoverRows();
 }
 
-function renderTeacherCoverSubjects() {
-  const coveredId = $('#teacherCovers').value;
-  const fieldset = $('#teacherCoverSubjects');
-  const list = $('#teacherCoverSubjectList');
-  if (!coveredId) { fieldset.classList.add('hidden'); list.innerHTML = ""; return; }
-  fieldset.classList.remove('hidden');
-  const self = db.teachers.find((teacher) => teacher.id === $('#teacherId').value);
-  const stored = coverSubjects(self || {});
-  const all = $('#teacherCoverAll').checked;
-  // Read the raw rows: the covered teacher's own subjects must not be hidden by the very cover
-  // link being edited (their taken-over lessons already read as the covering teacher's).
-  const subjects = coveredTeacherSubjects(db.schedule, coveredId);
-  list.innerHTML = subjects.length
-    ? subjects.map((subject) => `<label class="chip"><input type="checkbox" class="cover-subject" value="${esc(subject)}" ${all || stored.includes(subject.toUpperCase()) ? "checked" : ""} ${all ? "disabled" : ""}> ${esc(subject)}</label>`).join("")
-    : `<small>Guru ini belum ada subjek dalam jadual rasmi.</small>`;
+function coverRowsHtml() {
+  const selfId = $('#teacherId').value;
+  const takenByOthers = new Set(coverLinks(db.teachers).filter((link) => link.coveringId !== selfId).map((link) => link.coveredId));
+  if (!coverDraft.length) coverDraft.push({ teacherId: "", all: true, subjects: [] });
+  return coverDraft.map((entry, index) => {
+    // The teacher being replaced is hidden from the rest of the app but must stay selectable here.
+    const options = db.teachers.filter((teacher) => teacher.active && teacher.id !== selfId && (!takenByOthers.has(teacher.id) || teacher.id === entry.teacherId));
+    const subjects = entry.teacherId ? coveredTeacherSubjects(db.schedule, entry.teacherId) : [];
+    return `<div class="cover-row" data-index="${index}">
+      <select class="cover-teacher" aria-label="Guru diganti">${`<option value="">— pilih guru diganti —</option>`}${options.map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === entry.teacherId ? "selected" : ""}>${esc(teacher.name)}</option>`).join("")}</select>
+      <button type="button" class="mini-button delete cover-remove" title="Buang baris ini">×</button>
+      ${entry.teacherId ? `<label class="check-row"><input type="checkbox" class="cover-all" ${entry.all ? "checked" : ""}> Semua jadual</label>
+      <div class="chip-row">${subjects.length
+        ? subjects.map((subject) => `<label class="chip"><input type="checkbox" class="cover-subject" value="${esc(subject)}" ${entry.all || entry.subjects.includes(subject.toUpperCase()) ? "checked" : ""} ${entry.all ? "disabled" : ""}> ${esc(subject)}</label>`).join("")
+        : `<small>Guru ini belum ada subjek dalam jadual.</small>`}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function renderCoverRows() {
+  $('#teacherCoverRows').innerHTML = coverRowsHtml();
+  $$('#teacherCoverRows .cover-teacher').forEach((select) => select.addEventListener('change', () => {
+    syncCoverDraft();
+    const index = Number(select.closest('.cover-row').dataset.index);
+    const coveredId = select.value;
+    // A fresh choice starts from the whole timetable of that teacher.
+    const subjects = coveredTeacherSubjects(db.schedule, coveredId);
+    coverDraft[index] = { teacherId: coveredId, all: true, subjects };
+    renderCoverRows();
+  }));
+  $$('#teacherCoverRows .cover-all').forEach((box) => box.addEventListener('change', () => { syncCoverDraft(); renderCoverRows(); }));
+  $$('#teacherCoverRows .cover-subject').forEach((box) => box.addEventListener('change', syncCoverDraft));
+  $$('#teacherCoverRows .cover-remove').forEach((button) => button.addEventListener('click', () => {
+    syncCoverDraft();
+    coverDraft.splice(Number(button.closest('.cover-row').dataset.index), 1);
+    if (!coverDraft.length) coverDraft.push({ teacherId: "", all: true, subjects: [] });
+    renderCoverRows();
+  }));
+}
+
+// Reads the rendered rows back into the draft, so adding or removing a row never loses typing.
+function syncCoverDraft() {
+  const rows = $$('#teacherCoverRows .cover-row');
+  if (!rows.length) return;
+  coverDraft = rows.map((row) => {
+    const all = row.querySelector('.cover-all')?.checked ?? true;
+    const subjects = $$('.cover-subject', row).filter((box) => box.checked).map((box) => box.value.toUpperCase());
+    return { teacherId: row.querySelector('.cover-teacher').value, all, subjects };
+  });
+}
+
+function coverDraftEntries() {
+  return coverDraft
+    .filter((entry) => entry.teacherId)
+    .map((entry) => ({ teacherId: entry.teacherId, subjects: entry.all ? [] : entry.subjects }));
 }
 
 function saveTeacherRecord(event) {
@@ -523,9 +556,11 @@ function saveTeacherRecord(event) {
   if (!name) return toast("Nama guru diperlukan.", "error");
   if (!position) return toast("Jawatan guru diperlukan.", "error");
   if (db.teachers.some((teacher) => teacher.active && teacher.name === name && teacher.id !== existingId)) return toast("Nama guru ini sudah wujud.", "error");
-  const coversTeacherId = canCover({ position }) ? $('#teacherCovers').value : "";
-  const pickedSubjects = $$(".cover-subject").filter((box) => box.checked).map((box) => box.value.trim().toUpperCase());
-  if (coversTeacherId && !$('#teacherCoverAll').checked && !pickedSubjects.length) return toast("Pilih sekurang-kurangnya satu subjek, atau tandakan “Semua jadual”.", "error");
+  if (canCover({ position })) {
+    syncCoverDraft();
+    if (coverDraft.some((entry) => entry.teacherId && !entry.all && !entry.subjects.length)) return toast("Pilih sekurang-kurangnya satu subjek, atau tandakan “Semua jadual”.", "error");
+  }
+  const covers = canCover({ position }) ? coverDraftEntries() : [];
   const teacher = {
     id: existingId || `g-${slug($("#teacherShortName").value)}-${Date.now().toString(36)}`,
     name,
@@ -533,8 +568,7 @@ function saveTeacherRecord(event) {
     position,
     priority: db.teachers.find(item=>item.id===existingId)?.priority || 3,
     reliefEligible: $("#teacherEligible").checked,
-    coversTeacherId,
-    coversSubjects: coversTeacherId && !$('#teacherCoverAll').checked ? pickedSubjects.join(",") : "",
+    coversJson: covers.length ? JSON.stringify(covers) : "",
     active: true,
     createdAt: db.teachers.find((item) => item.id === existingId)?.createdAt || now,
     updatedAt: now,
@@ -763,8 +797,7 @@ function wireEvents() {
   $("#teacherForm").addEventListener("submit", saveTeacherRecord);
   $('#teacherPosition').addEventListener('change',()=>{toggleTeacherPositionOther();renderTeacherCover();});
   $('#teacherPositionOther').addEventListener('input',renderTeacherCover);
-  $('#teacherCovers').addEventListener('change',()=>{ $('#teacherCoverAll').checked=true; renderTeacherCoverSubjects(); });
-  $('#teacherCoverAll').addEventListener('change',renderTeacherCoverSubjects);
+  $('#teacherCoverAdd').addEventListener('click',()=>{ syncCoverDraft(); coverDraft.push({ teacherId:'', all:true, subjects:[] }); renderCoverRows(); });
   $$('[data-close-teacher]').forEach(button=>button.addEventListener('click',()=>$('#teacherDialog').close()));
   $('#downloadTeachers').addEventListener('click',()=>{
     if(!requireAdmin()) return;

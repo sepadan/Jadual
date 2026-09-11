@@ -5,7 +5,7 @@
 
 var SHEETS = {
   Config: ["key", "value"],
-  Teachers: ["id", "name", "shortName", "position", "reliefEligible", "priority", "active", "createdAt", "updatedAt", "coversTeacherId", "coversSubjects"],
+  Teachers: ["id", "name", "shortName", "position", "reliefEligible", "priority", "active", "createdAt", "updatedAt", "coversTeacherId", "coversSubjects", "coversJson"],
   ScheduleVersions: ["id", "label", "effectiveDate", "sourceName", "status", "createdAt"],
   Schedule: ["versionId", "teacherId", "day", "period", "startTime", "endTime", "subject", "className", "isDuty"],
   Absences: ["id", "date", "teacherId", "reason", "allDay", "periods", "status", "createdAt", "updatedAt"],
@@ -62,7 +62,7 @@ function setupSystem() {
   var teacherSheet = ss.getSheetByName("Teachers");
   if (teacherSheet.getLastRow() === 1) {
     var now = new Date().toISOString();
-    teacherSheet.getRange(2, 1, INITIAL_TEACHERS.length, 11).setValues(INITIAL_TEACHERS.map(function(row) { return row.concat([true, now, now, "", ""]); }));
+    teacherSheet.getRange(2, 1, INITIAL_TEACHERS.length, 12).setValues(INITIAL_TEACHERS.map(function(row) { return row.concat([true, now, now, "", "", ""]); }));
   }
   formatSheets_(ss);
   audit_("setupSystem", "database", "Pangkalan data dimulakan");
@@ -91,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.12", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.13", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -329,7 +329,7 @@ function upsert_(sheetName, keyName, row) {
 
 // coversTeacherId/coversSubjects carry a Personel MySTEP or Guru Praktikal who takes over another
 // teacher's lessons: the covered teacher id, and the subjects taken ("" means the whole timetable).
-function encodeTeacher_(item) { return [item.id, text_(item.name), text_(item.shortName), text_(item.position), bool_(item.reliefEligible), Number(item.priority || 3), bool_(item.active), text_(item.createdAt), text_(item.updatedAt), text_(item.coversTeacherId), text_(item.coversSubjects)]; }
+function encodeTeacher_(item) { return [item.id, text_(item.name), text_(item.shortName), text_(item.position), bool_(item.reliefEligible), Number(item.priority || 3), bool_(item.active), text_(item.createdAt), text_(item.updatedAt), text_(item.coversTeacherId), text_(item.coversSubjects), text_(item.coversJson)]; }
 function encodeVersion_(item) { return [item.id, text_(item.label), text_(item.effectiveDate), text_(item.sourceName), text_(item.status), text_(item.createdAt)]; }
 function encodeSchedule_(item) { return [item.versionId, item.teacherId, item.day, Number(item.period), clockText_(item.startTime), clockText_(item.endTime), text_(item.subject), text_(item.className), bool_(item.isDuty)]; }
 function encodeAbsence_(item) { return [item.id, item.date, item.teacherId, text_(item.reason), bool_(item.allDay), JSON.stringify(item.periods || []), text_(item.status), text_(item.createdAt), text_(item.updatedAt)]; }
