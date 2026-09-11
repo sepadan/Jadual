@@ -1,4 +1,4 @@
-import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.1.4";
+import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.1.5";
 
 function clean(value) {
   return String(value || "").trim();
@@ -33,10 +33,11 @@ function dayName(value) {
   return ["AHAD", "ISNIN", "SELASA", "RABU", "KHAMIS", "JUMAAT", "SABTU"][date.getDay()];
 }
 
-export function buildReliefPrintModel(db, date, standardPeriods) {
+export function buildReliefPrintModel(db, date, standardPeriods, options = {}) {
   const teachers = db.teachers || [];
+  const statuses = options.includeDrafts ? ["published", "draft"] : ["published"];
   const reliefs = (db.reliefs || [])
-    .filter((item) => item.date === date && item.status === "published" && reliefHasActiveAbsence(db, item))
+    .filter((item) => item.date === date && statuses.includes(item.status) && reliefHasActiveAbsence(db, item))
     .sort((a, b) => Number(a.period) - Number(b.period) || clean(a.className).localeCompare(clean(b.className), "ms"));
   const maximum = Math.max(11, ...reliefs.map((item) => Number(item.period) || 0));
   const periods = (standardPeriods || [])

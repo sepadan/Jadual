@@ -44,3 +44,9 @@ test('official relief sheet includes class, replacement and signature rows',()=>
   assert.match(html,/GURU<br>GANTI/);
   assert.match(html,/T\/TANGAN/);
 });
+
+test('the preview model can include drafts while the official sheet stays published-only',()=>{
+  const slots=model=>model.groups.reduce((total,group)=>total+Object.keys(group.slots).length,0);
+  assert.equal(slots(buildReliefPrintModel(db,'2026-09-10',periods)),1);
+  assert.equal(slots(buildReliefPrintModel(db,'2026-09-10',periods,{includeDrafts:true})),2);
+});

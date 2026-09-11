@@ -71,10 +71,34 @@ p { color: var(--muted); line-height: 1.55; }
 .segmented button.active { color: var(--ink); background: #fff; box-shadow: 0 2px 8px rgba(17,48,42,.08); }
 .relief-list, .card-list { display: grid; gap: 10px; }
 
-/* Senarai guru tiada kini berada dalam skrin relief, dipisahkan daripada senarai relief. */
-.absence-block { margin: 2px 0 26px; padding: 20px 0 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.absence-block .section-head { margin-bottom: 14px; }
-@media (max-width: 720px) { .absence-block { padding: 16px 0; margin-bottom: 20px; } }
+/* Dua blok kerja skrin relief: rekod guru tiada dan relief, sebelah-menyebelah pada skrin lebar. */
+.work-columns { display: grid; gap: 22px; align-items: start; }
+.section-block { min-width: 0; margin: 0; }
+.section-block + .section-block { padding-top: 20px; border-top: 1px solid var(--line); }
+.head-tools { display: flex; align-items: end; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.head-tools .button-row { margin: 0; }
+.relief-switch { display: inline-flex; margin: 0 0 14px; }
+.relief-panel { min-width: 0; }
+
+/* Pratonton jadual guru ganti pada skrin (gaya cetak hanya terpakai semasa @media print). */
+.relief-preview { overflow: auto; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.relief-preview .relief-print-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
+.relief-preview .relief-print-title { text-align: center; }
+.relief-preview .relief-print-title strong, .relief-preview .relief-print-title span { display: block; }
+.relief-preview .relief-print-title strong { font-size: 15px; letter-spacing: .02em; }
+.relief-preview .relief-print-title span { font-size: 12px; color: var(--muted); }
+.relief-preview .relief-print-meta { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.relief-preview .relief-print-table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 11px; }
+.relief-preview .relief-print-table th, .relief-preview .relief-print-table td { padding: 5px 6px; border: 1px solid var(--line); background: #fff; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+.relief-preview .relief-print-name { width: 148px; text-align: left; }
+.relief-preview .relief-print-name-caption { display: block; margin-bottom: 4px; font-size: 9px; font-weight: 600; color: var(--muted); }
+.relief-preview .relief-print-name-text { display: block; font-weight: 700; }
+.relief-preview .relief-print-label { width: 76px; font-size: 10px; color: var(--muted); }
+.relief-preview .relief-print-time { font-weight: 700; }
+.relief-preview .relief-print-footer { margin: 10px 0 0; font-size: 10px; color: var(--muted); text-align: right; }
+.relief-preview .relief-print-group + .relief-print-group { border-top: 2px solid var(--line); }
+
+@media (min-width: 1240px) { .work-columns { grid-template-columns: minmax(320px, 430px) 1fr; gap: 26px; } .section-block + .section-block { padding-top: 0; border-top: 0; } }
 .relief-print-sheet { display: none; }
 .relief-card { display: grid; grid-template-columns: 112px 1fr minmax(210px, 260px); align-items: center; gap: 20px; padding: 15px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .time-chip { display: flex; align-items: center; gap: 11px; }

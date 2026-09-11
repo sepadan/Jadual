@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const app = readFileSync(new URL("../app.js", import.meta.url), "utf8");
+// Newlines normalised so the assertions do not depend on the checkout's line endings.
+const html = readFileSync(new URL("../index.html", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+const app = readFileSync(new URL("../app.js", import.meta.url), "utf8").replace(/\r\n/g, "\n");
 
 function functionBody(name) {
   const start = app.indexOf(`function ${name}(`);
@@ -14,7 +15,7 @@ function functionBody(name) {
 }
 
 test("the relief screen offers plain actions instead of numbered steps", () => {
-  for (const label of [">Rekod guru tiada<", ">Jana<", ">Terbitkan<"]) {
+  for (const label of [">Rekod guru tiada<", ">Jana<", ">Terbitkan<", ">Cetak<", ">Eksport PDF<"]) {
     assert.ok(html.includes(label), `${label} is missing from the relief screen`);
   }
   for (const stale of ["1. Rekod guru tiada", "2. Jana relief", "3. Terbitkan relief"]) {
@@ -32,18 +33,46 @@ test("the absence list lives inside the relief screen, not in its own tab", () =
   const reliefScreen = html.slice(html.indexOf('id="view-hari-ini"'), html.indexOf('id="view-jadual"'));
   assert.ok(reliefScreen.includes('id="absenceList"'), "the absence list is not part of the relief screen");
   assert.ok(reliefScreen.includes('data-open-absence'), "the + Tambah control is not part of the relief screen");
+  assert.ok(reliefScreen.includes('id="absenceBlock"') && reliefScreen.includes('id="reliefBlock"'), "the two work blocks are not siblings in the relief screen");
   assert.equal(html.includes('id="view-ketiadaan"'), false, "the separate absence tab is still present");
   assert.equal(html.includes('data-view="ketiadaan"'), false, "a navigation entry still points at the absence tab");
   assert.equal(html.includes("absenceFilterDate"), false, "a second date control is still present");
   assert.equal(app.includes('showView("ketiadaan")'), false, "app.js still navigates to the removed tab");
 });
 
-test("rekod guru tiada points at the embedded list instead of the form", () => {
-  assert.ok(app.includes('$("#openAbsence").addEventListener("click", showAbsenceBlock);'), "the relief button is not wired to the absence list");
-  const body = functionBody("showAbsenceBlock");
-  assert.match(body, /renderAbsences\(\)/);
-  assert.match(body, /absenceBlock/);
-  assert.equal(app.includes('$("#openAbsence").addEventListener("click", openAbsenceDialog)'), false, "the form must not open straight from the relief screen");
+test("generate sits in the relief block like + Tambah sits in the absence block", () => {
+  const blocks = html.slice(html.indexOf('id="absenceBlock"'), html.indexOf('id="reliefPrintSheet"'));
+  const absenceHead = blocks.slice(0, blocks.indexOf('id="reliefBlock"'));
+  const reliefHead = blocks.slice(blocks.indexOf('id="reliefBlock"'));
+  assert.match(absenceHead, /data-open-absence>\+ Tambah</, "the absence block lost its + Tambah button");
+  assert.match(reliefHead, /id="generateRelief"[^>]*>Jana</, "the relief block lost its Jana button");
+});
+
+test("the relief block holds two panels: senarai and preview", () => {
+  assert.ok(html.includes('data-relief-panel="senarai"') && html.includes('data-relief-panel="preview"'), "the relief sub-menus are missing");
+  assert.ok(html.includes('id="reliefPanelSenarai"') && html.includes('id="reliefPanelPreview"'), "the relief panels are missing");
+  assert.ok(html.includes('id="reliefPreview"'), "the preview container is missing");
+  assert.ok(app.includes("$$('[data-relief-panel]').forEach((button) => button.addEventListener(\"click\", () => setReliefPanel(button.dataset.reliefPanel)))"), "the sub-menus are not wired");
+  const body = functionBody("setReliefPanel");
+  assert.match(body, /reliefPanelPreview/);
+  assert.match(body, /aria-selected/);
+});
+
+test("print and export are separate buttons, and export always writes a PDF", () => {
+  assert.ok(app.includes('$("#printRelief").addEventListener("click", printReliefSheet);'), "the print button is not wired");
+  assert.ok(app.includes('$("#exportReliefPdf").addEventListener("click", exportReliefPdf);'), "the export button is not wired");
+  const printBody = functionBody("printReliefSheet");
+  assert.match(printBody, /window\.print\(\)/);
+  assert.equal(printBody.includes("openReliefPdf"), false, "printing must not silently export instead");
+  const exportBody = functionBody("exportReliefPdf");
+  assert.match(exportBody, /openReliefPdf\(model/);
+  assert.equal(app.includes("shouldUseDirectPdf"), false, "the device-dependent shortcut is gone");
+});
+
+test("the preview shows drafts too, while the printed sheet stays official", () => {
+  const body = functionBody("renderReliefPreview");
+  assert.match(body, /includeDrafts:true/);
+  assert.match(app, /const model=buildReliefPrintModel\(db,date,PERIODS\);\n  const html=reliefPrintHtml\(model\);\n  \$\('#reliefPrintSheet'\)\.innerHTML=html;/);
 });
 
 test("+ Tambah opens the absence form, and one date drives both lists", () => {

@@ -1,12 +1,12 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.4";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.4";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.4";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.4";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.4";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.4';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.4';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.4';
-import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.1.4';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.5";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.5";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.5";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.5";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.5";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.5';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.5';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.5';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.5';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -26,6 +26,7 @@ function reliefInputKey() { return JSON.stringify([$('#reliefDate').value,db.tea
 let deferredInstallPrompt = null;
 let toastTimer = null;
 let scheduleMode = "relief";
+let reliefPanel = "senarai";
 let builderLoadPromise;
 
 function $(selector, root = document) { return root.querySelector(selector); }
@@ -197,27 +198,62 @@ function renderDashboard() {
 
 function renderReliefPrint(date) {
   const model=buildReliefPrintModel(db,date,PERIODS);
-  $('#reliefPrintSheet').innerHTML=reliefPrintHtml(model);
+  const html=reliefPrintHtml(model);
+  $('#reliefPrintSheet').innerHTML=html;
   $('#reliefPrintSheet').setAttribute('aria-hidden',model.groups.length?'false':'true');
+  renderReliefPreview(date);
+}
+
+// The Preview tab shows the same official table as the printed sheet, but with the drafts still
+// being reviewed included, so the admin can read the day before publishing it.
+function renderReliefPreview(date) {
+  const box=$('#reliefPreview');
+  if(!box) return;
+  const model=buildReliefPrintModel(db,date,PERIODS,{includeDrafts:true});
+  box.innerHTML=model.groups.length
+    ?reliefPrintHtml(model)
+    :'<div class="empty-state"><strong>Tiada relief untuk dipaparkan</strong>Jadual guru ganti muncul di sini selepas relief dijana atau diterbitkan.</div>';
+}
+
+function setReliefPanel(name) {
+  reliefPanel = ["senarai","preview"].includes(name) ? name : "senarai";
+  $('#reliefPanelSenarai')?.classList.toggle('hidden', reliefPanel !== 'senarai');
+  $('#reliefPanelPreview')?.classList.toggle('hidden', reliefPanel !== 'preview');
+  $$('[data-relief-panel]').forEach((button) => {
+    const active = button.dataset.reliefPanel === reliefPanel;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+}
+
+// Both the printed sheet and the exported PDF are the official document: published relief only.
+function publishedReliefModel(date) {
+  const published=db.reliefs.some(item=>item.date===date&&item.status==='published'&&reliefHasActiveAbsence(db,item));
+  if(!published) { toast('Tiada relief diterbitkan untuk tarikh ini.','error'); return null; }
+  return buildReliefPrintModel(db,date,PERIODS);
 }
 
 function printReliefSheet() {
   const date=$('#reliefDate').value||todayIso();
-  const published=db.reliefs.some(item=>item.date===date&&item.status==='published'&&reliefHasActiveAbsence(db,item));
-  if(!published) return toast('Tiada relief diterbitkan untuk dicetak pada tarikh ini.','error');
-  const model=buildReliefPrintModel(db,date,PERIODS);
+  const model=publishedReliefModel(date);
+  if(!model) return;
   $('#reliefPrintSheet').innerHTML=reliefPrintHtml(model);
   $('#reliefPrintSheet').setAttribute('aria-hidden','false');
-  if(shouldUseDirectPdf()) {
-    try {
-      openReliefPdf(model,`Jadual-Relief-${date}.pdf`);
-      toast('PDF A4 landskap dibuka. Gunakan Kongsi untuk simpan atau cetak.','success');
-    } catch(error) { toast(error.message||'PDF tidak dapat dijana.','error'); }
-    return;
-  }
   document.body.classList.remove('print-builder');
   document.body.classList.add('print-relief');
   window.print();
+}
+
+function exportReliefPdf() {
+  const date=$('#reliefDate').value||todayIso();
+  const model=publishedReliefModel(date);
+  if(!model) return;
+  try {
+    openReliefPdf(model,`Jadual-Relief-${date}.pdf`);
+    toast('Fail PDF A4 landskap telah dijana. Simpan atau kongsi daripada pemapar PDF.','success');
+  } catch(error) {
+    toast(error.message||'PDF tidak dapat dijana.','error');
+  }
 }
 
 function reliefCard(item) {
@@ -316,18 +352,6 @@ function openAbsenceDialog() {
   $("#absenceAllDay").checked = true;
   $("#periodPicker").classList.add("hidden");
   $("#absenceDialog").showModal();
-}
-
-// The absence list now lives inside the relief screen, so the button takes the admin to it
-// instead of to another page. The form itself stays one tap further, behind + Tambah.
-function showAbsenceBlock() {
-  if (!requireAdmin()) return;
-  const date = $("#reliefDate").value || todayIso();
-  $("#reliefDate").value = date;
-  renderAbsences();
-  document.getElementById("absenceBlock")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  const first = $("#absenceList input, #absenceList button, #absenceBlock [data-open-absence]");
-  if (first && typeof first.focus === "function") first.focus({ preventScroll: true });
 }
 
 function saveAbsenceRecord(event) {
@@ -666,6 +690,9 @@ function wireEvents() {
   $("#scheduleDay").addEventListener("change", renderSchedule);
   $("#publishRelief").addEventListener("click", publishReliefs);
   $("#printRelief").addEventListener("click", printReliefSheet);
+  $("#exportReliefPdf").addEventListener("click", exportReliefPdf);
+  $$('[data-relief-panel]').forEach((button) => button.addEventListener("click", () => setReliefPanel(button.dataset.reliefPanel)));
+  setReliefPanel(reliefPanel);
   $("#pdfFile").addEventListener("change", (event) => {
     const file = event.target.files[0]; $("#fileName").textContent = file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB` : "Maksimum 25 MB"; $("#parsePdf").disabled = !file;
     if (file) { const date = file.name.match(/(\d{2})[.\-_](\d{2})[.\-_](\d{4})/); if (date) { $("#effectiveDate").value = `${date[3]}-${date[2]}-${date[1]}`; $("#versionLabel").value = `Jadual ${date[1]}.${date[2]}.${date[3]}`; } }
