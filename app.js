@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.11";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.11";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.11";
-import { canCover, coverSubjects, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.11";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.11";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.11";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.11';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.11';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.11';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.11';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.12";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.12";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.12";
+import { canCover, coverSubjects, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.12";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.12";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.12";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.12';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.12';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.12';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.12';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -487,7 +487,9 @@ function renderTeacherCover() {
   wrap.classList.remove('hidden');
   const selfId = $('#teacherId').value;
   const alreadyCovered = new Set(coverLinks(db.teachers).filter((link) => link.coveringId !== selfId).map((link) => link.coveredId));
-  const options = activeTeachers().filter((teacher) => teacher.id !== selfId && !alreadyCovered.has(teacher.id));
+  // Read the full list, not activeTeachers(): the teacher this record already replaces is hidden
+  // from the rest of the app, and that is exactly the option that must stay selected here.
+  const options = db.teachers.filter((teacher) => teacher.active && teacher.id !== selfId && !alreadyCovered.has(teacher.id));
   const keep = $('#teacherCovers').value || db.teachers.find((teacher) => teacher.id === selfId)?.coversTeacherId || "";
   $('#teacherCovers').innerHTML = `<option value="">— tidak menggantikan —</option>${options.map((teacher) => `<option value="${esc(teacher.id)}">${esc(teacher.name)}</option>`).join("")}`;
   $('#teacherCovers').value = options.some((teacher) => teacher.id === keep) ? keep : "";
@@ -503,7 +505,9 @@ function renderTeacherCoverSubjects() {
   const self = db.teachers.find((teacher) => teacher.id === $('#teacherId').value);
   const stored = coverSubjects(self || {});
   const all = $('#teacherCoverAll').checked;
-  const subjects = coveredTeacherSubjects(effectiveScheduleRows(db), coveredId);
+  // Read the raw rows: the covered teacher's own subjects must not be hidden by the very cover
+  // link being edited (their taken-over lessons already read as the covering teacher's).
+  const subjects = coveredTeacherSubjects(db.schedule, coveredId);
   list.innerHTML = subjects.length
     ? subjects.map((subject) => `<label class="chip"><input type="checkbox" class="cover-subject" value="${esc(subject)}" ${all || stored.includes(subject.toUpperCase()) ? "checked" : ""} ${all ? "disabled" : ""}> ${esc(subject)}</label>`).join("")
     : `<small>Guru ini belum ada subjek dalam jadual rasmi.</small>`;
