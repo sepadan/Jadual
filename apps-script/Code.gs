@@ -5,7 +5,7 @@
 
 var SHEETS = {
   Config: ["key", "value"],
-  Teachers: ["id", "name", "shortName", "position", "reliefEligible", "priority", "active", "createdAt", "updatedAt"],
+  Teachers: ["id", "name", "shortName", "position", "reliefEligible", "priority", "active", "createdAt", "updatedAt", "coversTeacherId", "coversSubjects"],
   ScheduleVersions: ["id", "label", "effectiveDate", "sourceName", "status", "createdAt"],
   Schedule: ["versionId", "teacherId", "day", "period", "startTime", "endTime", "subject", "className", "isDuty"],
   Absences: ["id", "date", "teacherId", "reason", "allDay", "periods", "status", "createdAt", "updatedAt"],
@@ -62,7 +62,7 @@ function setupSystem() {
   var teacherSheet = ss.getSheetByName("Teachers");
   if (teacherSheet.getLastRow() === 1) {
     var now = new Date().toISOString();
-    teacherSheet.getRange(2, 1, INITIAL_TEACHERS.length, 9).setValues(INITIAL_TEACHERS.map(function(row) { return row.concat([true, now, now]); }));
+    teacherSheet.getRange(2, 1, INITIAL_TEACHERS.length, 11).setValues(INITIAL_TEACHERS.map(function(row) { return row.concat([true, now, now, "", ""]); }));
   }
   formatSheets_(ss);
   audit_("setupSystem", "database", "Pangkalan data dimulakan");
@@ -91,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.10", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.11", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -273,7 +273,13 @@ function importSchedule_(payload) {
 
 function ensureSheet_(ss, name, headers) {
   var sheet = ss.getSheetByName(name) || ss.insertSheet(name);
-  if (sheet.getLastRow() === 0) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (sheet.getLastRow() === 0) { sheet.getRange(1, 1, 1, headers.length).setValues([headers]); return sheet; }
+  // A sheet made by an older version is extended on the right for columns it does not have yet, so
+  // existing columns are never renamed or moved and existing rows stay valid.
+  var width = Math.max(sheet.getLastColumn(), 1);
+  var current = sheet.getRange(1, 1, 1, width).getValues()[0].map(function(value) { return String(value == null ? "" : value).trim(); });
+  var missing = headers.filter(function(header) { return current.indexOf(header) < 0; });
+  if (missing.length) sheet.getRange(1, width + 1, 1, missing.length).setValues([missing]);
   return sheet;
 }
 
@@ -306,6 +312,12 @@ function readObjects_(sheetName) {
 function upsert_(sheetName, keyName, row) {
   var sheet = database_().getSheetByName(sheetName);
   var headers = SHEETS[sheetName];
+  // Self-healing schema: a sheet from an older version gets any new columns appended on the next
+  // write, so no manual setup run is needed and no existing column is moved.
+  var width = Math.max(sheet.getLastColumn(), 1);
+  var headerRow = sheet.getRange(1, 1, 1, width).getValues()[0].map(function(value) { return String(value == null ? "" : value).trim(); });
+  var missing = headers.filter(function(header) { return headerRow.indexOf(header) < 0; });
+  if (missing.length) sheet.getRange(1, width + 1, 1, missing.length).setValues([missing]);
   var keyIndex = headers.indexOf(keyName);
   var data = sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues() : [];
   var rowIndex = data.findIndex(function(existing) { return String(existing[keyIndex]) === String(row[keyIndex]); });
@@ -315,7 +327,9 @@ function upsert_(sheetName, keyName, row) {
   return { id: row[keyIndex] };
 }
 
-function encodeTeacher_(item) { return [item.id, text_(item.name), text_(item.shortName), text_(item.position), bool_(item.reliefEligible), Number(item.priority || 3), bool_(item.active), text_(item.createdAt), text_(item.updatedAt)]; }
+// coversTeacherId/coversSubjects carry a Personel MySTEP or Guru Praktikal who takes over another
+// teacher's lessons: the covered teacher id, and the subjects taken ("" means the whole timetable).
+function encodeTeacher_(item) { return [item.id, text_(item.name), text_(item.shortName), text_(item.position), bool_(item.reliefEligible), Number(item.priority || 3), bool_(item.active), text_(item.createdAt), text_(item.updatedAt), text_(item.coversTeacherId), text_(item.coversSubjects)]; }
 function encodeVersion_(item) { return [item.id, text_(item.label), text_(item.effectiveDate), text_(item.sourceName), text_(item.status), text_(item.createdAt)]; }
 function encodeSchedule_(item) { return [item.versionId, item.teacherId, item.day, Number(item.period), clockText_(item.startTime), clockText_(item.endTime), text_(item.subject), text_(item.className), bool_(item.isDuty)]; }
 function encodeAbsence_(item) { return [item.id, item.date, item.teacherId, text_(item.reason), bool_(item.allDay), JSON.stringify(item.periods || []), text_(item.status), text_(item.createdAt), text_(item.updatedAt)]; }

@@ -298,3 +298,15 @@ dialog form { padding: 25px; }
   .relief-print-footer { margin: 2mm 0 0; font-size: 6.5pt; }
   @page { size: A4 landscape; margin: 7mm; }
 }
+
+/* Gantian tetap: MySTEP / guru praktikal mengambil jadual guru lain */
+.cover-wrap { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2, #f7faf9); }
+.cover-wrap > small { color: var(--muted); line-height: 1.45; }
+.cover-subjects { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.cover-subjects legend { padding: 0; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.chip:has(input:checked) { border-color: var(--brand, #0d7a6a); background: rgba(13,122,106,.08); }
+.chip input { margin: 0; }
+.chip:has(input:disabled) { opacity: .6; cursor: default; }
+.teacher-card .cover-line { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--brand, #0d7a6a); }

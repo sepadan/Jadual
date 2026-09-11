@@ -1,4 +1,5 @@
-import { DAY_CODES, PERIODS } from "./data.js?v=3.1.10";
+import { coverageRows, fullyCoveredIds } from "./teacher-coverage.js?v=3.1.11";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.1.11";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
@@ -42,7 +43,21 @@ export function officialScheduleVersion(db) {
 
 export function activeScheduleRows(db, dateText) {
   const version = selectedScheduleVersion(db, dateText);
-  return version ? db.schedule.filter((row) => row.versionId === version.id) : [];
+  const rows = version ? db.schedule.filter((row) => row.versionId === version.id) : [];
+  return coverageRows(rows, db.teachers);
+}
+
+// Teachers a Personel MySTEP has taken over completely: they must not appear in the timetable,
+// the teacher list, relief suggestions or the public timetable.
+export function coverageHiddenIds(db) {
+  const version = officialScheduleVersion(db);
+  const rows = version ? (db.schedule || []).filter((row) => row.versionId === version.id) : (db.schedule || []);
+  return fullyCoveredIds({ teachers: db.teachers, rows });
+}
+
+// Rows as the school runs them today, for every view that shows "who teaches this".
+export function effectiveScheduleRows(db) {
+  return coverageRows(db.schedule || [], db.teachers);
 }
 
 export function absenceCovers(absence, period) {
@@ -106,6 +121,7 @@ function mondayOf(dateText) {
 
 export function rankCandidates({ db, date, day, period, absentTeacherId }) {
   const rows = activeScheduleRows(db, date);
+  const hidden = coverageHiddenIds(db);
   const absent = new Set((db.absences || [])
     .filter((item) => item.date === date && item.status !== "cancelled" && absenceCovers(item, period))
     .map((item) => item.teacherId));
@@ -127,7 +143,7 @@ export function rankCandidates({ db, date, day, period, absentTeacherId }) {
   rows.filter((row) => row.day === day).forEach((row) => teachingCounts.set(row.teacherId, (teachingCounts.get(row.teacherId) || 0) + 1));
 
   return (db.teachers || [])
-    .filter((teacher) => teacher.active && teacher.reliefEligible && teacher.id !== absentTeacherId)
+    .filter((teacher) => teacher.active && !hidden.has(teacher.id) && teacher.reliefEligible && teacher.id !== absentTeacherId)
     .filter((teacher) => !absent.has(teacher.id) && !busy.has(teacher.id) && !reliefBusy.has(teacher.id))
     .map((teacher) => {
       const today = todayCounts.get(teacher.id) || 0;

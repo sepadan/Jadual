@@ -65,6 +65,10 @@ function publicVersions_(versions, today) {
 
 function publicBootstrap_() {
   var data=bootstrap_(-1).data;
+  var teachers=data.teachers||[];
+  var officialVersion=latestVersion_((data.scheduleVersions||[]).filter(function(v){return v.status==='active';}));
+  var officialRows=officialVersion?data.schedule.filter(function(r){return String(r.versionId)===String(officialVersion.id);}):[];
+  var hiddenCovered=coverHiddenIds_(teachers,officialRows);
   var today=Utilities.formatDate(new Date(),'Asia/Kuala_Lumpur','yyyy-MM-dd');
   var visibleVersions=publicVersions_(data.scheduleVersions,today);
   var visibleIds={};
@@ -85,12 +89,44 @@ function publicBootstrap_() {
     });
   }
   return {ok:true,data:{school:data.school,revision:data.revision,updatedAt:data.updatedAt,
-    teachers:data.teachers.map(function(t){return {id:t.id,name:t.name,shortName:t.shortName,active:t.active};}),
+    teachers:teachers.filter(function(t){return !hiddenCovered[String(t.id)];}).map(function(t){return {id:t.id,name:t.name,shortName:t.shortName,active:t.active};}),
     scheduleVersions:visibleVersions,
-    schedule:data.schedule.filter(function(r){return visibleIds[String(r.versionId)]===true;}),
+    schedule:coverRows_(data.schedule.filter(function(r){return visibleIds[String(r.versionId)]===true;}),teachers),
     absences:activeAbsences.map(function(a){return {id:a.id,date:a.date,teacherId:a.teacherId,allDay:a.allDay,periods:a.periods,status:a.status};}),
-    reliefs:data.reliefs.filter(function(r){return r.status==='published'&&hasActiveAbsence_(r)&&!replacementIsAbsent_(r);}).map(function(r){return {id:r.id,date:r.date,day:r.day,period:r.period,startTime:r.startTime,endTime:r.endTime,absentTeacherId:r.absentTeacherId,replacementTeacherId:r.replacementTeacherId,className:r.className,subject:r.subject,status:r.status};})
+    reliefs:data.reliefs.filter(function(r){return r.status==='published'&&!hiddenCovered[String(r.absentTeacherId)]&&hasActiveAbsence_(r)&&!replacementIsAbsent_(r);}).map(function(r){return {id:r.id,date:r.date,day:r.day,period:r.period,startTime:r.startTime,endTime:r.endTime,absentTeacherId:r.absentTeacherId,replacementTeacherId:r.replacementTeacherId,className:r.className,subject:r.subject,status:r.status};})
   }};
+}
+
+// Permanent cover, mirrored from teacher-coverage.js so the public timetable shows the same teacher
+// the school runs with: lessons a Personel MySTEP/practical teacher has taken over, and a Personel
+// MySTEP's fully replaced teacher removed from the payload.
+function coverSubjects_(teacher) { return String(teacher&&teacher.coversSubjects||"").split(",").map(function(item){return item.trim().toUpperCase();}).filter(function(item){return item;}); }
+function coverLinks_(teachers) {
+  return (teachers||[]).filter(function(teacher){return teacher.active!==false&&teacher.coversTeacherId;})
+    .map(function(teacher){return {coveringId:teacher.id,covering:teacher,coveredId:teacher.coversTeacherId,subjects:coverSubjects_(teacher)};})
+    .filter(function(link){return link.coveredId&&link.coveredId!==link.coveringId;});
+}
+function coverTakes_(link,row) {
+  if (link.coveredId!==row.teacherId) return false;
+  if (!link.subjects.length) return true;
+  return link.subjects.indexOf(String(row.subject||"").trim().toUpperCase())>=0;
+}
+function coverRows_(rows,teachers) {
+  var links=coverLinks_(teachers);
+  if (!links.length) return rows||[];
+  return (rows||[]).map(function(row){
+    for (var i=0;i<links.length;i++) { if (coverTakes_(links[i],row)) { var copy=Object.assign({},row); copy.teacherId=links[i].coveringId; return copy; } }
+    return row;
+  });
+}
+function coverHiddenIds_(teachers,officialRows) {
+  var hidden={};
+  coverLinks_(teachers).filter(function(link){return String(link.covering.position||"")==="Personel MySTEP";}).forEach(function(link){
+    var own=(officialRows||[]).filter(function(row){return row.teacherId===link.coveredId;});
+    if (!own.length) return;
+    if (!own.some(function(row){return !coverTakes_(link,row);})) hidden[String(link.coveredId)]=true;
+  });
+  return hidden;
 }
 
 // One cache entry per day, holding the payload and the day it was built for. A warm entry means

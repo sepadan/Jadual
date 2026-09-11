@@ -1,12 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.10";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.10";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.10";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.10";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.10";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.10';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.10';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.10';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.10';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.11";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.11";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.11";
+import { canCover, coverSubjects, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.11";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.11";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.11";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.11';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.11';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.11';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.11';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -323,7 +324,8 @@ function renderAbsences() {
   $$('[data-cancel-absence]').forEach((button) => button.addEventListener("click", () => cancelAbsence(button.dataset.cancelAbsence)));
 }
 
-function activeTeachers() { return db.teachers.filter((teacher) => teacher.active).sort((a, b) => a.name.localeCompare(b.name, "ms")); }
+// A teacher a Personel MySTEP has taken over completely is hidden everywhere.
+function activeTeachers() { const hidden = coverageHiddenIds(db); return db.teachers.filter((teacher) => teacher.active && !hidden.has(teacher.id)).sort((a, b) => a.name.localeCompare(b.name, "ms")); }
 function teacherOptions(selected = "") { return activeTeachers().map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === selected ? "selected" : ""}>${esc(teacher.name)}</option>`).join(""); }
 
 function renderTeacherLists() {
@@ -344,11 +346,17 @@ function renderTeachers() {
   const query = $("#teacherSearch").value.trim().toUpperCase();
   const teachers = activeTeachers().filter((teacher) => !query || `${teacher.name} ${teacher.position}`.includes(query));
   $("#teacherList").innerHTML = teachers.map((teacher) => `<article class="teacher-card">
-    <span class="avatar">${esc(initials(teacher.name))}</span><div><h3>${esc(teacher.name)}</h3><p>${esc(teacher.position)} · ${teacher.reliefEligible ? "Layak relief" : "Dikecualikan"}</p></div>
+    <span class="avatar">${esc(initials(teacher.name))}</span><div><h3>${esc(teacher.name)}</h3><p>${esc(teacher.position)} · ${teacher.reliefEligible ? "Layak relief" : "Dikecualikan"}</p>${coverLine(teacher)}</div>
     <div class="teacher-actions"><button class="mini-button" data-edit-teacher="${esc(teacher.id)}" title="Ubah">✎</button><button class="mini-button delete" data-delete-teacher="${esc(teacher.id)}" title="Nyahaktif">×</button></div>
   </article>`).join("");
   $$('[data-edit-teacher]').forEach((button) => button.addEventListener("click", () => openTeacherDialog(button.dataset.editTeacher)));
   $$('[data-delete-teacher]').forEach((button) => button.addEventListener("click", () => archiveTeacher(button.dataset.deleteTeacher)));
+}
+
+// The covering teacher's card names who they replace, so the link is visible without opening the dialog.
+function coverLine(teacher) {
+  const label = coverageLabel({ teachers: db.teachers, teacherId: teacher.id });
+  return label ? `<p class="cover-line">Menggantikan ${esc(label)}</p>` : "";
 }
 
 function renderSchedule() {
@@ -361,14 +369,16 @@ function renderSchedule() {
   const day = $("#scheduleDay").value;
   const byClass = admin && $("#scheduleType").value === "class";
   const matches = row => byClass ? row.className === teacherId : row.teacherId === teacherId;
-  const rows = version ? db.schedule.filter(row => row.versionId === version.id && matches(row) && row.day === day) : [];
-  if (!version || !teacherId || !db.schedule.some(row => row.versionId === version.id && matches(row))) {
+  // Lessons taken over by a Personel MySTEP/practical teacher are shown under that teacher.
+  const versionRows = version ? effectiveScheduleRows(db).filter(row => row.versionId === version.id) : [];
+  const rows = versionRows.filter(row => matches(row) && row.day === day);
+  if (!version || !teacherId || !versionRows.some(row => matches(row))) {
     $("#scheduleGrid").innerHTML = `<div class="empty-state"><strong>${!version ? "Belum ada jadual aktif" : !teacherId ? "Pilih guru atau kelas untuk melihat jadual" : "Tiada rekod jadual untuk pilihan ini"}</strong>${admin ? 'Bina jadual atau import PDF aSc untuk bermula.' : 'Jadual akan tersedia selepas diterbitkan oleh admin.'}</div>`;
     return;
   }
   $("#scheduleGrid").innerHTML = PERIODS.map((period) => {
     const row = rows.find((item) => Number(item.period) === period.period);
-    const storedTime = row?.startTime || db.schedule.find(r => r.versionId === version.id && r.day === day && Number(r.period) === period.period)?.startTime;
+    const storedTime = row?.startTime || versionRows.find(r => r.day === day && Number(r.period) === period.period)?.startTime;
     const time = clockValue(storedTime,period.period,'startTime');
     return `<div class="schedule-cell ${row ? "" : "free"}"><span class="period">${period.period} · ${esc(time)}</span>${row ? `<strong>${esc(row.subject)}</strong><span>${esc(row.className || "Aktiviti")}</span>` : `<span style="margin-top:28px;color:#91a09c">Lapangan</span>`}</div>`;
   }).join("");
@@ -458,8 +468,45 @@ function openTeacherDialog(id = "") {
   positionSelect.value=standard?position:'__other__';
   $('#teacherPositionOther').value=standard?'':position;
   toggleTeacherPositionOther();
+  $('#teacherCovers').value = teacher?.coversTeacherId || "";
+  $('#teacherCoverAll').checked = !coverSubjects(teacher || {}).length;
+  renderTeacherCover();
   $("#teacherEligible").checked = teacher?.reliefEligible ?? true;
   $("#teacherDialog").showModal();
+}
+
+function currentTeacherPosition() {
+  return $('#teacherPosition').value === '__other__' ? $('#teacherPositionOther').value.trim() : $('#teacherPosition').value;
+}
+
+// The replace-a-teacher controls only apply to Personel MySTEP and Guru Praktikal, and the teacher
+// they replace must still be on the timetable, so the subject list can be read from their own rows.
+function renderTeacherCover() {
+  const wrap = $('#teacherCoverWrap');
+  if (!canCover({ position: currentTeacherPosition() })) { wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+  const selfId = $('#teacherId').value;
+  const alreadyCovered = new Set(coverLinks(db.teachers).filter((link) => link.coveringId !== selfId).map((link) => link.coveredId));
+  const options = activeTeachers().filter((teacher) => teacher.id !== selfId && !alreadyCovered.has(teacher.id));
+  const keep = $('#teacherCovers').value || db.teachers.find((teacher) => teacher.id === selfId)?.coversTeacherId || "";
+  $('#teacherCovers').innerHTML = `<option value="">— tidak menggantikan —</option>${options.map((teacher) => `<option value="${esc(teacher.id)}">${esc(teacher.name)}</option>`).join("")}`;
+  $('#teacherCovers').value = options.some((teacher) => teacher.id === keep) ? keep : "";
+  renderTeacherCoverSubjects();
+}
+
+function renderTeacherCoverSubjects() {
+  const coveredId = $('#teacherCovers').value;
+  const fieldset = $('#teacherCoverSubjects');
+  const list = $('#teacherCoverSubjectList');
+  if (!coveredId) { fieldset.classList.add('hidden'); list.innerHTML = ""; return; }
+  fieldset.classList.remove('hidden');
+  const self = db.teachers.find((teacher) => teacher.id === $('#teacherId').value);
+  const stored = coverSubjects(self || {});
+  const all = $('#teacherCoverAll').checked;
+  const subjects = coveredTeacherSubjects(effectiveScheduleRows(db), coveredId);
+  list.innerHTML = subjects.length
+    ? subjects.map((subject) => `<label class="chip"><input type="checkbox" class="cover-subject" value="${esc(subject)}" ${all || stored.includes(subject.toUpperCase()) ? "checked" : ""} ${all ? "disabled" : ""}> ${esc(subject)}</label>`).join("")
+    : `<small>Guru ini belum ada subjek dalam jadual rasmi.</small>`;
 }
 
 function saveTeacherRecord(event) {
@@ -472,6 +519,9 @@ function saveTeacherRecord(event) {
   if (!name) return toast("Nama guru diperlukan.", "error");
   if (!position) return toast("Jawatan guru diperlukan.", "error");
   if (db.teachers.some((teacher) => teacher.active && teacher.name === name && teacher.id !== existingId)) return toast("Nama guru ini sudah wujud.", "error");
+  const coversTeacherId = canCover({ position }) ? $('#teacherCovers').value : "";
+  const pickedSubjects = $$(".cover-subject").filter((box) => box.checked).map((box) => box.value.trim().toUpperCase());
+  if (coversTeacherId && !$('#teacherCoverAll').checked && !pickedSubjects.length) return toast("Pilih sekurang-kurangnya satu subjek, atau tandakan “Semua jadual”.", "error");
   const teacher = {
     id: existingId || `g-${slug($("#teacherShortName").value)}-${Date.now().toString(36)}`,
     name,
@@ -479,6 +529,8 @@ function saveTeacherRecord(event) {
     position,
     priority: db.teachers.find(item=>item.id===existingId)?.priority || 3,
     reliefEligible: $("#teacherEligible").checked,
+    coversTeacherId,
+    coversSubjects: coversTeacherId && !$('#teacherCoverAll').checked ? pickedSubjects.join(",") : "",
     active: true,
     createdAt: db.teachers.find((item) => item.id === existingId)?.createdAt || now,
     updatedAt: now,
@@ -705,7 +757,10 @@ function wireEvents() {
   $$('[data-close-absence]').forEach(button=>button.addEventListener('click',()=>$('#absenceDialog').close()));
   $("#addTeacher").addEventListener("click", () => openTeacherDialog());
   $("#teacherForm").addEventListener("submit", saveTeacherRecord);
-  $('#teacherPosition').addEventListener('change',toggleTeacherPositionOther);
+  $('#teacherPosition').addEventListener('change',()=>{toggleTeacherPositionOther();renderTeacherCover();});
+  $('#teacherPositionOther').addEventListener('input',renderTeacherCover);
+  $('#teacherCovers').addEventListener('change',()=>{ $('#teacherCoverAll').checked=true; renderTeacherCoverSubjects(); });
+  $('#teacherCoverAll').addEventListener('change',renderTeacherCoverSubjects);
   $$('[data-close-teacher]').forEach(button=>button.addEventListener('click',()=>$('#teacherDialog').close()));
   $('#downloadTeachers').addEventListener('click',()=>{
     if(!requireAdmin()) return;

@@ -34,6 +34,7 @@ const files = [
   "relief-pdf.js",
   "relief-print.js",
   "teacher-transfer.js",
+  "teacher-coverage.js",
   "jadual-app.html",
   "apps-script/Code.gs",
 ];
