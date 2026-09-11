@@ -9,7 +9,7 @@ const db={school:'SK Paya Redan, Muar',teachers:[
 ],absences:[
   {id:'absence-a',date:'2026-09-10',teacherId:'a',allDay:true,periods:[],status:'active'},
 ],reliefs:[
-  {date:'2026-09-10',status:'published',absentTeacherId:'a',replacementTeacherId:'b',period:1,className:'5C'},
+  {date:'2026-09-10',status:'published',absentTeacherId:'a',replacementTeacherId:'b',period:1,className:'5C',subject:'BM'},
   {date:'2026-09-10',status:'draft',absentTeacherId:'a',replacementTeacherId:'b',period:2,className:'6B'},
 ]};
 
@@ -19,7 +19,7 @@ test('official relief sheet groups published periods by absent teacher',()=>{
   assert.equal(model.dayLabel,'KHAMIS');
   assert.equal(model.periods.length,11);
   assert.equal(model.groups.length,1);
-  assert.deepEqual(model.groups[0].slots[1],{classes:['5C'],replacements:['EN. AZUAN']});
+  assert.deepEqual(model.groups[0].slots[1],{classes:['5C\nBM'],replacements:['EN. AZUAN']});
   assert.equal(model.groups[0].slots[2],undefined);
 });
 
@@ -39,6 +39,7 @@ test('official relief sheet includes class, replacement and signature rows',()=>
   assert.ok(!html.includes('relief-print-name-label'));
   assert.ok(!html.includes('relief-print-name-blank'));
   assert.match(html,/PN\. NORA/);
+  assert.match(html,/5C<br>BM/);
   assert.match(html,/KELAS/);
   assert.match(html,/GURU<br>GANTI/);
   assert.match(html,/T\/TANGAN/);

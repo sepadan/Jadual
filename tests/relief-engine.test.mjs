@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildReliefDrafts, cancelAbsenceAndReliefs, dayCodeFromDate, rankCandidates, reliefHasActiveAbsence, validateReliefs } from "../relief-engine.js";
+import { buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, rankCandidates, reliefHasActiveAbsence, validateReliefs } from "../relief-engine.js";
 
 function fixture() {
   return {
@@ -90,6 +90,33 @@ test('orphan relief is ignored and no longer consumes the daily limit',()=>{
   db.reliefs=[{id:'orphan',date:'2026-09-09',period:4,absentTeacherId:'absent',replacementTeacherId:'free',status:'published'}];
   assert.equal(reliefHasActiveAbsence(db,db.reliefs[0]),false);
   assert.equal(rankCandidates({db,date:'2026-09-09',day:'RAB',period:2,absentTeacherId:'busy'})[0].id,'free');
+});
+
+test('guru ganti yang kemudian tidak hadir digugurkan dan slot asal dijana semula',()=>{
+  const db=fixture();
+  db.reliefs=[{id:'r-old',date:'2026-09-09',day:'RAB',period:2,absentTeacherId:'absent',replacementTeacherId:'free',className:'2 BIJAK',subject:'BM',status:'published'}];
+  const replacementAbsence={id:'a-free',date:'2026-09-09',teacherId:'free',allDay:false,periods:[2],status:'active'};
+  db.absences.push(replacementAbsence);
+
+  assert.equal(reliefHasActiveAbsence(db,db.reliefs[0]),false);
+  const cancelled=cancelReliefsAssignedToAbsence(db,replacementAbsence,'2026-09-11T03:00:00.000Z');
+  assert.deepEqual(cancelled.map(item=>item.id),['r-old']);
+  assert.equal(db.reliefs[0].status,'cancelled');
+
+  const drafts=buildReliefDrafts(db,'2026-09-09');
+  const originalSlot=drafts.find(item=>item.absentTeacherId==='absent'&&item.period===2);
+  assert.ok(originalSlot);
+  assert.notEqual(originalSlot.replacementTeacherId,'free');
+  assert.ok(!originalSlot.candidates.some(item=>item.id==='free'));
+});
+
+test('ketiadaan separa guru ganti hanya membatalkan waktu yang diliputi',()=>{
+  const db=fixture();
+  db.reliefs=[2,3].map(period=>({id:`r-${period}`,date:'2026-09-09',period,absentTeacherId:'absent',replacementTeacherId:'free',status:'published'}));
+  const absence={date:'2026-09-09',teacherId:'free',allDay:false,periods:[2],status:'active'};
+  const cancelled=cancelReliefsAssignedToAbsence(db,absence,'now');
+  assert.deepEqual(cancelled.map(item=>item.id),['r-2']);
+  assert.equal(db.reliefs[1].status,'published');
 });
 
 test('pairing setting skips only when another active teacher is present for that slot',()=>{

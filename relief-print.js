@@ -1,4 +1,4 @@
-import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.0.12";
+import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.0.13";
 
 function clean(value) {
   return String(value || "").trim();
@@ -7,6 +7,13 @@ function clean(value) {
 function uniquePush(list, value) {
   const text = clean(value);
   if (text && !list.includes(text)) list.push(text);
+}
+
+function classSubjectLabel(item) {
+  const className = clean(item?.className);
+  const subject = clean(item?.subject);
+  if (className && subject) return `${className}\n${subject}`;
+  return className || subject || "Aktiviti sekolah";
 }
 
 function teacherName(teachers, id, fallback) {
@@ -48,7 +55,8 @@ export function buildReliefPrintModel(db, date, standardPeriods) {
     const group = grouped.get(item.absentTeacherId);
     const key = Number(item.period);
     const slot = group.slots[key] || (group.slots[key] = { classes: [], replacements: [] });
-    uniquePush(slot.classes, item.className || item.subject || "Aktiviti sekolah");
+    // Keep the subject directly below its class in the same printed KELAS cell.
+    uniquePush(slot.classes, classSubjectLabel(item));
     uniquePush(slot.replacements, teacherName(teachers, item.replacementTeacherId, "—"));
   });
 
@@ -67,7 +75,9 @@ function escapeHtml(value) {
 }
 
 function valuesCell(values) {
-  return values?.length ? values.map(escapeHtml).join("<br>") : "";
+  return values?.length
+    ? values.map((value) => clean(value).split(/\r?\n/).map(escapeHtml).join("<br>")).join("<br>")
+    : "";
 }
 
 function fitClass(values) {

@@ -74,7 +74,7 @@ function database_() {
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.0.12", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.0.13", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     if (action === "public") {var lock=LockService.getScriptLock();lock.waitLock(20000);try{return output_(publicBootstrap_());}finally{lock.releaseLock();}}
     return output_({ ok: false, error: "Tindakan GET tidak dikenali." });
@@ -124,7 +124,7 @@ function routeWrite_(action, data) {
   if(action==='saveBuilder') return saveBuilder_(data);
   if(action==='changePassword') return changePassword_(data);
   if (action === "saveTeacher") return upsert_("Teachers", "id", encodeTeacher_(data));
-  if (action === "saveAbsence") return upsert_("Absences", "id", encodeAbsence_(data));
+  if (action === "saveAbsence") return saveAbsence_(data);
   if (action === "cancelAbsence") return cancelAbsence_(data);
   if (action === "saveReliefs") {
     if (!Array.isArray(data)) throw new Error("Format relief tidak sah.");
@@ -138,6 +138,7 @@ function routeWrite_(action, data) {
     }
     data.filter(function(item){return item.status!=="cancelled";}).forEach(function(item){
       if(!hasLinkedAbsence_(item)) throw new Error("Rekod ketiadaan telah dipadam atau tidak lagi meliputi waktu relief ini.");
+      if(teacherAbsentAt_(activeAbsences,item.replacementTeacherId,item.date,item.period)) throw new Error("Guru ganti yang dipilih tidak hadir pada waktu ini. Jana semula relief.");
     });
     var merged=readObjects_('Reliefs').filter(function(row){return !data.some(function(item){return item.id===row.id;});}).concat(data);
     var limit=reliefDailyLimit_();
@@ -152,6 +153,33 @@ function routeWrite_(action, data) {
   }
   if (action === "importSchedule") return importSchedule_(data);
   throw new Error("Tindakan tulis tidak dikenali.");
+}
+
+function absenceCoversPeriod_(absence, period) {
+  var periods=Array.isArray(absence.periods)?absence.periods:parseJson_(absence.periods,[]);
+  return bool_(absence.allDay)||periods.map(Number).indexOf(Number(period))>=0;
+}
+
+function teacherAbsentAt_(absences, teacherId, date, period) {
+  if(!teacherId) return false;
+  return (absences||[]).some(function(absence){
+    return absence.status!=="cancelled"&&absence.teacherId===teacherId&&absence.date===date&&absenceCoversPeriod_(absence,period);
+  });
+}
+
+function saveAbsence_(data) {
+  upsert_("Absences", "id", encodeAbsence_(data));
+  var updatedAt=text_(data.updatedAt||new Date().toISOString());
+  var reliefs=readObjects_("Reliefs").filter(function(item){
+    return item.status!=="cancelled"&&item.date===data.date&&item.replacementTeacherId===data.teacherId&&absenceCoversPeriod_(data,item.period);
+  });
+  reliefs.forEach(function(item){
+    item.status="cancelled";
+    item.updatedAt=updatedAt;
+    upsert_("Reliefs", "id", encodeRelief_(item));
+  });
+  audit_("saveAbsence",data.id,reliefs.length+" tugasan relief guru ganti dibatalkan");
+  return {id:data.id,reliefCount:reliefs.length};
 }
 
 function cancelAbsence_(data) {

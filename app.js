@@ -1,11 +1,12 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.12";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.12";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.12";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.12";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.12";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.12';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.12';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.12';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.13";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.13";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.13";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.13";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.13";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.13';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.13';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.13';
+import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.0.13';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -174,7 +175,16 @@ function printReliefSheet() {
   const date=$('#reliefDate').value||todayIso();
   const published=db.reliefs.some(item=>item.date===date&&item.status==='published'&&reliefHasActiveAbsence(db,item));
   if(!published) return toast('Tiada relief diterbitkan untuk dicetak pada tarikh ini.','error');
-  renderReliefPrint(date);
+  const model=buildReliefPrintModel(db,date,PERIODS);
+  $('#reliefPrintSheet').innerHTML=reliefPrintHtml(model);
+  $('#reliefPrintSheet').setAttribute('aria-hidden','false');
+  if(shouldUseDirectPdf()) {
+    try {
+      openReliefPdf(model,`Jadual-Relief-${date}.pdf`);
+      toast('PDF A4 landskap dibuka. Gunakan Kongsi untuk simpan atau cetak.','success');
+    } catch(error) { toast(error.message||'PDF tidak dapat dijana.','error'); }
+    return;
+  }
   document.body.classList.remove('print-builder');
   document.body.classList.add('print-relief');
   window.print();
@@ -288,6 +298,7 @@ function saveAbsenceRecord(event) {
   }
   const absence = { id: uuid("a"), date, teacherId, reason: $("#absenceReason").value.trim(), allDay, periods, status: "active", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
   db.absences.push(absence);
+  const invalidatedReliefs = cancelReliefsAssignedToAbsence(db, absence, absence.updatedAt);
   $("#reliefDate").value = date;
   $("#absenceFilterDate").value = date;
   currentDrafts = buildReliefDrafts(db, date);
@@ -295,7 +306,7 @@ function saveAbsenceRecord(event) {
   persist(); $("#absenceDialog").close(); renderAll();
   showView(currentDrafts.length ? "hari-ini" : "ketiadaan");
   const message = currentDrafts.length
-    ? `Ketiadaan disimpan. ${currentDrafts.length} slot relief dijana untuk semakan.`
+    ? `Ketiadaan disimpan. ${invalidatedReliefs.length ? `${invalidatedReliefs.length} tugasan lama dibatalkan dan ` : ""}${currentDrafts.length} slot relief dijana untuk semakan.`
     : reliefEmptyMessage(date, true);
   remoteWrite("saveAbsence", absence, message);
 }

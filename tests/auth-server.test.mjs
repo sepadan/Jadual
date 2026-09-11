@@ -37,6 +37,16 @@ test('public data omits absence reasons, drafts, private notes and teacher privi
   const {context}=server();context.bootstrap_=()=>({data:{teachers:[{id:'t',name:'Teacher',priority:1,position:'private'}],scheduleVersions:[{id:'v',status:'active'},{id:'draft',status:'draft'}],schedule:[{versionId:'v'},{versionId:'draft'}],absences:[{id:'a',date:'2026-09-09',teacherId:'t',allDay:true,periods:[],reason:'private medical note',status:'active'}],reliefs:[{id:'r',date:'2026-09-09',period:1,absentTeacherId:'t',status:'published',note:'private'},{id:'d',date:'2026-09-09',period:2,absentTeacherId:'t',status:'draft'}],builder:{secret:'draft'}}});
   const data=context.publicBootstrap_().data;assert.equal(data.absences[0].reason,undefined);assert.equal(data.teachers[0].priority,undefined);assert.equal(data.reliefs[0].note,undefined);assert.equal(data.reliefs.length,1);assert.equal(data.schedule.length,1);assert.equal(data.builder,undefined);
 });
+test('public data hides a relief when its replacement teacher is absent in that period',()=>{
+  const {context}=server();context.bootstrap_=()=>({data:{teachers:[],scheduleVersions:[],schedule:[],absences:[
+    {id:'a1',date:'2026-09-09',teacherId:'original',allDay:true,periods:[],status:'active'},
+    {id:'a2',date:'2026-09-09',teacherId:'wee',allDay:false,periods:[2],status:'active'},
+  ],reliefs:[
+    {id:'invalid',date:'2026-09-09',period:2,absentTeacherId:'original',replacementTeacherId:'wee',status:'published'},
+    {id:'valid',date:'2026-09-09',period:3,absentTeacherId:'original',replacementTeacherId:'wee',status:'published'},
+  ]}});
+  assert.deepEqual(Array.from(context.publicBootstrap_().data.reliefs,item=>item.id),['valid']);
+});
 test('builder saves reject stale revisions before replacing the sheet',()=>{const {context}=server();context.configValue_=()=>4;assert.throws(()=>context.saveBuilder_({baseRevision:3,state:{guru:[],kelas:[],subjek:[]}}),/peranti lain/);});
 
 test('seven-day session survives cache eviction and expires server-side',()=>{
@@ -55,6 +65,36 @@ test('server rejects over-limit relief batch before any write',()=>{
 test('server refuses to publish relief after its absence was cancelled',()=>{
   const {context}=server();context.readObjects_=()=>[];
   assert.throws(()=>context.routeWrite_('saveReliefs',[{id:'r',date:'2026-09-09',period:2,absentTeacherId:'g1',replacementTeacherId:'g2',status:'published'}]),/telah dipadam/);
+});
+
+test('server refuses a replacement teacher who is absent in the same period',()=>{
+  const {context}=server();
+  context.readObjects_=name=>name==='Absences'?[{
+    date:'2026-09-09',teacherId:'original',allDay:true,periods:[],status:'active'
+  },{
+    date:'2026-09-09',teacherId:'replacement',allDay:false,periods:[2],status:'active'
+  }]:[];
+  assert.throws(()=>context.routeWrite_('saveReliefs',[{
+    id:'r',date:'2026-09-09',period:2,absentTeacherId:'original',replacementTeacherId:'replacement',status:'published'
+  }]),/guru ganti.*tidak hadir/i);
+});
+
+test('saving a replacement teacher absence cancels only overlapping relief assignments',()=>{
+  const {context}=server();
+  const rows={Reliefs:[
+    {id:'r2',date:'2026-09-09',period:2,absentTeacherId:'g1',replacementTeacherId:'wee',status:'published'},
+    {id:'r3',date:'2026-09-09',period:3,absentTeacherId:'g1',replacementTeacherId:'wee',status:'published'},
+    {id:'other-day',date:'2026-09-10',period:2,absentTeacherId:'g1',replacementTeacherId:'wee',status:'published'},
+  ]};
+  const writes=[];
+  context.readObjects_=name=>rows[name]||[];
+  context.upsert_=(sheet,key,row)=>writes.push({sheet,row});
+  context.audit_=()=>{};
+  const result=context.routeWrite_('saveAbsence',{id:'a-wee',date:'2026-09-09',teacherId:'wee',allDay:false,periods:[2],status:'active',updatedAt:'now'});
+  assert.equal(result.reliefCount,1);
+  assert.deepEqual(writes.map(item=>item.sheet),['Absences','Reliefs']);
+  assert.equal(writes[1].row[0],'r2');
+  assert.equal(writes[1].row[10],'cancelled');
 });
 
 test('legacy orphan reliefs do not consume the daily server limit',()=>{
