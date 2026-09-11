@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.17";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.17";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.17";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.17";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.17";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.17";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.17';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.17';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.17';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.17';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.18";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.18";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.18";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.18";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.18";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.18";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.18';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.18';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.18';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.18';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -106,13 +106,24 @@ function cachedPublicRevision() {
 // page was reloaded (or the tablet slept) is the one thing an admin cannot be asked to redo.
 const DRAFT_KEY = "sistem-jadual-draf-relief-v1";
 function saveDrafts() {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ key: generatedReliefKey, drafts: currentDrafts })); } catch {}
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ date: $("#reliefDate").value, key: generatedReliefKey, drafts: currentDrafts })); } catch {}
 }
+// Drafts belong to one date: restoring them also puts the date picker back, otherwise the reload
+// lands on today and the stored drafts look like they belong to the wrong data.
 function restoreDrafts() {
   try {
     const stored = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
     if (!stored || !Array.isArray(stored.drafts) || !stored.drafts.length) return;
-    if (stored.key !== reliefInputKey()) { localStorage.removeItem(DRAFT_KEY); return; }
+    if (stored.date && dayCodeFromDate(stored.date)) {
+      $("#reliefDate").value = stored.date;
+      renderAbsences();
+    }
+    if (stored.key !== reliefInputKey()) {
+      // Data moved on since (another admin, a fresh import). Keep the work on the device and say so
+      // instead of deleting it: the admin decides whether to regenerate.
+      toast(`Draf relief ${stored.date || ""} tidak dimuatkan kerana data telah berubah. Tekan Jana untuk jana semula.`, "info");
+      return;
+    }
     currentDrafts = stored.drafts;
     generatedReliefKey = stored.key;
     renderAll();
