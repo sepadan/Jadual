@@ -303,6 +303,16 @@ dialog form { padding: 25px; }
 .cover-wrap { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2, #f7faf9); }
 .cover-wrap > small { color: var(--muted); line-height: 1.45; }
 .cover-subjects { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.cover-title { margin: 0; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.cover-rows:not(:empty) { display: grid; gap: 12px; }
+/* One row per covered teacher: the picker and its remove button share a line, the "all subjects"
+   switch and the subject chips sit underneath. */
+.cover-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.cover-row:first-child { padding-top: 0; border-top: 0; }
+.cover-row .cover-teacher { flex: 1 1 240px; }
+.cover-row .cover-remove { flex: 0 0 auto; }
+.cover-row .check-row, .cover-row .chip-row { flex: 1 1 100%; margin: 0; }
+.cover-add { width: auto; min-width: 0; padding: 7px 14px; font-size: 12px; font-weight: 700; }
 .cover-subjects legend { padding: 0; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
