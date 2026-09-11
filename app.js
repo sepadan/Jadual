@@ -1,12 +1,12 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.2";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.2";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.2";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.2";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.2";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.2';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.2';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.2';
-import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.1.2';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.3";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.3";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.3";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.3";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.3";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.3';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.3';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.3';
+import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.1.3';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -174,7 +174,7 @@ function renderDashboard() {
   const published = db.reliefs.filter((item) => item.date === date && item.status !== "cancelled" && reliefHasActiveAbsence(db, item));
   renderReliefPrint(date);
   if(!admin || generatedReliefKey!==reliefInputKey()) {currentDrafts=[];generatedReliefKey='';}
-  $('#reliefGuide').textContent=admin ? (generatedReliefKey ? `Draf dijana: ${currentDrafts.length} slot baharu. Semak guru ganti, kemudian Terbitkan.` : '1. Rekod guru tiada → 2. Jana relief → 3. Semak dan terbitkan. Perubahan data memerlukan jana semula.') : 'Jadual relief yang telah diterbitkan oleh admin.';
+  $('#reliefGuide').textContent=admin ? (generatedReliefKey ? `Draf dijana: ${currentDrafts.length} slot baharu. Semak guru ganti, kemudian Terbitkan.` : 'Buka Rekod guru tiada untuk menambah guru yang tidak hadir, kemudian tekan Jana. Perubahan data memerlukan jana semula.') : 'Jadual relief yang telah diterbitkan oleh admin.';
   const items = [...published.map((item) => ({ ...item, candidates: [] })), ...currentDrafts];
   $("#metricAbsent").textContent = new Set(absences.map((item) => item.teacherId)).size;
   $("#metricClasses").textContent = new Set(items.map((item) => item.className).filter(Boolean)).size;
@@ -314,6 +314,17 @@ function openAbsenceDialog() {
   $("#absenceAllDay").checked = true;
   $("#periodPicker").classList.add("hidden");
   $("#absenceDialog").showModal();
+}
+
+// The relief screen sends the admin to the absence page instead of opening the form straight
+// away: the list of who is away is the first thing to look at, and the form is one tap further.
+function openKetiadaanPage() {
+  if (!requireAdmin()) return;
+  const date = $("#reliefDate").value || todayIso();
+  $("#reliefDate").value = date;
+  $("#absenceFilterDate").value = date;
+  renderAbsences();
+  showView("ketiadaan");
 }
 
 function saveAbsenceRecord(event) {
@@ -630,7 +641,7 @@ function wireEvents() {
     setScheduleMode(button.dataset.scheduleMode);
   }));
   $$('[data-open-absence]').forEach((button) => button.addEventListener("click", openAbsenceDialog));
-  $("#openAbsence").addEventListener("click", openAbsenceDialog);
+  $("#openAbsence").addEventListener("click", openKetiadaanPage);
   $("#mobileSettings").addEventListener("click", () => showView("tetapan"));
   $("#absenceFilterDate").addEventListener("change", renderAbsences);
   $("#absenceAllDay").addEventListener("change", (event) => $("#periodPicker").classList.toggle("hidden", event.target.checked));

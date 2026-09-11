@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.2">
-  <link rel="stylesheet" href="./builder.css?v=3.1.2">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.2">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.2"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
+  <link rel="stylesheet" href="./styles.css?v=3.1.3">
+  <link rel="stylesheet" href="./builder.css?v=3.1.3">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.3">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.3"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
 <body class="public-mode">
   <div class="app-shell">
@@ -67,12 +67,12 @@
           <div><h2>Senarai relief</h2><p id="reliefGuide">Jadual ganti yang diterbitkan oleh pentadbir.</p></div>
           <label class="relief-date">Tarikh<input id="reliefDate" type="date"></label>
         </div>
-        <div class="button-row"><button id="openAbsence" class="button ghost admin-only">1. Rekod guru tiada</button><button id="generateRelief" class="button primary admin-only">2. Jana relief</button><button id="printRelief" class="button ghost">Cetak / simpan PDF</button></div>
+        <div class="button-row"><button id="openAbsence" class="button ghost admin-only" title="Buka halaman Ketiadaan untuk merekod guru tiada">Rekod guru tiada</button><button id="generateRelief" class="button primary admin-only" title="Jana cadangan guru ganti untuk tarikh ini">Jana</button><button id="printRelief" class="button ghost">Cetak / simpan PDF</button></div>
         <div id="reliefList" class="relief-list"></div>
         <section id="reliefPrintSheet" class="relief-print-sheet" aria-hidden="true"></section>
         <div id="reliefActions" class="sticky-actions hidden">
           <span id="draftCount"></span>
-          <div><button id="publishRelief" class="button primary">3. Terbitkan relief</button></div>
+          <div><button id="publishRelief" class="button primary">Terbitkan</button></div>
         </div>
       </section>
 
@@ -229,6 +229,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.2"></script>
+  <script type="module" src="./app.js?v=3.1.3"></script>
 </body>
 </html>
