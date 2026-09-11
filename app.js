@@ -1,12 +1,12 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.5";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.5";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.5";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.5";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.5";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.5';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.5';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.5';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.5';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.6";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.6";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.6";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.6";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.6";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.6';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.6';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.6';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.6';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -668,7 +668,6 @@ function wireEvents() {
     setScheduleMode(button.dataset.scheduleMode);
   }));
   $$('[data-open-absence]').forEach((button) => button.addEventListener("click", openAbsenceDialog));
-  $("#openAbsence").addEventListener("click", showAbsenceBlock);
   $("#mobileSettings").addEventListener("click", () => showView("tetapan"));
 
   $("#absenceAllDay").addEventListener("change", (event) => $("#periodPicker").classList.toggle("hidden", event.target.checked));
