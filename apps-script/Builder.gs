@@ -133,14 +133,24 @@ function coverTakes_(link,row) {
   if (!link.subjects.length) return true;
   return link.subjects.indexOf(String(row.subject||"").trim().toUpperCase())>=0;
 }
+function coverSlotKey_(row) { return (row.versionId||"")+"|"+(row.day||"")+"|"+Number(row.period)+"|"+(row.className||""); }
+// A teacher only has one place at a time, so the clash guard keys on the day and period alone.
+function coverTeacherSlotKey_(row) { return (row.versionId||"")+"|"+(row.day||"")+"|"+Number(row.period); }
 function coverRows_(rows,teachers) {
   var links=coverLinks_(teachers);
   if (!links.length) return rows||[];
   var out=[];
+  var occupied={};
+  (rows||[]).forEach(function(row){ occupied[String(row.teacherId)+"|"+coverTeacherSlotKey_(row)]=true; });
   (rows||[]).forEach(function(row){
     var link=null;
     for (var i=0;i<links.length;i++) { if (coverTakes_(links[i],row)) { link=links[i]; break; } }
     if (!link) { out.push(row); return; }
+    // One teacher cannot be in two classes at once: their own lesson wins and the take-over is
+    // skipped, which also keeps a materialised cover row from being added twice.
+    var taken=String(link.coveringId)+"|"+coverTeacherSlotKey_(row);
+    if (occupied[taken]) { out.push(row); return; }
+    occupied[taken]=true;
     if (link.replace) { var moved=Object.assign({},row); moved.teacherId=link.coveringId; out.push(moved); return; }
     out.push(row);
     var shared=Object.assign({},row); shared.teacherId=link.coveringId; out.push(shared);
@@ -149,10 +159,13 @@ function coverRows_(rows,teachers) {
 }
 function coverHiddenIds_(teachers,officialRows) {
   var hidden={};
+  var kept={};
+  coverRows_(officialRows||[],teachers).forEach(function(row){ kept[String(row.teacherId)+"|"+coverSlotKey_(row)]=true; });
   coverLinks_(teachers).filter(function(link){return link.replace;}).forEach(function(link){
     var own=(officialRows||[]).filter(function(row){return row.teacherId===link.coveredId;});
     if (!own.length) return;
-    if (!own.some(function(row){return !coverTakes_(link,row);})) hidden[String(link.coveredId)]=true;
+    var stillTheirs=own.some(function(row){return kept[String(link.coveredId)+"|"+coverSlotKey_(row)]===true;});
+    if (!stillTheirs) hidden[String(link.coveredId)]=true;
   });
   return hidden;
 }

@@ -86,6 +86,42 @@ test("a shared lesson needs no relief while the other teacher of the pair is in 
   assert.deepEqual(bothDrafts.map((draft) => draft.period).sort(), [2, 3], "with nobody in the class a relief is needed after all");
 });
 
+test("a clash of lessons is never created: the covering teacher's own lesson wins", () => {
+  const teachers = [
+    { id: "t-asraf", name: "ASRAF", position: "Guru Akademik Biasa", active: true, reliefEligible: true },
+    { id: "t-mystep", name: "MYSTEP A", position: "Personel MySTEP", active: true, reliefEligible: true, coversJson: JSON.stringify([{ teacherId: "t-asraf", subjects: [] }]) },
+  ];
+  const rows = [
+    { versionId: "v1", teacherId: "t-asraf", day: "JUM", period: 1, subject: "BA", className: "3 BIJAK" },
+    { versionId: "v1", teacherId: "t-mystep", day: "JUM", period: 1, subject: "MT", className: "5 BIJAK" },
+  ];
+  const moved = coverageRows(rows, teachers);
+  const mine = moved.filter((row) => row.teacherId === "t-mystep");
+  assert.equal(mine.length, 1, "the covering teacher must not be in two classes at once");
+  assert.equal(mine[0].subject, "MT", "their own lesson stays theirs");
+  assert.equal(moved.filter((row) => row.teacherId === "t-asraf").length, 1, "the clashing lesson stays with the original");
+  assert.equal(fullyCoveredIds({ teachers, rows }).size, 0, "the original keeps a lesson, so they must stay visible");
+});
+
+test("a lesson already filed under the covering teacher is never added twice", () => {
+  const teachers = [
+    { id: "t-nora", name: "NORA", position: "Guru Akademik Biasa", active: true },
+    { id: "t-prak", name: "PRAK", position: "Guru Praktikal", active: true, coversJson: JSON.stringify([{ teacherId: "t-nora", subjects: ["BA"] }]) },
+  ];
+  const original = { versionId: "v1", teacherId: "t-nora", day: "JUM", period: 2, subject: "BA", className: "6 BIJAK" };
+  const materialised = { versionId: "v1", teacherId: "t-prak", day: "JUM", period: 2, subject: "BA", className: "6 BIJAK" };
+  const moved = coverageRows([original, materialised], teachers);
+  assert.equal(moved.filter((row) => row.teacherId === "t-prak").length, 1, "the materialised row must not be doubled by the link");
+  assert.equal(moved.filter((row) => row.teacherId === "t-nora").length, 1, "the original keeps the shared lesson");
+});
+
+test("the builder offers a generated timetable for covering teachers", () => {
+  const builder = readFileSync(new URL("../builder.js", import.meta.url), "utf8");
+  assert.match(builder, /onclick="janaJadualGantianUI\(\)"/, "the generate screen has no cover-timetable button");
+  assert.match(builder, /dariGantian:true/, "copied allocations are not marked, so they would double on a second press");
+  assert.match(builder, /coversJson:t\.coversJson/, "the builder never receives the cover links from the directory");
+});
+
 test("the Apps Script public payload applies the same cover rules", () => {
   const source = readFileSync(new URL("../apps-script/Builder.gs", import.meta.url), "utf8");
   const block = source.slice(source.indexOf("function coverSubjects_("), source.indexOf("// One cache entry per day"));

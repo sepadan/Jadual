@@ -67,17 +67,35 @@ function takes(link, row) {
   return link.subjects.includes(String(row.subject || "").trim().toUpperCase());
 }
 
+// A lesson is identified by its class, but a teacher only has one place at a time, so the clash
+// guard below keys on the day and period without the class.
+function slotKey(row) {
+  return `${row.versionId || ""}|${row.day || ""}|${Number(row.period)}|${row.className || ""}`;
+}
+
+function teacherSlotKey(row) {
+  return `${row.versionId || ""}|${row.day || ""}|${Number(row.period)}`;
+}
+
 // The timetable as the school runs it:
 //  - a replaced lesson is filed under the MySTEP teacher (so they read as busy there),
 //  - a shared lesson is kept by the original teacher AND added to the practical teacher.
+// A covering teacher who already teaches something else at that day and period keeps their own
+// lesson: one teacher cannot be in two classes at once, so the take-over is skipped instead of
+// building a timetable no one can run. Their own lessons also stop a materialised cover row from
+// being added twice.
 export function coverageRows(rows, teachers) {
   const links = coverLinks(teachers);
   if (!links.length) return rows || [];
   const out = [];
+  const occupied = new Set((rows || []).map((row) => `${row.teacherId}|${teacherSlotKey(row)}`));
   (rows || []).forEach((row) => {
     const link = links.find((item) => takes(item, row));
     if (!link) { out.push(row); return; }
-    if (link.replace) { out.push({ ...row, teacherId: link.coveringId, coveredFor: row.teacherId }); return; }
+    const takenKey = `${link.coveringId}|${teacherSlotKey(row)}`;
+    if (occupied.has(takenKey)) { out.push(row); return; }
+    if (link.replace) { occupied.add(takenKey); out.push({ ...row, teacherId: link.coveringId, coveredFor: row.teacherId }); return; }
+    occupied.add(takenKey);
     out.push(row);
     out.push({ ...row, teacherId: link.coveringId, coveredFor: row.teacherId, sharedWith: row.teacherId });
   });
@@ -107,13 +125,17 @@ export function sharedPairKey(row) {
 // A Personel MySTEP who takes every lesson of a teacher on the timetable replaces that teacher
 // completely, and the original must not appear anywhere. A practical teacher never hides anyone.
 export function fullyCoveredIds({ teachers, rows }) {
+  // Read the result of the take-over rather than the link alone: a lesson the covering teacher
+  // could not take (they already teach then) still belongs to the original, so the original stays
+  // visible instead of disappearing with lessons no one is assigned to.
+  const kept = new Set(coverageRows(rows, teachers).map((row) => `${row.teacherId}|${slotKey(row)}`));
   const hidden = new Set();
   coverLinks(teachers)
     .filter((link) => link.replace)
     .forEach((link) => {
       const own = (rows || []).filter((row) => row.teacherId === link.coveredId);
       if (!own.length) return;
-      if (!own.some((row) => !takes(link, row))) hidden.add(link.coveredId);
+      if (!own.some((row) => kept.has(`${link.coveredId}|${slotKey(row)}`))) hidden.add(link.coveredId);
     });
   return hidden;
 }

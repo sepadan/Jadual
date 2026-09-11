@@ -1277,7 +1277,9 @@ VIEWS.jana={t:'Jana Jadual', r(){
     <div class="row" style="margin-top:12px">
       <button class="btn pri" id="btnJana" ${st.jumWaktu?'':'disabled'}>✨ Jana Jadual</button>
       ${bilJadual()?`<button class="btn" onclick="go('lihat')">🗓️ Lihat jadual semasa</button>`:''}
+      <button class="btn" onclick="janaJadualGantianUI()">👥 Jana jadual gantian</button>
     </div>
+    <p class="hint">Guru MySTEP/praktikal yang ada "Menggantikan guru" pada kad mereka: butang ini menyalin waktu guru yang diganti sebagai agihan mereka sendiri, supaya Jana Jadual menyusun jadual mereka juga. Kelas yang dikongsi bersama guru praktikal tetap ada pada guru asal.</p>
     <div id="janaProg" class="hidden" style="margin-top:14px">
       <div class="prog"><i id="progBar"></i></div>
       <p class="muted" id="progTxt" style="margin-top:6px">Menyusun…</p>
@@ -2067,16 +2069,68 @@ window.jadualBuilder = {
   validate: () => semakJadual(),
   times: () => jalurMasa(),
   go,
+  // Guru gantian (Personel MySTEP / Guru Praktikal) membawa pautan gantian mereka ke dalam pembina,
+  // supaya "Jana jadual gantian" boleh mengagih kelas yang diambil sebagai jadual mereka sendiri.
   mergeTeachers(teachers) {
     const normalize = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     let count = 0;
     teachers.filter(t => t.active).forEach(t => {
       let g = S.guru.find(g => g.directoryId === t.id || normalize(g.nama) === normalize(t.name));
       if (!g) { g = {id:uid(),gelaran:'',maxHari:8,tidakAda:[]}; S.guru.push(g); count++; }
-      Object.assign(g, {directoryId:t.id,nama:t.name,kod:t.shortName,jawatan:t.position});
+      Object.assign(g, {directoryId:t.id,nama:t.name,kod:t.shortName,jawatan:t.position,coversJson:t.coversJson||''});
     });
     simpan(true); ulang(); return teachers.filter(t => t.active).length;
   },
   seedSchool() { if (!S.sekolah.nama) S.sekolah.nama='SEKOLAH KEBANGSAAN PAYA REDAN'; simpan(true); ulang(); }
 };
+// ===== Gantian tetap (MySTEP / guru praktikal) =====
+// Membaca pautan gantian yang disimpan pada profil guru dan menyalin agihan guru yang diganti
+// kepada guru gantian, supaya "Jana Jadual" boleh menghasilkan jadual mereka sendiri. Ia
+// ditandakan dariGantian supaya penyalinan berulang tidak berganda.
+function coverListBuilder(raw){
+  if(!raw) return [];
+  let list=raw;
+  if(typeof raw==='string'){ try{ list=JSON.parse(raw); }catch(e){ return []; } }
+  if(!Array.isArray(list)) return [];
+  return list.filter(e=>e&&e.teacherId).map(e=>({
+    teacherId:String(e.teacherId),
+    subjects:(Array.isArray(e.subjects)?e.subjects:String(e.subjects||'').split(',')).map(s=>String(s).trim().toUpperCase()).filter(Boolean),
+  }));
+}
+function pautanGantian(){
+  const links=[];
+  S.guru.forEach(g=>{
+    coverListBuilder(g.coversJson).forEach(entry=>{
+      const diganti=S.guru.find(x=>x.directoryId===entry.teacherId||x.id===entry.teacherId);
+      if(diganti&&diganti.id!==g.id) links.push({guru:g,diganti,subjects:entry.subjects});
+    });
+  });
+  return links;
+}
+function janaJadualGantian(){
+  const links=pautanGantian();
+  if(!links.length) return {added:0,skipped:0,total:0};
+  let added=0,skipped=0,total=0;
+  links.forEach(link=>{
+    S.agihan.filter(a=>a.guruId===link.diganti.id||(a.pairGuruIds||[]).includes(link.diganti.id)).forEach(a=>{
+      const subjek=subjekById(a.subjekId);
+      const nama=String((subjek&&(subjek.nama||subjek.kod))||'').toUpperCase();
+      if(link.subjects.length&&!link.subjects.includes(nama)) return;
+      total++;
+      if(S.agihan.some(x=>x.guruId===link.guru.id&&x.kelasId===a.kelasId&&x.subjekId===a.subjekId)){ skipped++; return; }
+      S.agihan.push({id:uid(),kelasId:a.kelasId,subjekId:a.subjekId,guruId:link.guru.id,pairGuruIds:[],waktu:'',ganda:0,dariGantian:true,gantiGuruId:link.diganti.id});
+      added++;
+    });
+  });
+  simpan(true); ulang();
+  return {added,skipped,total};
+}
+function janaJadualGantianUI(){
+  const pautan=pautanGantian();
+  if(!pautan.length) return toast('Tiada guru gantian. Tetapkan "Menggantikan guru" pada kad guru MySTEP atau praktikal dahulu.','warn',5200);
+  const hasil=janaJadualGantian();
+  if(!hasil.added) return toast(`Tiada agihan baharu: ${hasil.total} waktu diambil, ${hasil.skipped} sudah wujud bagi guru gantian.`,'warn',5600);
+  toast(`${hasil.added} agihan ditambah untuk guru gantian${hasil.skipped?` (${hasil.skipped} sudah wujud)`:''}. Tekan Jana Jadual untuk menyusun.`,'ok',6000);
+}
+
 document.dispatchEvent(new CustomEvent('builder-ready'));
