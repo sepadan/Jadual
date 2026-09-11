@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS } from "./data.js?v=3.0.13";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.1.0";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
@@ -6,12 +6,43 @@ export function dayCodeFromDate(dateText) {
   return { 1: "IS", 2: "SEL", 3: "RAB", 4: "KHA", 5: "JUM" }[index] || null;
 }
 
+// Any value the API can return, reduced to a calendar day (YYYY-MM-DD).
+export function dayOnly(value) {
+  if (!value) return "";
+  if (value instanceof Date) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+  }
+  const match = String(value).match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : "";
+}
+
+function latestVersion(versions) {
+  return versions.sort((a, b) => dayOnly(b.effectiveDate).localeCompare(dayOnly(a.effectiveDate)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0];
+}
+
+// The official (active) version always wins for any date it covers, even when an older import
+// carries a later effective date. Superseded versions only answer dates before the first
+// official version took effect, so past timetables still resolve.
+export function selectedScheduleVersion(db, dateText) {
+  const target = dayOnly(dateText);
+  if (!target) return null;
+  const date = new Date(`${target}T12:00:00`);
+  const eligible = (db.scheduleVersions || [])
+    .filter((version) => ["active", "superseded"].includes(version.status) && dayOnly(version.effectiveDate) && new Date(`${dayOnly(version.effectiveDate)}T00:00:00`) <= date);
+  return latestVersion(eligible.filter((version) => version.status === "active"))
+    || latestVersion(eligible.filter((version) => version.status === "superseded"))
+    || null;
+}
+
+// The newest official timetable, regardless of when it takes effect. Used for the timetable the
+// admin is preparing; relief itself always follows selectedScheduleVersion().
+export function officialScheduleVersion(db) {
+  return latestVersion((db.scheduleVersions || []).filter((version) => version.status === "active")) || null;
+}
+
 export function activeScheduleRows(db, dateText) {
-  const date = new Date(`${dateText}T12:00:00`);
-  const active = db.scheduleVersions
-    .filter((version) => ["active", "superseded"].includes(version.status) && new Date(`${version.effectiveDate}T00:00:00`) <= date)
-    .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0];
-  return active ? db.schedule.filter((row) => row.versionId === active.id) : [];
+  const version = selectedScheduleVersion(db, dateText);
+  return version ? db.schedule.filter((row) => row.versionId === version.id) : [];
 }
 
 export function absenceCovers(absence, period) {

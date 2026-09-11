@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import vm f
 function server() {
   const props=new Map(),cache=new Map();
   const propertyApi={getProperty:k=>props.get(k)||null,setProperty:(k,v)=>props.set(k,v),deleteProperty:k=>props.delete(k)};
-  const context=vm.createContext({console,PropertiesService:{getScriptProperties:()=>propertyApi},CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},Utilities:{getUuid:randomUUID,computeHmacSha256Signature:(text,key)=>createHmac('sha256',key).update(text).digest(),base64EncodeWebSafe:value=>Buffer.from(value).toString('base64url')}});
+  const context=vm.createContext({console,PropertiesService:{getScriptProperties:()=>propertyApi},CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},Utilities:{getUuid:randomUUID,computeHmacSha256Signature:(text,key)=>createHmac('sha256',key).update(text).digest(),base64EncodeWebSafe:value=>Buffer.from(value).toString('base64url'),formatDate:(date,zone,format)=>format==='yyyy-MM-dd'?'2026-09-11':new Intl.DateTimeFormat('en-CA',{timeZone:zone}).format(date)}});
   for(const file of ['Code.gs','Auth.gs','Builder.gs'])vm.runInContext(readFileSync(new URL(`../apps-script/${file}`,import.meta.url),'utf8'),context);
   context.output_=data=>data;context.initializeAdmin_();return {context,props,cache};
 }

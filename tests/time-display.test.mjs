@@ -17,6 +17,14 @@ test('valid clock and ISO clock values remain readable',()=>{
   assert.equal(clockValue('1899-12-30T10:20:00.000Z',6),'10:20');
 });
 
+test('a date-only time cell shows the official period clock instead of 00:00',()=>{
+  assert.equal(clockValue('00:00',2,'startTime'),'08:00');
+  assert.equal(clockValue('00:00',2,'endTime'),'08:30');
+  assert.equal(clockValue('0:00',11,'startTime'),'12:50');
+  assert.equal(clockValue('1899-12-30',5,'startTime'),'09:30');
+  assert.equal(clockValue('',3,'endTime'),'09:00');
+});
+
 test('Apps Script formats time columns as clocks instead of dates',()=>{
   const server=readFileSync(new URL('../apps-script/Code.gs',import.meta.url),'utf8');
   assert.match(server,/\/Time\$\/i\.test\(header\) \? "HH:mm" : "yyyy-MM-dd"/);

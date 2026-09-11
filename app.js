@@ -1,19 +1,20 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.13";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.13";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.13";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.13";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.13";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.13';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.13';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.13';
-import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.0.13';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.0";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.0";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.0";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.0";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.0";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.0';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.0';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.0';
+import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.1.0';
 
 const DB_KEY = "relief-skpr-db-v1";
+const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
 let config = loadConfig();
 let api = new ApiClient(config);
-let db = emptyDatabase();
-db.teachers = [];
+let db = loadDb();
+if (!db.revision) db.teachers = [];
 let confirmedDb = structuredClone(db);
 let admin = false, builderRevision = 0, builderDirty = false, restoringBuilder = false, builderSaving = false, builderCloudLoaded = false;
 let pendingWrites = 0, failedWrites = 0, writeQueue = Promise.resolve(), syncPromise = null;
@@ -32,13 +33,21 @@ function $$(selector, root = document) { return [...root.querySelectorAll(select
 function esc(value) { return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]); }
 function uuid(prefix) { return `${prefix}-${Date.now().toString(36)}-${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}`; }
 function todayIso() { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" }); }
-function formatDate(value, options = { day: "numeric", month: "short", year: "numeric" }) { return new Intl.DateTimeFormat("ms-MY", options).format(new Date(`${value}T12:00:00`)); }
+function formatDate(value, options = { day: "numeric", month: "short", year: "numeric" }) {
+  const day = String(value ?? "").slice(0, 10);
+  const date = new Date(`${day}T12:00:00`);
+  // An unusable date must never blank the whole screen.
+  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("ms-MY", options).format(date);
+}
 function teacherById(id) { return db.teachers.find((teacher) => teacher.id === id); }
 function clockValue(value,period,field='startTime') {
   const raw=String(value??'').trim();
-  const clock=raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::\d{2})?/);
-  if(clock) return `${clock[1].padStart(2,'0')}:${clock[2]}`;
-  return PERIODS.find(item=>item.period===Number(period))?.[field]||'';
+  const match=raw.match(/(?:^|T|\s)(\d{1,2}):(\d{2})(?::\d{2})?/);
+  const official=PERIODS.find(item=>item.period===Number(period))?.[field]||'';
+  // A date-only cell in a time column reads back as midnight; keep the official period clock
+  // instead of showing "00:00" on a relief card or a timetable cell.
+  const readable=match&&!(Number(match[1])===0&&Number(match[2])===0);
+  return readable?`${match[1].padStart(2,'0')}:${match[2]}`:official;
 }
 function normalizeDatabaseTimes(data) {
   const normalize=row=>({...row,startTime:clockValue(row.startTime,row.period,'startTime'),endTime:clockValue(row.endTime,row.period,'endTime')});
@@ -57,16 +66,37 @@ function restoreAdminShell(session) {
   return true;
 }
 
+// Reads back the last published payload so a repeat visitor sees the timetable before the
+// network answers. Only ever holds data the server already serves to the public.
 function loadDb() {
   try {
     const stored = JSON.parse(localStorage.getItem(DB_KEY) || "null");
-    if (!stored) return emptyDatabase();
-    const known = new Map((stored.teachers || []).map((teacher) => [teacher.id, teacher]));
-    INITIAL_TEACHERS.forEach((teacher) => { if (!known.has(teacher.id)) known.set(teacher.id, teacher); });
-    return { ...emptyDatabase(), ...stored, teachers: [...known.values()] };
+    if (!stored || !stored.revision) return emptyDatabase();
+    return { ...emptyDatabase(), ...normalizeDatabaseTimes(stored), teachers: stored.teachers || [] };
   } catch {
     return emptyDatabase();
   }
+}
+
+// Public data only. Keeping the last published payload lets a repeat visitor paint the timetable
+// immediately and ask the server for a one-line "unchanged" reply instead of 199 KB.
+function cachePublicDb(data) {
+  try {
+    localStorage.setItem(DB_KEY, JSON.stringify(data));
+    localStorage.setItem(PUBLIC_DAY_KEY, todayIso());
+  } catch {}
+}
+
+function cachedPublicDay() {
+  try { return localStorage.getItem(PUBLIC_DAY_KEY) || ""; } catch { return ""; }
+}
+
+// Only claim the revision when the cached timetable was fetched today, and only when the data it
+// belongs to is actually still on the device. Otherwise the server would answer "unchanged" to a
+// visitor who has nothing to show.
+function cachedPublicRevision() {
+  if (cachedPublicDay() !== todayIso()) return 0;
+  return Number(db.revision) || 0;
 }
 
 function persist() {
@@ -254,7 +284,9 @@ function renderTeachers() {
 }
 
 function renderSchedule() {
-  const version = db.scheduleVersions.filter((item) => item.status === "active").sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))[0];
+  // The grid shows the official timetable being prepared; relief for a date always follows
+  // selectedScheduleVersion(), which respects the effective date.
+  const version = officialScheduleVersion(db) || selectedScheduleVersion(db, todayIso());
   $("#activeVersion").textContent = version ? `${version.label} · ${formatDate(version.effectiveDate)}` : "Belum ada jadual";
   $("#activeVersion").className = `badge ${version ? "good" : "neutral"}`;
   const teacherId = $("#scheduleTeacher").value;
@@ -536,11 +568,11 @@ async function syncData(showSuccess = true) {
   $("#syncButton").disabled = true;
   syncPromise=(async()=>{try {
     const wasAdmin=admin;
-    const result = wasAdmin ? await api.bootstrap() : await api.publicData();
+    const result = wasAdmin ? await api.bootstrap() : await api.publicData(cachedPublicRevision(), todayIso());
     if (wasAdmin !== admin) return;
-    if (result.data) db = { ...emptyDatabase(), ...normalizeDatabaseTimes(result.data) };
+    if (result.data) { db = { ...emptyDatabase(), ...normalizeDatabaseTimes(result.data) }; if(!wasAdmin) cachePublicDb(db); }
     confirmedDb=structuredClone(db);failedWrites=0;renderAll();
-    if (showSuccess) toast("Data Google Sheets telah dikemas kini.", "success");
+    if (showSuccess) toast(result.changed===false ? "Data sudah terkini — tiada perubahan." : "Data Google Sheets telah dikemas kini.", "success");
   } catch (error) {
     if (showSuccess) toast(error.message, "error");
     if(error.code==='AUTH_REQUIRED') await leaveAdmin();
@@ -551,6 +583,9 @@ async function syncData(showSuccess = true) {
 async function syncIfChanged() {
   if(document.hidden||!navigator.onLine||!api.isConfigured()||pendingWrites||failedWrites||syncPromise) return;
   try {
+    // A timetable version can take effect at midnight, so a cached public timetable stops being
+    // current the moment the calendar day changes even when no admin has written anything.
+    if(!admin&&cachedPublicDay()&&cachedPublicDay()!==todayIso()) return syncData(false);
     const status=await api.status();
     if(Number(status.revision||0)>Number(db.revision||0)) await syncData(false);
   } catch {}
@@ -716,7 +751,7 @@ async function leaveAdmin(remoteLogout=true) {
   restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;builderCloudLoaded=false;
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';
   $$('dialog').forEach(d=>{d.close();d.querySelector('form')?.reset();});
-  db=emptyDatabase();db.teachers=[];confirmedDb=structuredClone(db);$('#scheduleType').value='teacher';setScheduleMode('relief');showView('jadual');
+  db=loadDb();if(!db.revision) db.teachers=[];confirmedDb=structuredClone(db);$('#scheduleType').value='teacher';setScheduleMode('relief');showView('jadual');
   api=new ApiClient(config);await finalWrites;if(remoteLogout) await previous.logout().catch(()=>{});await syncData(false);
 }
 async function saveBuilderCloud() {

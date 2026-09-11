@@ -65,18 +65,33 @@ function setupSystem() {
   return "Sistem sedia. Login awal admin / admin. Tukar kata laluan dalam Tetapan aplikasi.";
 }
 
+// The handle is reused for the whole execution. Re-opening the file on every read cost ~11
+// round trips per request, which is what made the public payload take ten seconds.
+var DATABASE_HANDLE_ = null;
+// Request-scoped caches are cleared at the start of every call, so a warm container can never
+// answer from another request's data.
+function resetRequestCache_() {
+  DATABASE_HANDLE_ = null;
+  CONFIG_MAP_ = null;
+}
+
 function database_() {
+  if (DATABASE_HANDLE_) return DATABASE_HANDLE_;
   var id = PropertiesService.getScriptProperties().getProperty('DATABASE_ID');
   if (!id) throw new Error('Jalankan setupSystem dahulu.');
-  return SpreadsheetApp.openById(id);
+  DATABASE_HANDLE_ = SpreadsheetApp.openById(id);
+  return DATABASE_HANDLE_;
 }
 
 function doGet(e) {
+  resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.0.13", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.0", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
-    if (action === "public") {var lock=LockService.getScriptLock();lock.waitLock(20000);try{return output_(publicBootstrap_());}finally{lock.releaseLock();}}
+    // Read-only, and the payload is cached per revision, so anonymous readers must never
+    // queue on the exclusive script lock (it blocked admin writes during peak hours).
+    if (action === "public") return output_(publicBootstrapCached_(e));
     return output_({ ok: false, error: "Tindakan GET tidak dikenali." });
   } catch (error) {
     return output_({ ok: false, error: String(error && error.message || error) });
@@ -84,6 +99,7 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  resetRequestCache_();
   try {
     var request = JSON.parse((e && e.postData && e.postData.contents) || "{}");
     if(request.action==='login') {
@@ -294,17 +310,45 @@ function upsert_(sheetName, keyName, row) {
 
 function encodeTeacher_(item) { return [item.id, text_(item.name), text_(item.shortName), text_(item.position), bool_(item.reliefEligible), Number(item.priority || 3), bool_(item.active), text_(item.createdAt), text_(item.updatedAt)]; }
 function encodeVersion_(item) { return [item.id, text_(item.label), text_(item.effectiveDate), text_(item.sourceName), text_(item.status), text_(item.createdAt)]; }
-function encodeSchedule_(item) { return [item.versionId, item.teacherId, item.day, Number(item.period), text_(item.startTime), text_(item.endTime), text_(item.subject), text_(item.className), bool_(item.isDuty)]; }
+function encodeSchedule_(item) { return [item.versionId, item.teacherId, item.day, Number(item.period), clockText_(item.startTime), clockText_(item.endTime), text_(item.subject), text_(item.className), bool_(item.isDuty)]; }
 function encodeAbsence_(item) { return [item.id, item.date, item.teacherId, text_(item.reason), bool_(item.allDay), JSON.stringify(item.periods || []), text_(item.status), text_(item.createdAt), text_(item.updatedAt)]; }
-function encodeRelief_(item) { return [item.id, item.date, item.day, Number(item.period), text_(item.startTime), text_(item.endTime), item.absentTeacherId, item.replacementTeacherId, text_(item.className), text_(item.subject), text_(item.status), text_(item.note), text_(item.createdAt), text_(item.updatedAt)]; }
+function encodeRelief_(item) { return [item.id, item.date, item.day, Number(item.period), clockText_(item.startTime), clockText_(item.endTime), item.absentTeacherId, item.replacementTeacherId, text_(item.className), text_(item.subject), text_(item.status), text_(item.note), text_(item.createdAt), text_(item.updatedAt)]; }
 function text_(value) { return value == null ? "" : String(value); }
+// Any date-ish value the sheet or an ISO payload can hold, reduced to a calendar day.
+function dayOnly_(value) {
+  if (!value) return "";
+  if (value instanceof Date) return Utilities.formatDate(value, (typeof Session !== 'undefined' && Session.getScriptTimeZone()) || 'Asia/Kuala_Lumpur', 'yyyy-MM-dd');
+  var text = String(value).trim();
+  var iso = text.match(/\d{4}-\d{2}-\d{2}/);
+  if (iso) return iso[0];
+  var local = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (local) return local[3] + '-' + ('0' + local[2]).slice(-2) + '-' + ('0' + local[1]).slice(-2);
+  return "";
+}
+
+// A date-only cell in a time column comes back as midnight (or as the 1899 epoch). Storing an
+// empty clock lets every reader fall back to the official period clock instead of "00:00".
+function clockText_(value) {
+  var match = String(value == null ? "" : value).match(/(\d{1,2}):(\d{2})/);
+  if (!match || (Number(match[1]) === 0 && Number(match[2]) === 0)) return "";
+  return String(Number(match[1])).length === 1 ? "0" + Number(match[1]) + ":" + match[2] : Number(match[1]) + ":" + match[2];
+}
 function bool_(value) { return value === true || value === "true"; }
 function parseJson_(value, fallback) { try { return JSON.parse(value); } catch (error) { return fallback; } }
 
+// One read of Config per execution instead of one read per key lookup.
+var CONFIG_MAP_ = null;
+function readConfigMap_() {
+  if (!CONFIG_MAP_) {
+    CONFIG_MAP_ = {};
+    readObjects_("Config").forEach(function(row) { CONFIG_MAP_[String(row.key)] = row.value; });
+  }
+  return CONFIG_MAP_;
+}
+
 function configValue_(key) {
-  var rows = readObjects_("Config");
-  var record = rows.find(function(item) { return item.key === key; });
-  return record ? record.value : "";
+  var map = readConfigMap_();
+  return map[key] === undefined || map[key] === null ? "" : map[key];
 }
 
 function reliefDailyLimit_() {
@@ -315,6 +359,7 @@ function reliefDailyLimit_() {
 
 function setConfig_(key, value) {
   upsert_("Config", "key", [key, value]);
+  if (CONFIG_MAP_) CONFIG_MAP_[String(key)] = value;
 }
 
 function bumpRevision_() {

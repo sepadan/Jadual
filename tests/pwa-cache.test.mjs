@@ -21,3 +21,15 @@ test('PWA recovery starts before application modules',()=>{
   assert.ok(!html.includes('<script src="./builder.js'));
   assert.ok(read('sw.js').includes(`./builder.js?v=${APP_VERSION}`));
 });
+
+test('every file in the offline shell really exists, so install cannot fail as a whole',()=>{
+  const shell=read('sw.js').match(/const APP_SHELL = \[([\s\S]*?)\];/);
+  assert.ok(shell,'APP_SHELL is missing from sw.js');
+  const entries=[...shell[1].matchAll(/"([^"]+)"/g)].map(match=>match[1]);
+  assert.ok(entries.length>=20,`expected the whole shell, found ${entries.length} entries`);
+  for(const entry of entries) {
+    const file=entry.split('?')[0].replace(/^\.\//,'').replace(/\/$/,'index.html');
+    if(!file) continue;
+    assert.ok(existsSync(new URL(`../${file}`,import.meta.url)),`${entry} is listed in APP_SHELL but missing on disk`);
+  }
+});

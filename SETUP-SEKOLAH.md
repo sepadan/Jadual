@@ -11,7 +11,7 @@ Semakan sambungan sebenar: health 3.0.0, 23 guru pada paparan awam, bootstrap ta
 ## Sekali sahaja
 
 1. Buka Google Sheets baharu menggunakan akaun sekolah yang betul. Namakan **Sistem Jadual**. Jangan kongsi fail data ini kepada umum.
-2. Dari fail itu, pilih **Extensions → Apps Script**. Cipta fail `Code.gs`, `Auth.gs` dan `Builder.gs`, kemudian salin kod daripada folder `apps-script` repo ini. Salin juga `appsscript.json` melalui tetapan paparan manifest.
+2. Dari fail itu, pilih **Extensions → Apps Script**. Cipta fail `Code.gs`, `Auth.gs`, `Builder.gs` dan `Maintenance.gs`, kemudian salin kod daripada folder `apps-script` repo ini. Salin juga `appsscript.json` melalui tetapan paparan manifest.
 3. Jalankan `setupSystem()` sekali. Skrip menyediakan jadual data, senarai guru dan login awal **admin / admin**, serta mengunci ID fail dalam Script Properties. Google memerlukan skop Google Sheets untuk membuka fail daripada web app; dialog izin boleh menyebut semua spreadsheet. Kod aplikasi hanya membuka ID fail Sistem Jadual yang disimpan, bukan fail lain. Semak dan luluskan sendiri izin Google ini.
 4. Deploy sebagai **Web app**, **Execute as: Me**, akses **Anyone**. Endpoint awam hanya memulangkan jadual, ketiadaan tanpa sebab dan relief diterbitkan. Semua bacaan dalaman dan perubahan memerlukan sesi admin yang sah.
 5. Masukkan URL `/exec` deployment dalam `site-config.js` pada `SITE_CONFIG.apiUrl`, kemudian terbitkan repo ke GitHub Pages. URL yang sama dikongsi oleh semua peranti; tiada kata laluan disimpan dalam konfigurasi GitHub.
@@ -25,7 +25,9 @@ Semakan sambungan sebenar: health 3.0.0, 23 guru pada paparan awam, bootstrap ta
 - BuilderState: semua draf pembina termasuk sekolah, masa, subjek, kelas, guru, agihan, kekangan dan jadual.
 - Config dan Audit: konfigurasi teknikal serta rekod perubahan.
 
-Kelayakan login dan sesi disimpan dalam stor pelayan Apps Script yang terikat pada fail ini, bukan dalam sel atau kod frontend. Sesi tamat selepas dua jam, percubaan login salah berulang disekat sementara, dan penukaran kata laluan membatalkan sesi lama.
+Kelayakan login dan sesi disimpan dalam stor pelayan Apps Script yang terikat pada fail ini, bukan dalam sel atau kod frontend. Sesi kekal tujuh hari pada peranti itu, percubaan login salah berulang disekat sementara, dan penukaran kata laluan membatalkan semua sesi lama.
+
+Jalankan `repairClockTimes()` sekali daripada editor Apps Script (fail `Maintenance.gs`) selepas deploy pertama jika helaian `Reliefs` atau `Schedule` pernah menunjukkan masa `00:00`. Ia menulis semula masa mengikut jadual rasmi dan merekodkan bilangan baris yang dibaiki dalam helaian Audit. Selepas itu, rekod relief lama yang masih menyimpan `00:00` dalam Sheets perlu diterbitkan semula oleh admin jika perlu.
 
 ## Penggunaan
 

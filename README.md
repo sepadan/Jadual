@@ -36,4 +36,14 @@ Sambungan Drive berasingan, menu eksport laman HTML, data contoh pada menu utama
 
 Jalankan `npm test`. Semua import JS, pautan CSS/HTML dan senarai cache mesti menggunakan versi keluaran sama. Pendaftaran service worker bermula sebelum modul aplikasi supaya cache lama tidak menyekat pemulihan. Sambungan internet diperlukan untuk login dan menyimpan data Sheets.
 
+Naikkan versi dengan `npm run release 3.1.0`. Skrip itu menulis semula semua tempat yang mengulangi versi: import modul, pautan HTML, senarai cache service worker dan `version` dalam `Code.gs`. GitHub Actions menjalankan `npm test` pada setiap push dan pull request.
+
+## Paparan awam
+
+Paparan awam hanya menerima jadual **versi rasmi (active)** yang berkuat kuasa hari ini; import lama tidak lagi dihantar, jadi muatan turun kira-kira separuh. Peranti pengunjung menyimpan helaian awam terakhir, dan pengunjung yang sudah memegang revisi semasa hanya menerima jawapan `changed: false` (kira-kira 80 bait) — bukan keseluruhan jadual. Pelayan menyimpan salinan termampat mengikut revisi selama dua minit. Admin yang login tetap menerima semua data melalui `bootstrap`.
+
+## Penyelenggaraan
+
+`apps-script/Maintenance.gs` mengandungi `repairClockTimes()`. Jalankan sekali dari editor Apps Script jika lajur masa dalam helaian pernah menunjukkan 00:00 (sel tarikh dibaca balik sebagai tengah malam). Fungsi itu menulis semula masa mengikut jadual rasmi dan merekodkan hasilnya dalam helaian Audit.
+
 Laman: https://sepadan.github.io/Jadual/
