@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS } from "./data.js?v=3.0.11";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.0.12";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
@@ -18,6 +18,31 @@ export function absenceCovers(absence, period) {
   return absence.allDay || (absence.periods || []).map(Number).includes(Number(period));
 }
 
+export function reliefMatchesAbsence(relief, absence) {
+  return !!relief && !!absence
+    && relief.date === absence.date
+    && relief.absentTeacherId === absence.teacherId;
+}
+
+export function reliefHasActiveAbsence(db, relief) {
+  return (db.absences || []).some((absence) => absence.status !== "cancelled"
+    && reliefMatchesAbsence(relief, absence)
+    && absenceCovers(absence, relief.period));
+}
+
+export function cancelAbsenceAndReliefs(db, absenceId, updatedAt = new Date().toISOString()) {
+  const absence = (db.absences || []).find((item) => item.id === absenceId);
+  if (!absence) return { absence: null, reliefs: [] };
+  absence.status = "cancelled";
+  absence.updatedAt = updatedAt;
+  const reliefs = (db.reliefs || []).filter((relief) => relief.status !== "cancelled" && reliefMatchesAbsence(relief, absence));
+  reliefs.forEach((relief) => {
+    relief.status = "cancelled";
+    relief.updatedAt = updatedAt;
+  });
+  return { absence, reliefs };
+}
+
 function mondayOf(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
   const day = date.getDay();
@@ -35,7 +60,7 @@ export function rankCandidates({ db, date, day, period, absentTeacherId }) {
   const busy = new Set(rows.filter((row) => row.day === day && Number(row.period) === Number(period)).map((row) => row.teacherId));
   const reliefBusy = new Set(
     db.reliefs
-      .filter((item) => item.date === date && Number(item.period) === Number(period) && item.status !== "cancelled")
+      .filter((item) => item.date === date && Number(item.period) === Number(period) && item.status !== "cancelled" && reliefHasActiveAbsence(db, item))
       .map((item) => item.replacementTeacherId),
   );
   const weekStart = mondayOf(date);
@@ -43,7 +68,7 @@ export function rankCandidates({ db, date, day, period, absentTeacherId }) {
   const weekCounts = new Map();
   const teachingCounts = new Map();
 
-  db.reliefs.filter((item) => item.status !== "cancelled").forEach((item) => {
+  db.reliefs.filter((item) => item.status !== "cancelled" && reliefHasActiveAbsence(db, item)).forEach((item) => {
     if (item.date === date) todayCounts.set(item.replacementTeacherId, (todayCounts.get(item.replacementTeacherId) || 0) + 1);
     if (item.date >= weekStart && item.date <= date) weekCounts.set(item.replacementTeacherId, (weekCounts.get(item.replacementTeacherId) || 0) + 1);
   });
@@ -73,7 +98,7 @@ export function buildReliefDrafts(db, date) {
   if (!day || !DAY_CODES.includes(day)) return [];
   const rows = activeScheduleRows(db, date);
   const existingKeys = new Set(
-    db.reliefs.filter((item) => item.date === date && item.status !== "cancelled").map((item) => `${item.absentTeacherId}|${item.period}`),
+    db.reliefs.filter((item) => item.date === date && item.status !== "cancelled" && reliefHasActiveAbsence(db, item)).map((item) => `${item.absentTeacherId}|${item.period}`),
   );
   const drafts = [];
   db.absences
@@ -114,7 +139,7 @@ export function hasPresentPair(db,date,row,rows=activeScheduleRows(db,date)) {
     && normalize(other.className)===normalize(row.className)
     && db.teachers.some(t=>t.id===other.teacherId&&t.active)
     && !db.absences.some(a=>a.teacherId===other.teacherId&&a.date===date&&a.status!=='cancelled'&&absenceCovers(a,row.period))
-    && !db.reliefs.some(r=>r.date===date&&Number(r.period)===Number(row.period)&&r.status!=='cancelled'&&r.replacementTeacherId===other.teacherId));
+    && !db.reliefs.some(r=>r.date===date&&Number(r.period)===Number(row.period)&&r.status!=='cancelled'&&reliefHasActiveAbsence(db,r)&&r.replacementTeacherId===other.teacherId));
 }
 
 export function validateReliefs(db, reliefs) {

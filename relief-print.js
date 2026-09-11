@@ -1,3 +1,5 @@
+import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.0.12";
+
 function clean(value) {
   return String(value || "").trim();
 }
@@ -27,7 +29,7 @@ function dayName(value) {
 export function buildReliefPrintModel(db, date, standardPeriods) {
   const teachers = db.teachers || [];
   const reliefs = (db.reliefs || [])
-    .filter((item) => item.date === date && item.status === "published")
+    .filter((item) => item.date === date && item.status === "published" && reliefHasActiveAbsence(db, item))
     .sort((a, b) => Number(a.period) - Number(b.period) || clean(a.className).localeCompare(clean(b.className), "ms"));
   const maximum = Math.max(11, ...reliefs.map((item) => Number(item.period) || 0));
   const periods = (standardPeriods || [])
@@ -75,6 +77,7 @@ function fitClass(values) {
 
 export function reliefPrintHtml(model) {
   const heading = model.periods.map((period) => `<th><b>${period.period}</b><span>${escapeHtml(period.startTime)}<br>${escapeHtml(period.endTime)}</span></th>`).join("");
+  const columns = model.periods.map(() => '<col class="relief-col-period">').join("");
   const groups = model.groups.map((group) => {
     const cells = (field) => model.periods.map((period) => {
       const values=group.slots[period.period]?.[field]||[];
@@ -82,9 +85,9 @@ export function reliefPrintHtml(model) {
     }).join("");
     const signatures = model.periods.map(() => "<td></td>").join("");
     return `<tbody class="relief-print-group">
-      <tr><th class="relief-print-name-label">NAMA GURU<br>TIDAK HADIR</th><th class="relief-print-label">KELAS</th>${cells("classes")}</tr>
-      <tr><th class="relief-print-name-value${fitClass(group.teacherName)}">${escapeHtml(group.teacherName)}</th><th class="relief-print-label">GURU<br>GANTI</th>${cells("replacements")}</tr>
-      <tr><th class="relief-print-name-blank"></th><th class="relief-print-label">T/TANGAN</th>${signatures}</tr>
+      <tr><th class="relief-print-name" scope="rowgroup" rowspan="3"><span class="relief-print-name-caption">NAMA GURU<br>TIDAK HADIR</span><strong class="relief-print-name-text${fitClass(group.teacherName)}">${escapeHtml(group.teacherName)}</strong></th><th class="relief-print-label">KELAS</th>${cells("classes")}</tr>
+      <tr><th class="relief-print-label">GURU<br>GANTI</th>${cells("replacements")}</tr>
+      <tr><th class="relief-print-label">T/TANGAN</th>${signatures}</tr>
     </tbody>`;
   }).join("");
   return `<div class="relief-print-heading">
@@ -92,6 +95,7 @@ export function reliefPrintHtml(model) {
       <div class="relief-print-meta"><span>TARIKH: <b>${escapeHtml(model.dateLabel)}</b></span><span>HARI: <b>${escapeHtml(model.dayLabel)}</b></span></div>
     </div>
     <table class="relief-print-table">
+      <colgroup><col class="relief-col-name"><col class="relief-col-label">${columns}</colgroup>
       <thead><tr><th colspan="2" class="relief-print-time">MASA</th>${heading}</tr></thead>
       ${groups}
     </table>

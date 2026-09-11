@@ -1,11 +1,11 @@
-import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.11";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.11";
-import { activeScheduleRows, buildReliefDrafts, dayCodeFromDate, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.11";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.11";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.11";
-import { draftFromPdf } from './pdf-builder.js?v=3.0.11';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.11';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.11';
+import { APP_VERSION, DAY_NAMES, INITIAL_TEACHERS, PERIODS, emptyDatabase, slug } from "./data.js?v=3.0.12";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.0.12";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit } from "./relief-engine.js?v=3.0.12";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.0.12";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.0.12";
+import { draftFromPdf } from './pdf-builder.js?v=3.0.12';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.0.12';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.0.12';
 
 const DB_KEY = "relief-skpr-db-v1";
 const titleByView = { "hari-ini": "Jadual relief", ketiadaan: "Ketiadaan", jadual: "Jadual", guru: "Guru", import: "Import PDF", tetapan: "Tetapan" };
@@ -140,7 +140,7 @@ function renderDashboard() {
   $('#ignorePairingWhenCovered').checked=db.reliefSettings?.ignorePairingWhenCovered===true;
   const date = $("#reliefDate").value || todayIso();
   const absences = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
-  const published = db.reliefs.filter((item) => item.date === date && item.status !== "cancelled");
+  const published = db.reliefs.filter((item) => item.date === date && item.status !== "cancelled" && reliefHasActiveAbsence(db, item));
   renderReliefPrint(date);
   if(!admin || generatedReliefKey!==reliefInputKey()) {currentDrafts=[];generatedReliefKey='';}
   $('#reliefGuide').textContent=admin ? (generatedReliefKey ? `Draf dijana: ${currentDrafts.length} slot baharu. Semak guru ganti, kemudian Terbitkan.` : '1. Rekod guru tiada → 2. Jana relief → 3. Semak dan terbitkan. Perubahan data memerlukan jana semula.') : 'Jadual relief yang telah diterbitkan oleh admin.';
@@ -172,7 +172,7 @@ function renderReliefPrint(date) {
 
 function printReliefSheet() {
   const date=$('#reliefDate').value||todayIso();
-  const published=db.reliefs.some(item=>item.date===date&&item.status==='published');
+  const published=db.reliefs.some(item=>item.date===date&&item.status==='published'&&reliefHasActiveAbsence(db,item));
   if(!published) return toast('Tiada relief diterbitkan untuk dicetak pada tarikh ini.','error');
   renderReliefPrint(date);
   document.body.classList.remove('print-builder');
@@ -323,8 +323,15 @@ function cancelAbsence(id) {
   if (!requireAdmin()) return;
   const item = db.absences.find((absence) => absence.id === id);
   if (!item || !confirm("Batalkan rekod ketiadaan ini?")) return;
-  item.status = "cancelled"; item.updatedAt = new Date().toISOString(); persist(); renderAll();
-  remoteWrite("saveAbsence", item, "Rekod dibatalkan.");
+  const updatedAt = new Date().toISOString();
+  const result = cancelAbsenceAndReliefs(db, id, updatedAt);
+  currentDrafts = currentDrafts.filter((draft) => !reliefMatchesAbsence(draft, result.absence));
+  generatedReliefKey = "";
+  persist(); renderAll();
+  const message = result.reliefs.length
+    ? `Rekod dibatalkan bersama ${result.reliefs.length} relief berkaitan.`
+    : "Rekod ketiadaan dibatalkan.";
+  remoteWrite("cancelAbsence", { id, updatedAt }, message);
 }
 
 function openTeacherDialog(id = "") {
@@ -723,6 +730,7 @@ function wireAdminEvents() {
       const metadata={
         ...(importResult.metadata||{}),
         schoolName:importResult.metadata?.schoolName||db.school||'',
+        effectiveDate:$('#effectiveDate').value||'',
         pages:(importResult.pages||[]).map(page=>({
           teacherId:page.teacherId,
           rawName:page.rawName,

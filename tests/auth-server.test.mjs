@@ -8,7 +8,7 @@ function server() {
 }
 test('no session means all writes and private bootstrap are rejected',()=>{
   const {context}=server();
-  for(const action of ['saveTeacher','saveBuilder','saveAbsence','saveReliefs','importSchedule','bootstrap','changePassword']) {
+  for(const action of ['saveTeacher','saveBuilder','saveAbsence','cancelAbsence','saveReliefs','importSchedule','bootstrap','changePassword']) {
     const reply=context.doPost({postData:{contents:JSON.stringify({action,pin:'2468',data:{}})}});assert.equal(reply.ok,false);assert.equal(reply.code,'AUTH_REQUIRED');
   }
 });
@@ -34,7 +34,7 @@ test('repeated wrong passwords are throttled',()=>{
   const {context}=server();for(let i=0;i<5;i++)assert.throws(()=>context.login_({username:'admin',password:'bad'}));assert.throws(()=>context.login_({username:'admin',password:'admin'}),/15 minit/);
 });
 test('public data omits absence reasons, drafts, private notes and teacher privileges',()=>{
-  const {context}=server();context.bootstrap_=()=>({data:{teachers:[{id:'t',name:'Teacher',priority:1,position:'private'}],scheduleVersions:[{id:'v',status:'active'},{id:'draft',status:'draft'}],schedule:[{versionId:'v'},{versionId:'draft'}],absences:[{id:'a',reason:'private medical note',status:'active'}],reliefs:[{id:'r',status:'published',note:'private'},{id:'d',status:'draft'}],builder:{secret:'draft'}}});
+  const {context}=server();context.bootstrap_=()=>({data:{teachers:[{id:'t',name:'Teacher',priority:1,position:'private'}],scheduleVersions:[{id:'v',status:'active'},{id:'draft',status:'draft'}],schedule:[{versionId:'v'},{versionId:'draft'}],absences:[{id:'a',date:'2026-09-09',teacherId:'t',allDay:true,periods:[],reason:'private medical note',status:'active'}],reliefs:[{id:'r',date:'2026-09-09',period:1,absentTeacherId:'t',status:'published',note:'private'},{id:'d',date:'2026-09-09',period:2,absentTeacherId:'t',status:'draft'}],builder:{secret:'draft'}}});
   const data=context.publicBootstrap_().data;assert.equal(data.absences[0].reason,undefined);assert.equal(data.teachers[0].priority,undefined);assert.equal(data.reliefs[0].note,undefined);assert.equal(data.reliefs.length,1);assert.equal(data.schedule.length,1);assert.equal(data.builder,undefined);
 });
 test('builder saves reject stale revisions before replacing the sheet',()=>{const {context}=server();context.configValue_=()=>4;assert.throws(()=>context.saveBuilder_({baseRevision:3,state:{guru:[],kelas:[],subjek:[]}}),/peranti lain/);});
@@ -46,8 +46,46 @@ test('seven-day session survives cache eviction and expires server-side',()=>{
   assert.throws(()=>context.requireSession_(login.token),/AUTH_REQUIRED/);
 });
 test('server rejects over-limit relief batch before any write',()=>{
-  const {context}=server();let writes=0;context.configValue_=()=>'';context.readObjects_=()=>[];context.upsert_=()=>writes++;
-  const rows=[1,2,3].map(period=>({id:String(period),date:'2026-09-09',period,replacementTeacherId:'g',status:'published'}));
+  const {context}=server();let writes=0;context.configValue_=()=>'';context.readObjects_=name=>name==='Absences'?[{date:'2026-09-09',teacherId:'absent',allDay:true,status:'active'}]:[];context.upsert_=()=>writes++;
+  const rows=[1,2,3].map(period=>({id:String(period),date:'2026-09-09',period,absentTeacherId:'absent',replacementTeacherId:'g',status:'published'}));
   assert.throws(()=>context.routeWrite_('saveReliefs',rows),/Had relief/);assert.equal(writes,0);
   context.configValue_=()=>3;context.audit_=()=>{};assert.equal(context.routeWrite_('saveReliefs',rows).count,3);
+});
+
+test('server refuses to publish relief after its absence was cancelled',()=>{
+  const {context}=server();context.readObjects_=()=>[];
+  assert.throws(()=>context.routeWrite_('saveReliefs',[{id:'r',date:'2026-09-09',period:2,absentTeacherId:'g1',replacementTeacherId:'g2',status:'published'}]),/telah dipadam/);
+});
+
+test('legacy orphan reliefs do not consume the daily server limit',()=>{
+  const {context}=server();let writes=0;
+  context.configValue_=key=>key==='RELIEF_DAILY_LIMIT'?'2':'';
+  context.readObjects_=name=>name==='Absences'
+    ?[{date:'2026-09-09',teacherId:'active-away',allDay:true,status:'active'}]
+    :name==='Reliefs'?[1,2].map(period=>({id:`old-${period}`,date:'2026-09-09',period,absentTeacherId:'deleted-away',replacementTeacherId:'cover',status:'published'})):[];
+  context.upsert_=()=>writes++;context.audit_=()=>{};
+  const rows=[3,4].map(period=>({id:`new-${period}`,date:'2026-09-09',period,absentTeacherId:'active-away',replacementTeacherId:'cover',status:'published'}));
+  assert.equal(context.routeWrite_('saveReliefs',rows).count,2);
+  assert.equal(writes,2);
+});
+
+test('server cancels an absence and all related reliefs atomically',()=>{
+  const {context}=server();
+  const rows={
+    Absences:[{id:'a1',date:'2026-09-09',teacherId:'g1',allDay:true,periods:[],status:'active'}],
+    Reliefs:[
+      {id:'r1',date:'2026-09-09',absentTeacherId:'g1',status:'published'},
+      {id:'r2',date:'2026-09-09',absentTeacherId:'g2',status:'published'},
+    ],
+  };
+  const writes=[];
+  context.readObjects_=name=>rows[name]||[];
+  context.upsert_=(sheet,key,row)=>writes.push({sheet,row});
+  context.audit_=()=>{};
+  const result=context.routeWrite_('cancelAbsence',{id:'a1',updatedAt:'now'});
+  assert.equal(result.reliefCount,1);
+  assert.deepEqual(writes.map(item=>item.sheet),['Absences','Reliefs']);
+  assert.equal(writes[0].row[6],'cancelled');
+  assert.equal(writes[1].row[10],'cancelled');
+  assert.throws(()=>context.routeWrite_('cancelAbsence',{id:'missing'}),/tidak ditemui/);
 });

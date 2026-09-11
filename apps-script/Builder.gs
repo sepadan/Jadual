@@ -19,11 +19,19 @@ function saveBuilder_(data) {
 }
 function publicBootstrap_() {
   var data=bootstrap_(-1).data;
+  var activeAbsences=data.absences.filter(function(a){return a.status!=='cancelled';});
+  function hasActiveAbsence_(relief) {
+    return activeAbsences.some(function(absence) {
+      var periods=(Array.isArray(absence.periods)?absence.periods:parseJson_(absence.periods,[])).map(Number);
+      return absence.date===relief.date && absence.teacherId===relief.absentTeacherId
+        && (bool_(absence.allDay)||periods.indexOf(Number(relief.period))>=0);
+    });
+  }
   return {ok:true,data:{school:data.school,revision:data.revision,updatedAt:data.updatedAt,
     teachers:data.teachers.map(function(t){return {id:t.id,name:t.name,shortName:t.shortName,active:t.active};}),
     scheduleVersions:data.scheduleVersions.filter(function(v){return v.status==='active'||v.status==='superseded';}),
     schedule:data.schedule.filter(function(r){return data.scheduleVersions.some(function(v){return v.id===r.versionId&&(v.status==='active'||v.status==='superseded');});}),
-    absences:data.absences.filter(function(a){return a.status!=='cancelled';}).map(function(a){return {id:a.id,date:a.date,teacherId:a.teacherId,allDay:a.allDay,periods:a.periods,status:a.status};}),
-    reliefs:data.reliefs.filter(function(r){return r.status==='published';}).map(function(r){return {id:r.id,date:r.date,day:r.day,period:r.period,startTime:r.startTime,endTime:r.endTime,absentTeacherId:r.absentTeacherId,replacementTeacherId:r.replacementTeacherId,className:r.className,subject:r.subject,status:r.status};})
+    absences:activeAbsences.map(function(a){return {id:a.id,date:a.date,teacherId:a.teacherId,allDay:a.allDay,periods:a.periods,status:a.status};}),
+    reliefs:data.reliefs.filter(function(r){return r.status==='published'&&hasActiveAbsence_(r);}).map(function(r){return {id:r.id,date:r.date,day:r.day,period:r.period,startTime:r.startTime,endTime:r.endTime,absentTeacherId:r.absentTeacherId,replacementTeacherId:r.replacementTeacherId,className:r.className,subject:r.subject,status:r.status};})
   }};
 }

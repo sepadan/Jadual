@@ -154,20 +154,28 @@
   border:1px solid var(--line);border-radius:6px;box-shadow:var(--sh)
 }
 #builderRoot .sheet *{color:#000}
-#builderRoot .sh-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
+#builderRoot .sh-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;min-height:66px}
+#builderRoot .sh-brand{width:142px;flex:0 0 142px;display:flex;align-items:flex-start;gap:6px}
 #builderRoot .sh-logo{width:60px;height:60px;object-fit:contain;flex:0 0 auto}
 #builderRoot .sh-logo.ph{border:1px dashed #bbb;border-radius:6px;display:grid;place-items:center;font-size:8px;color:#999}
 #builderRoot .sh-title{flex:1;text-align:center}
-#builderRoot .sh-title .s1{font-size:22px;font-weight:700;line-height:1.15}
-#builderRoot .sh-title .s2{font-size:14px;font-weight:600}
-#builderRoot .sh-title .s3{font-size:14px;font-weight:700;margin-top:2px}
-#builderRoot .sh-#builderRoot{display:flex;gap:8px;align-items:flex-start}
+#builderRoot .sh-title .s1{font-size:22px;font-weight:700;line-height:1.08}
+#builderRoot .sh-title .s2{font-size:15px;font-weight:600;line-height:1.12}
+#builderRoot .sh-title .s3{font-size:20px;font-weight:800;line-height:1.08;margin-top:3px;overflow-wrap:anywhere}
+#builderRoot .sh-title .s3.sh-title-sm{font-size:16px}
+#builderRoot .sh-title .s3.sh-title-xs{font-size:13px}
+#builderRoot .sh-meta{width:160px;flex:0 0 160px;text-align:right;font-size:10.5px;font-weight:700;line-height:1.2}
+#builderRoot .sh-body{display:flex;gap:8px;align-items:flex-start}
 #builderRoot .sh-main{flex:1;min-width:0}
-#builderRoot .sh-side{width:250px;flex:0 0 250px}
-#builderRoot table.pt{border-collapse:collapse;width:100%;table-layout:fixed;font-family:Arial,Helvetica,sans-serif}
-#builderRoot table.pt th,#builderRoot table.pt td{border:1px solid #000;text-align:center;vertical-align:middle;padding:1px;height:56px;font-size:11px}
-#builderRoot table.pt th{height:auto;padding:2px 1px;font-size:13px;font-weight:700}
+#builderRoot .sh-side{width:250px;min-width:0;flex:0 0 250px}
+#builderRoot table.pt{border:1px solid #000;border-collapse:collapse;border-spacing:0;width:100%;table-layout:fixed;font-family:Arial,Helvetica,sans-serif;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+#builderRoot table.pt th,#builderRoot table.pt td{box-sizing:border-box;border:1px solid #000;text-align:center;vertical-align:middle;padding:1px;height:56px;font-size:11px}
+#builderRoot table.pt th{position:static;inset:auto;height:auto;padding:2px 1px;background:#fff;color:#000;font-size:13px;font-weight:700;text-transform:none;letter-spacing:0}
 #builderRoot table.pt th .tm{display:block;font-size:6.5px;font-weight:400;letter-spacing:-.03em}
+#builderRoot .pt-col-day{width:52px}
+#builderRoot .pt-col-master-name{width:82px}
+#builderRoot .pt-col-rest{width:30px}
+#builderRoot .pt-rest-head{font-size:8px!important;overflow-wrap:anywhere;writing-mode:horizontal-tb}
 #builderRoot table.pt td.day{width:52px;font-size:17px;font-weight:700}
 #builderRoot table.pt td.vert{width:28px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:19px;font-weight:700;letter-spacing:.06em}
 #builderRoot table.pt td.cellv{position:relative;padding:0}
@@ -176,10 +184,20 @@
 #builderRoot .pc .pcls{font-weight:600;line-height:1.04;word-break:break-word;hyphens:auto}
 #builderRoot .pc .pmid{font-size:11px;font-weight:600;line-height:1.05;word-break:break-word}
 #builderRoot .pc .pgr{font-size:7.5px;line-height:1.05;margin-top:1px;word-break:break-word}
-#builderRoot table.sum{border-collapse:collapse;width:100%;font-family:Arial,Helvetica,sans-serif}
-#builderRoot table.sum th,#builderRoot table.sum td{border:1px solid #000;font-size:10.5px;padding:1px 4px;text-align:left}
+#builderRoot table.pt-master th,#builderRoot table.pt-master td{height:var(--rowh,7mm);font-size:8px;padding:1px;line-height:1.02}
+#builderRoot table.pt-master thead th{height:13mm;font-size:11px}
+#builderRoot table.pt-master .pt-master-name{font-size:8.5px;font-weight:800;overflow-wrap:anywhere}
+#builderRoot table.pt-master .pt-master-cell{padding:1px;gap:1px}
+#builderRoot table.pt-master .pt-master-cell .pcls{font-weight:800;overflow-wrap:anywhere}
+#builderRoot table.pt-master .pt-master-cell .pgr{font-size:6.5px;overflow-wrap:anywhere}
+#builderRoot table.pt-master .pt-master-pre{font-size:6.5px;font-weight:700;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.02em}
+#builderRoot table.pt-master .pt-closed{background:#eee}
+#builderRoot table.sum{border-collapse:collapse;width:100%;table-layout:fixed;font-family:Arial,Helvetica,sans-serif}
+#builderRoot table.sum th,#builderRoot table.sum td{border:1px solid #000;font-size:10.5px;padding:1px 4px;text-align:left;vertical-align:middle;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;line-height:1.05}
 #builderRoot table.sum th{text-align:center;font-weight:700;font-size:10.5px}
 #builderRoot table.sum td.c{text-align:center}
+#builderRoot table.sum td.sum-fit-sm{font-size:9px}
+#builderRoot table.sum td.sum-fit-xs{font-size:7.5px;letter-spacing:-.02em}
 #builderRoot .sh-gk{font-size:12px;font-weight:700;margin-bottom:2px}
 #builderRoot .sh-sign{margin-top:10px;text-align:center;font-size:11px}
 #builderRoot .sh-sign .nm{font-weight:700;font-size:12px;margin-top:26px;border-top:1px dotted #999;display:inline-block;padding-top:2px;min-width:230px}
@@ -190,6 +208,8 @@
   font-weight:600;cursor:pointer;border-right:1px solid var(--line2)}
 #builderRoot .seg button:last-child{border-right:0}
 #builderRoot .seg button.on{background:var(--pri);color:var(--pri-ink)}
+#builderRoot .print-type-tabs{flex-wrap:wrap;overflow:visible}
+#builderRoot .print-type-tabs button{flex:1 1 auto;white-space:nowrap}
 #builderRoot .legend{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
 #builderRoot .legend i{display:inline-flex;align-items:center;gap:5px;font-style:normal;font-size:11.5px;
   background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:2px 9px}
@@ -219,7 +239,7 @@
 #builderRoot .topbar{padding:10px 12px}
 #builderRoot .mobonly{display:inline-flex}
 #builderRoot .sheet{width:100%;padding:8px}
-#builderRoot .sh-#builderRoot{flex-direction:column}
+#builderRoot .sh-body{flex-direction:column}
 #builderRoot .sh-side{width:100%;flex:1 1 auto}
 #builderRoot table.dt{font-size:12.5px}
 #builderRoot table.dt th,#builderRoot table.dt td{padding:7px 8px}
@@ -231,7 +251,8 @@
 #builderRoot .sheet{width:100%;max-width:none;margin:0;padding:0;border:0;box-shadow:none;border-radius:0;
     page-break-after:always;break-after:page}
 #builderRoot .sheet:last-child{page-break-after:auto;break-after:auto}
-#builderRoot table.pt td,#builderRoot table.pt th{border:1px solid #000!important}
+#builderRoot table.pt{border:1px solid #000!important}
+#builderRoot table.pt td,#builderRoot table.pt th{border:1px solid #000!important;box-shadow:none!important}
 #builderRoot .card{border:0;box-shadow:none;padding:0;background:#fff}
 #builderRoot table.pt td{height:var(--rowh,15mm)}
 #builderRoot #toastBox,#builderRoot dialog{display:none!important}

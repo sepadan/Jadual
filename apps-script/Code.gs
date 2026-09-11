@@ -74,7 +74,7 @@ function database_() {
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.0.7", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.0.12", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     if (action === "public") {var lock=LockService.getScriptLock();lock.waitLock(20000);try{return output_(publicBootstrap_());}finally{lock.releaseLock();}}
     return output_({ ok: false, error: "Tindakan GET tidak dikenali." });
@@ -125,13 +125,25 @@ function routeWrite_(action, data) {
   if(action==='changePassword') return changePassword_(data);
   if (action === "saveTeacher") return upsert_("Teachers", "id", encodeTeacher_(data));
   if (action === "saveAbsence") return upsert_("Absences", "id", encodeAbsence_(data));
+  if (action === "cancelAbsence") return cancelAbsence_(data);
   if (action === "saveReliefs") {
     if (!Array.isArray(data)) throw new Error("Format relief tidak sah.");
+    var activeAbsences=readObjects_("Absences").filter(function(item){return item.status!=="cancelled";});
+    function hasLinkedAbsence_(item){
+      return activeAbsences.some(function(absence){
+        var periods=Array.isArray(absence.periods)?absence.periods:parseJson_(absence.periods,[]);
+        return absence.date===item.date && absence.teacherId===item.absentTeacherId
+          && (bool_(absence.allDay)||periods.map(Number).indexOf(Number(item.period))>=0);
+      });
+    }
+    data.filter(function(item){return item.status!=="cancelled";}).forEach(function(item){
+      if(!hasLinkedAbsence_(item)) throw new Error("Rekod ketiadaan telah dipadam atau tidak lagi meliputi waktu relief ini.");
+    });
     var merged=readObjects_('Reliefs').filter(function(row){return !data.some(function(item){return item.id===row.id;});}).concat(data);
     var limit=reliefDailyLimit_();
     data.filter(function(item){return item.status!=='cancelled'&&item.replacementTeacherId;}).forEach(function(item){
       var periods={};
-      merged.filter(function(row){return row.status!=='cancelled'&&row.date===item.date&&row.replacementTeacherId===item.replacementTeacherId;}).forEach(function(row){periods[row.period]=true;});
+      merged.filter(function(row){return row.status!=='cancelled'&&hasLinkedAbsence_(row)&&row.date===item.date&&row.replacementTeacherId===item.replacementTeacherId;}).forEach(function(row){periods[row.period]=true;});
       if(Object.keys(periods).length>limit) throw new Error('Had relief harian '+limit+' waktu dilepasi. Semak semula pilihan guru.');
     });
     data.forEach(function(item) { upsert_("Reliefs", "id", encodeRelief_(item)); });
@@ -140,6 +152,25 @@ function routeWrite_(action, data) {
   }
   if (action === "importSchedule") return importSchedule_(data);
   throw new Error("Tindakan tulis tidak dikenali.");
+}
+
+function cancelAbsence_(data) {
+  var absence = readObjects_("Absences").filter(function(item) { return String(item.id) === String(data.id); })[0];
+  if (!absence) throw new Error("Rekod ketiadaan tidak ditemui.");
+  var updatedAt = text_(data.updatedAt || new Date().toISOString());
+  absence.status = "cancelled";
+  absence.updatedAt = updatedAt;
+  upsert_("Absences", "id", encodeAbsence_(absence));
+  var reliefs = readObjects_("Reliefs").filter(function(item) {
+    return item.status !== "cancelled" && item.date === absence.date && item.absentTeacherId === absence.teacherId;
+  });
+  reliefs.forEach(function(item) {
+    item.status = "cancelled";
+    item.updatedAt = updatedAt;
+    upsert_("Reliefs", "id", encodeRelief_(item));
+  });
+  audit_("cancelAbsence", absence.id, reliefs.length + " relief dibatalkan");
+  return { id: absence.id, reliefCount: reliefs.length };
 }
 
 function bootstrap_(sinceRevision) {

@@ -79,7 +79,7 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
 
   const baseSchool=state.sekolah||{};
   state.v=3;
-  state.sekolah={...baseSchool,nama:metadata.schoolName||baseSchool.nama||'',tajukGuru:metadata.teacherTitle||baseSchool.tajukGuru||'JADUAL WAKTU PERSENDIRIAN GURU',tajukKelas:baseSchool.tajukKelas||'JADUAL WAKTU KELAS',tahun:metadata.year||baseSchool.tahun||String(new Date().getFullYear()),gb:metadata.principalName||baseSchool.gb||'',gbGelaran:metadata.principalTitle||baseSchool.gbGelaran||'GURU BESAR'};
+  state.sekolah={...baseSchool,nama:metadata.schoolName||baseSchool.nama||'',tajukGuru:metadata.teacherTitle||baseSchool.tajukGuru||'JADUAL WAKTU PERSENDIRIAN GURU',tajukKelas:baseSchool.tajukKelas||'JADUAL WAKTU KELAS',tahun:metadata.year||baseSchool.tahun||String(new Date().getFullYear()),bermula:metadata.effectiveDate||baseSchool.bermula||'',gb:metadata.principalName||baseSchool.gb||'',gbGelaran:metadata.principalTitle||baseSchool.gbGelaran||'GURU BESAR'};
   state.hari=DAY_ORDER.slice();state.subjek=[];state.kelas=[];state.guru=[];state.peruntukan={};state.agihan=[];state.acara=[];state.jadual={slots:[],sumber:'PDF aSc',diimport:new Date().toISOString()};
 
   const pageByTeacher=new Map((metadata.pages||[]).filter(page=>page.teacherId).map(page=>[page.teacherId,page]));

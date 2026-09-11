@@ -41,7 +41,7 @@ function kosong(){
   return {
     v:3,
     sekolah:{nama:'', tajukGuru:'JADUAL WAKTU PERSENDIRIAN GURU', tajukKelas:'JADUAL WAKTU KELAS',
-             tahun:new Date().getFullYear().toString(), gb:'', gbGelaran:'GURU BESAR', logo1:'', logo2:''},
+             tahun:new Date().getFullYear().toString(), bermula:'', gb:'', gbGelaran:'GURU BESAR', logo1:'', logo2:''},
     masa:{ mula:'07:30', tempoh:30,
            waktu:{ISNIN:12,SELASA:12,RABU:12,KHAMIS:12,JUMAAT:12},
            rehat:[{selepas:5,minit:20,label:'REHAT'}],
@@ -147,7 +147,7 @@ function segerakAgihan(){
 function dataContoh(){
   const st=kosong();
   st.sekolah={nama:'SK PAYA REDAN, MUAR', tajukGuru:'JADUAL WAKTU PERSENDIRIAN GURU',
-    tajukKelas:'JADUAL WAKTU KELAS', tahun:'2026', gb:'TN HJ KHAIRUL IZAM BIN ABD SAMAD',
+    tajukKelas:'JADUAL WAKTU KELAS', tahun:'2026', bermula:'2026-01-12', gb:'TN HJ KHAIRUL IZAM BIN ABD SAMAD',
     gbGelaran:'GURU BESAR', logo1:'', logo2:''};
   const sub=(kod,nama,warna,opt={})=>({id:uid(),kod,nama,warna,teras:!!opt.teras,pagi:!!opt.pagi,
     kemudahan:opt.kem||'',ganda:!!opt.ganda});
@@ -328,6 +328,7 @@ VIEWS.tetapan={t:'Tetapan Sekolah & Waktu', r(){
     <div class="grid g2">
       <div><label class="f">Nama sekolah</label><input id="tNama" value="${esc(S.sekolah.nama)}" placeholder="SK PAYA REDAN, MUAR"></div>
       <div><label class="f">Tahun</label><input id="tTahun" value="${esc(S.sekolah.tahun)}"></div>
+      <div><label class="f">Tarikh mula berkuat kuasa</label><input type="date" id="tBermula" value="${esc(S.sekolah.bermula||'')}"></div>
       <div><label class="f">Tajuk jadual guru</label><input id="tTajukG" value="${esc(S.sekolah.tajukGuru)}"></div>
       <div><label class="f">Tajuk jadual kelas</label><input id="tTajukK" value="${esc(S.sekolah.tajukKelas)}"></div>
       <div><label class="f">Nama Guru Besar</label><input id="tGb" value="${esc(S.sekolah.gb)}"></div>
@@ -398,7 +399,7 @@ VIEWS.tetapan={t:'Tetapan Sekolah & Waktu', r(){
 }};
 function simpanTetapan(){
   ubah(()=>{
-    S.sekolah.nama=$('#tNama').value; S.sekolah.tahun=$('#tTahun').value;
+    S.sekolah.nama=$('#tNama').value; S.sekolah.tahun=$('#tTahun').value; S.sekolah.bermula=$('#tBermula').value;
     S.sekolah.tajukGuru=$('#tTajukG').value; S.sekolah.tajukKelas=$('#tTajukK').value;
     S.sekolah.gb=$('#tGb').value; S.sekolah.gbGelaran=$('#tGbG').value;
     S.masa.mula=$('#tMula').value||'07:30'; S.masa.tempoh=num($('#tTempoh').value,30);
@@ -1591,12 +1592,19 @@ function gridInduk(){
 function jadualCetak(mode,id){
   const N=maxWaktu(), m=matriks(mode,id), jm=jalurMasa(), reh=rehatSelepas();
   const pra=S.masa.pra&&S.masa.pra.aktif;
-  let bilLajur=1+(pra?1:0)+N+Object.keys(reh).length;
+  let cols='<col class="pt-col-day">';
   let head=`<tr><th style="width:40px"></th>`;
-  if(pra) head+=`<th>0<span class="tm">${esc(S.masa.pra.mula)} - ${hm(mm(S.masa.pra.mula)+num(S.masa.pra.tempoh,10))}</span></th>`;
+  if(pra){
+    cols+='<col class="pt-col-period">';
+    head+=`<th>0<span class="tm">${esc(S.masa.pra.mula)} - ${hm(mm(S.masa.pra.mula)+num(S.masa.pra.tempoh,10))}</span></th>`;
+  }
   for(let p=1;p<=N;p++){
+    cols+='<col class="pt-col-period">';
     head+=`<th>${p}<span class="tm">${jm[p-1].mula} - ${jm[p-1].tamat}</span></th>`;
-    if(reh[p]) head+=`<th style="width:24px"></th>`;
+    if(reh[p]){
+      const r=masaRehat(p);cols+='<col class="pt-col-rest">';
+      head+=`<th class="pt-rest-head">${esc(reh[p].label||'REHAT')}<span class="tm">${r.mula} - ${r.tamat}</span></th>`;
+    }
   }
   head+=`</tr>`;
   let body='';
@@ -1619,7 +1627,7 @@ function jadualCetak(mode,id){
     }
     body+='</tr>';
   });
-  return `<table class="pt"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  return `<table class="pt"><colgroup>${cols}</colgroup><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 function ringkasanGuru(id){
   const slots=(S.jadual&&S.jadual.slots||[]).filter(x=>x.guruId===id);
@@ -1644,16 +1652,31 @@ function ringkasanKelas(id){
   const semua=ac.concat(rows);
   return {rows:semua,jum:semua.reduce((s,r)=>s+r.jum,0)};
 }
+function tarikhCetak(value){
+  const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m?`${m[3]}.${m[2]}.${m[1]}`:String(value||'');
+}
+function tajukCetak(tajuk){
+  const text=String(tajuk||'').trim(), tahun=String(S.sekolah.tahun||'').trim();
+  return tahun&&!text.includes(tahun)?`${text} ${tahun}`:text;
+}
+function kelasSaizTajuk(value){
+  const L=String(value||'').length;
+  return L>42?' sh-title-xs':L>28?' sh-title-sm':'';
+}
+function kelasSaizRingkasan(value){
+  const L=String(value||'').length;
+  return L>42?' sum-fit-xs':L>28?' sum-fit-sm':'';
+}
 function kepalaLembaran(tajuk,subtajuk,kanan){
-  const L1=S.sekolah.logo1?`<img src="${S.sekolah.logo1}" class="sh-logo">`:`<div class="sh-logo ph">LOGO</div>`;
-  const L2=S.sekolah.logo2?`<img src="${S.sekolah.logo2}" class="sh-logo">`:`<div class="sh-logo ph">LOGO</div>`;
-  return `<div class="sh-head">${L1}${L2}
+  const logos=[S.sekolah.logo1,S.sekolah.logo2].filter(Boolean).map(src=>`<img src="${src}" class="sh-logo">`).join('');
+  return `<div class="sh-head"><div class="sh-brand">${logos}</div>
     <div class="sh-title">
       <div class="s1">${esc(S.sekolah.nama||'NAMA SEKOLAH')}</div>
-      <div class="s2">${esc(tajuk)} ${esc(S.sekolah.tahun)}</div>
-      <div class="s3">${esc(subtajuk)}</div>
+      <div class="s2">${esc(tajukCetak(tajuk))}</div>
+      <div class="s3${kelasSaizTajuk(subtajuk)}">${esc(subtajuk)}</div>
     </div>
-    <div style="width:150px;text-align:right;font-size:11px;font-weight:700">${kanan||''}</div>
+    <div class="sh-meta">${kanan||''}</div>
   </div>`;
 }
 function kakiLembaran(){
@@ -1671,12 +1694,12 @@ function lembaranGuru(id,padat){
   const kelasNya=S.kelas.filter(k=>k.guruKelas===id).map(k=>k.nama).join(', ');
   const rh=padat?'13mm':`min(30mm, calc(158mm / ${S.hari.length}))`;
   return `<div class="sheet ${padat?'compact':''}" style="--rowh:${rh}">
-    ${kepalaLembaran(S.sekolah.tajukGuru,g.nama,`GURU KELAS:<br><span style="font-weight:400">${esc(kelasNya||'—')}</span>`)}
+    ${kepalaLembaran(S.sekolah.tajukGuru,g.nama,`${S.sekolah.bermula?`BERMULA ${esc(tarikhCetak(S.sekolah.bermula))}<br><br>`:''}GURU KELAS:<br><span style="font-weight:400">${esc(kelasNya||'—')}</span>`)}
     <div class="sh-body">
       <div class="sh-main">${jadualCetak('guru',id)}</div>
       <div class="sh-side">
         <table class="sum"><thead><tr><th style="width:60px">Subjek</th><th>Kelas</th><th style="width:46px">Jumlah</th></tr></thead>
-        <tbody>${R.rows.map(r=>`<tr><td>${esc(r.subjek)}</td><td>${esc(r.kelas)}</td><td class="c">${r.jum}</td></tr>`).join('')}
+        <tbody>${R.rows.map(r=>`<tr><td>${esc(r.subjek)}</td><td class="${kelasSaizRingkasan(r.kelas)}">${esc(r.kelas)}</td><td class="c">${r.jum}</td></tr>`).join('')}
         ${Array.from({length:Math.max(0,14-R.rows.length)},()=>`<tr><td>&nbsp;</td><td></td><td></td></tr>`).join('')}
         <tr><td colspan="2" style="text-align:right;font-weight:700">Jumlah Waktu</td><td class="c" style="font-weight:700">${R.jum}</td></tr>
         </tbody></table>
@@ -1689,64 +1712,99 @@ function lembaranKelas(id,padat){
   const R=ringkasanKelas(id);
   const rh=padat?'13mm':`min(30mm, calc(158mm / ${S.hari.length}))`;
   return `<div class="sheet ${padat?'compact':''}" style="--rowh:${rh}">
-    ${kepalaLembaran(S.sekolah.tajukKelas,k.nama,`GURU KELAS:<br><span style="font-weight:400">${esc(k.guruKelas?namaGuru(k.guruKelas):'—')}</span>`)}
+    ${kepalaLembaran(S.sekolah.tajukKelas,k.nama,`${S.sekolah.bermula?`BERMULA ${esc(tarikhCetak(S.sekolah.bermula))}<br><br>`:''}GURU KELAS:<br><span style="font-weight:400">${esc(k.guruKelas?namaGuru(k.guruKelas):'—')}</span>`)}
     <div class="sh-body">
       <div class="sh-main">${jadualCetak('kelas',id)}</div>
       <div class="sh-side">
         <table class="sum"><thead><tr><th style="width:60px">Subjek</th><th>Guru</th><th style="width:46px">Jumlah</th></tr></thead>
-        <tbody>${R.rows.map(r=>`<tr><td>${esc(r.subjek)}</td><td>${esc(r.kelas)}</td><td class="c">${r.jum}</td></tr>`).join('')}
+        <tbody>${R.rows.map(r=>`<tr><td>${esc(r.subjek)}</td><td class="${kelasSaizRingkasan(r.kelas)}">${esc(r.kelas)}</td><td class="c">${r.jum}</td></tr>`).join('')}
         ${Array.from({length:Math.max(0,14-R.rows.length)},()=>`<tr><td>&nbsp;</td><td></td><td></td></tr>`).join('')}
         <tr><td colspan="2" style="text-align:right;font-weight:700">Jumlah Waktu</td><td class="c" style="font-weight:700">${R.jum}</td></tr>
         </tbody></table>${tandaTangan()}
       </div></div>${kakiLembaran()}</div>`;
 }
-function lembaranInduk(hari){
+const HAD_BARIS_INDUK=26;
+function potongSenarai(senarai,saiz=HAD_BARIS_INDUK){
+  const hasil=[];for(let i=0;i<senarai.length;i+=saiz) hasil.push(senarai.slice(i,i+saiz));return hasil;
+}
+function halamanInduk(mode){
+  const bil=mode==='kelas'?S.kelas.length:S.guru.length;
+  return S.hari.length*Math.ceil(bil/HAD_BARIS_INDUK);
+}
+function lembaranIndukJenis(mode,hari){
+  const semua=mode==='kelas'?S.kelas:S.guru;
+  const bahagian=potongSenarai(semua);
+  return bahagian.map((senarai,indeks)=>lembaranIndukBahagian(mode,hari,senarai,indeks,bahagian.length)).join('');
+}
+function lembaranIndukKelas(hari){ return lembaranIndukJenis('kelas',hari); }
+function lembaranIndukGuru(hari){ return lembaranIndukJenis('guru',hari); }
+function lembaranIndukBahagian(mode,hari,senarai,indeks,jumlahBahagian){
   const N=maxWaktu(), jm=jalurMasa(), reh=rehatSelepas(), d=S.hari.indexOf(hari);
-  let head=`<tr><th style="width:74px">Kelas</th>`;
-  for(let p=1;p<=N;p++){ head+=`<th>${p}<span class="tm">${jm[p-1].mula}</span></th>`; if(reh[p]) head+=`<th style="width:20px"></th>`; }
+  const pra=S.masa.pra&&S.masa.pra.aktif;
+  const label=mode==='kelas'?'KELAS':'GURU';
+  let cols='<col class="pt-col-master-name">',head=`<tr><th>${label}</th>`;
+  if(pra){cols+='<col class="pt-col-period">';head+=`<th>0<span class="tm">${esc(S.masa.pra.mula)} - ${hm(mm(S.masa.pra.mula)+num(S.masa.pra.tempoh,10))}</span></th>`;}
+  for(let p=1;p<=N;p++){
+    cols+='<col class="pt-col-period">';
+    head+=`<th>${p}<span class="tm">${jm[p-1].mula} - ${jm[p-1].tamat}</span></th>`;
+    if(reh[p]){const r=masaRehat(p);cols+='<col class="pt-col-rest">';head+=`<th class="pt-rest-head">${esc(reh[p].label||'REHAT')}<span class="tm">${r.mula} - ${r.tamat}</span></th>`;}
+  }
   head+='</tr>';
   let body='';
-  S.kelas.forEach((k,ri)=>{
-    const m=matriks('kelas',k.id);
-    body+=`<tr><td style="font-size:10px;font-weight:700">${esc(k.nama)}</td>`;
+  senarai.forEach((entiti,ri)=>{
+    const m=matriks(mode,entiti.id);
+    const nama=mode==='kelas'?entiti.nama:(entiti.kod||entiti.nama);
+    body+=`<tr><th class="pt-master-name" title="${esc(entiti.nama)}">${esc(nama)}</th>`;
+    if(pra) body+=`<td class="pt-master-pre">${esc(S.masa.pra.label||'PENGURUSAN')}</td>`;
     for(let p=1;p<=N;p++){
       const c=m[d][p];
-      if(c&&!c.mula){ if(reh[p]&&ri===0) body+=`<td class="vert" rowspan="${S.kelas.length}">REHAT</td>`; continue; }
-      if(p>waktuHari(hari)) body+=`<td style="background:#eee"></td>`;
-      else if(!c) body+=`<td></td>`;
-      else{ const t=teksSel('kelas',c);
-        body+=`<td class="cellv" colspan="${c.len}" style="background:${esc(t.warna)}55"><div class="pc" style="padding-top:1px">
-          <span style="font-size:${Math.min(12,szTeks(t.utama,true))}px;font-weight:700;line-height:1.05">${t.utama}</span>
-          ${t.kecil?`<span class="pgr">${t.kecil}</span>`:''}</div></td>`; }
-      if(reh[p]&&ri===0) body+=`<td class="vert" rowspan="${S.kelas.length}">REHAT</td>`;
+      if(p>waktuHari(hari)) body+='<td class="pt-closed"></td>';
+      else if(!c) body+='<td></td>';
+      else{
+        const t=teksSel(mode,c), kecil=mode==='guru'?t.sudut:t.kecil;
+        body+=`<td class="cellv" style="background:${esc(t.warna)}55"><div class="pc pt-master-cell">
+          <span class="pcls" style="font-size:${Math.min(11,szTeks(t.utama,true))}px">${t.utama}</span>
+          ${kecil?`<span class="pgr">${kecil}</span>`:''}</div></td>`;
+      }
+      if(reh[p]&&ri===0) body+=`<td class="vert" rowspan="${senarai.length}">${esc(reh[p].label||'REHAT')}</td>`;
     }
     body+='</tr>';
   });
-  const rh=`min(18mm, calc(160mm / ${Math.max(1,S.kelas.length)}))`;
-  return `<div class="sheet compact" style="--rowh:${rh}">
-    ${kepalaLembaran('JADUAL WAKTU INDUK','HARI '+hari,'')}
-    <table class="pt" style="table-layout:auto"><thead>${head}</thead><tbody>${body}</tbody></table>
+  const rh=Math.max(6,Math.min(16,160/Math.max(1,senarai.length))).toFixed(2)+'mm';
+  const jenis=mode==='kelas'?'KELAS':'GURU';
+  const bahagianLabel=jumlahBahagian>1?`<br>BAHAGIAN ${indeks+1}/${jumlahBahagian}`:'';
+  return `<div class="sheet compact master-sheet" style="--rowh:${rh}">
+    ${kepalaLembaran(`JADUAL INDUK ${jenis}`,'HARI '+hari,`${S.sekolah.bermula?`BERMULA ${esc(tarikhCetak(S.sekolah.bermula))}`:''}${bahagianLabel}`)}
+    <table class="pt pt-master"><colgroup>${cols}</colgroup><thead>${head}</thead><tbody>${body}</tbody></table>
     ${kakiLembaran()}</div>`;
 }
 
 /* ============================================================
    CETAK
    ============================================================ */
-let cetakJenis='guru', cetakPadat=false, cetakPilih=new Set();
+let cetakJenis='guru', cetakPadat=false, cetakPilih=null;
+function senaraiJenisCetak(){
+  if(cetakJenis==='guru') return S.guru;
+  if(cetakJenis==='kelas') return S.kelas;
+  if(cetakJenis==='induk-kelas'||cetakJenis==='induk-guru') return S.hari.map(h=>({id:h,nama:h}));
+  return [];
+}
 VIEWS.cetak={t:'Cetak / PDF', r(){
   if(!bilJadual()) return `<div class="card"><div class="alert warn">Belum ada jadual untuk dicetak.</div>
     <button class="btn pri" onclick="go('jana')">✨ Jana Jadual</button></div>`;
-  const senarai = cetakJenis==='guru'?S.guru:cetakJenis==='kelas'?S.kelas:cetakJenis==='induk'?S.hari.map(h=>({id:h,nama:h})):[];
-  if(!cetakPilih.size) senarai.forEach(x=>cetakPilih.add(x.id));
-  const jumSemua=S.guru.length+S.kelas.length+S.hari.length;
+  const senarai=senaraiJenisCetak();
+  if(cetakPilih===null) cetakPilih=new Set(senarai.map(x=>x.id));
+  const indukKelas=halamanInduk('kelas'), indukGuru=halamanInduk('guru');
+  const jumSemua=S.guru.length+S.kelas.length+indukKelas+indukGuru;
   return `<div class="card noprint"><h3>Cetak Jadual</h3>
-    <p class="hint">Saiz kertas <b>A4 landskap</b>. Dalam dialog cetak pilih “Simpan sebagai PDF” untuk menghasilkan fail PDF. Pastikan <b>Grafik latar belakang</b> dihidupkan supaya warna subjek keluar.</p>
+    <p class="hint">Empat format jadual mengikut susun atur aSc. Gunakan <b>A4 landskap</b> dan pilih “Simpan sebagai PDF”. Hidupkan <b>Grafik latar belakang</b> untuk mencetak warna subjek.</p>
     <div class="row">
-      <div class="seg">
-        <button class="${cetakJenis==='guru'?'on':''}" onclick="cetakJenis='guru';cetakPilih=new Set();ulang()">Jadual Guru</button>
-        <button class="${cetakJenis==='kelas'?'on':''}" onclick="cetakJenis='kelas';cetakPilih=new Set();ulang()">Jadual Kelas</button>
-        <button class="${cetakJenis==='induk'?'on':''}" onclick="cetakJenis='induk';cetakPilih=new Set();ulang()">Jadual Induk</button>
-        <button class="${cetakJenis==='semua'?'on':''}" onclick="cetakJenis='semua';cetakPilih=new Set();ulang()">Semua Sekali</button>
+      <div class="seg print-type-tabs">
+        <button class="${cetakJenis==='guru'?'on':''}" onclick="cetakJenis='guru';cetakPilih=null;ulang()">Jadual Guru</button>
+        <button class="${cetakJenis==='kelas'?'on':''}" onclick="cetakJenis='kelas';cetakPilih=null;ulang()">Jadual Kelas</button>
+        <button class="${cetakJenis==='induk-kelas'?'on':''}" onclick="cetakJenis='induk-kelas';cetakPilih=null;ulang()">Jadual Induk Kelas</button>
+        <button class="${cetakJenis==='induk-guru'?'on':''}" onclick="cetakJenis='induk-guru';cetakPilih=null;ulang()">Jadual Induk Guru</button>
+        <button class="${cetakJenis==='semua'?'on':''}" onclick="cetakJenis='semua';cetakPilih=null;ulang()">Semua Sekali</button>
       </div>
       <label class="chk"><input type="checkbox" ${cetakPadat?'checked':''} onchange="cetakPadat=this.checked;ulang()"> Padat (sesuai jika banyak waktu)</label>
       <div class="right row">
@@ -1756,7 +1814,7 @@ VIEWS.cetak={t:'Cetak / PDF', r(){
       </div>
     </div>
     ${cetakJenis==='semua'
-      ? `<div class="alert info" style="margin-top:12px">Akan mencetak <b>${jumSemua} muka surat</b>: ${S.guru.length} jadual guru + ${S.kelas.length} jadual kelas + ${S.hari.length} jadual induk. Dalam dialog cetak pilih <b>Simpan sebagai PDF</b> untuk mendapat satu fail PDF lengkap.</div>`
+      ? `<div class="alert info" style="margin-top:12px">Akan mencetak <b>${jumSemua} muka surat</b>: ${S.guru.length} jadual guru + ${S.kelas.length} jadual kelas + ${indukKelas} jadual induk kelas + ${indukGuru} jadual induk guru.</div>`
       : `<div class="grid g4" style="margin-top:12px">
       ${senarai.map(x=>`<label class="chk" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--panel2)">
         <input type="checkbox" class="ckC" value="${esc(x.id)}" ${cetakPilih.has(x.id)?'checked':''}
@@ -1766,7 +1824,7 @@ VIEWS.cetak={t:'Cetak / PDF', r(){
   <div id="cetakArea">${pratontonCetak()}</div>`;
 }};
 function pilihSemuaCetak(on){
-  const senarai = cetakJenis==='guru'?S.guru:cetakJenis==='kelas'?S.kelas:S.hari.map(h=>({id:h}));
+  const senarai=senaraiJenisCetak();
   cetakPilih=new Set(on?senarai.map(x=>x.id):[]); ulang();
 }
 function ulangCetakPratonton(){ $('#cetakArea').innerHTML=pratontonCetak(); }
@@ -1774,12 +1832,14 @@ function pratontonCetak(){
   if(cetakJenis==='semua')
     return S.guru.map(g=>lembaranGuru(g.id,cetakPadat)).join('')
          + S.kelas.map(k=>lembaranKelas(k.id,cetakPadat)).join('')
-         + S.hari.map(h=>lembaranInduk(h)).join('');
-  const ids=Array.from(cetakPilih);
+         + S.hari.map(lembaranIndukKelas).join('')
+         + S.hari.map(lembaranIndukGuru).join('');
+  const ids=Array.from(cetakPilih||[]);
   if(!ids.length) return `<div class="card noprint"><div class="empty">Tiada pilihan.</div></div>`;
   if(cetakJenis==='guru')  return S.guru.filter(g=>cetakPilih.has(g.id)).map(g=>lembaranGuru(g.id,cetakPadat)).join('');
   if(cetakJenis==='kelas') return S.kelas.filter(k=>cetakPilih.has(k.id)).map(k=>lembaranKelas(k.id,cetakPadat)).join('');
-  return S.hari.filter(h=>cetakPilih.has(h)).map(h=>lembaranInduk(h)).join('');
+  if(cetakJenis==='induk-kelas') return S.hari.filter(h=>cetakPilih.has(h)).map(lembaranIndukKelas).join('');
+  return S.hari.filter(h=>cetakPilih.has(h)).map(lembaranIndukGuru).join('');
 }
 
 /* ============================================================
