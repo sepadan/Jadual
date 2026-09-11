@@ -14,6 +14,10 @@ var SHEETS = {
   BuilderState: ["revision", "index", "chunk"]
 };
 
+// The audit log stays useful and small: once it passes the cap, the oldest block is dropped.
+var AUDIT_MAX_ROWS_ = 5000;
+var AUDIT_TRIM_ROWS_ = 1000;
+
 var INITIAL_TEACHERS = [
   ["g-khairul-izam", "KHAIRUL IZAM BIN ABD SAMAT", "KHAIRUL IZAM", "Guru Besar", false, 9],
   ["g-faidzal", "MHD FAIDZAL BIN YUSOF", "FAIDZAL", "Guru Akademik", true, 3],
@@ -87,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.0", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.1", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -130,6 +134,9 @@ function doPost(e) {
 }
 
 function routeWrite_(action, data) {
+  // The school starts on admin/admin. Until it is changed, reads and login stay open but nothing
+  // may be written, so a public repository URL cannot be used to alter the school's records.
+  if(defaultPasswordInUse_()&&action!=='changePassword') throw new Error('Kata laluan awal admin masih digunakan. Tukar kata laluan dalam Tetapan dahulu.');
   if(action==='saveReliefSettings') {
     var limit=Number(data.dailyLimit);
     if(!Number.isInteger(limit)||limit<0||limit>13) throw new Error('Had relief mesti 0 hingga 13 waktu.');
@@ -373,7 +380,10 @@ function bumpRevision_() {
 
 function audit_(action, recordId, details) {
   var sheet = database_().getSheetByName("Audit");
-  if (sheet) sheet.appendRow([new Date().toISOString(), action, recordId, details]);
+  if (!sheet) return;
+  sheet.appendRow([new Date().toISOString(), action, recordId, details]);
+  // Trim in blocks instead of on every write: the log only needs to stay bounded.
+  if (sheet.getLastRow() > AUDIT_MAX_ROWS_ + 1) sheet.deleteRows(2, AUDIT_TRIM_ROWS_);
 }
 
 function output_(payload) {

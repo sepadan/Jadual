@@ -15,7 +15,22 @@ function saveBuilder_(data) {
   var previous=readObjects_('BuilderState');
   for(var n=previous.length-1;n>=0;n--) if(Number(previous[n].revision)===current+1) sheet.deleteRow(n+2);
   if(chunks.length) sheet.getRange(sheet.getLastRow()+1,1,chunks.length,3).setValues(chunks);
-  setConfig_('BUILDER_REVISION',String(current+1));audit_('saveBuilder','builder','Draf disimpan');return {builderRevision:current+1};
+  setConfig_('BUILDER_REVISION',String(current+1));
+  // The new draft is committed, so every older revision is now dead weight. Deleting them keeps
+  // this sheet from growing by up to 2 MB per save until reads run out of memory.
+  var pruned=pruneBuilderRevisions_(sheet,current+1);
+  audit_('saveBuilder','builder','Draf disimpan'+(pruned?' · '+pruned+' baris revisi lama dibuang':''));
+  return {builderRevision:current+1,pruned:pruned};
+}
+
+function pruneBuilderRevisions_(sheet,keepRevision) {
+  if(!sheet||sheet.getLastRow()<2) return 0;
+  var values=sheet.getRange(2,1,sheet.getLastRow()-1,3).getValues();
+  var keep=values.filter(function(row){return Number(row[0])===keepRevision;});
+  if(keep.length===values.length) return 0;
+  sheet.getRange(2,1,values.length,3).clearContent();
+  if(keep.length) sheet.getRange(2,1,keep.length,3).setValues(keep);
+  return values.length-keep.length;
 }
 // The version a visitor needs today: an official (active) version always wins, even when an
 // older import carries a later effective date. Superseded versions are only used before the

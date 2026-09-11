@@ -15,7 +15,7 @@ Semakan sambungan sebenar: health 3.0.0, 23 guru pada paparan awam, bootstrap ta
 3. Jalankan `setupSystem()` sekali. Skrip menyediakan jadual data, senarai guru dan login awal **admin / admin**, serta mengunci ID fail dalam Script Properties. Google memerlukan skop Google Sheets untuk membuka fail daripada web app; dialog izin boleh menyebut semua spreadsheet. Kod aplikasi hanya membuka ID fail Sistem Jadual yang disimpan, bukan fail lain. Semak dan luluskan sendiri izin Google ini.
 4. Deploy sebagai **Web app**, **Execute as: Me**, akses **Anyone**. Endpoint awam hanya memulangkan jadual, ketiadaan tanpa sebab dan relief diterbitkan. Semua bacaan dalaman dan perubahan memerlukan sesi admin yang sah.
 5. Masukkan URL `/exec` deployment dalam `site-config.js` pada `SITE_CONFIG.apiUrl`, kemudian terbitkan repo ke GitHub Pages. URL yang sama dikongsi oleh semua peranti; tiada kata laluan disimpan dalam konfigurasi GitHub.
-6. Buka aplikasi, login admin dan tukar kata laluan awal di Tetapan. Kata laluan baharu mestilah sekurang-kurangnya 12 aksara. Penggunaan `admin` sebagai kata laluan awal adalah atas permintaan pemilik dan tidak sesuai untuk penggunaan berterusan.
+6. Buka aplikasi, login admin dan tukar kata laluan awal di Tetapan. Kata laluan baharu mestilah sekurang-kurangnya 12 aksara. Penggunaan `admin` sebagai kata laluan awal adalah atas permintaan pemilik dan tidak sesuai untuk penggunaan berterusan. Selagi kata laluan itu belum ditukar, setiap tindakan tulis (simpan guru, ketiadaan, relief, draf pembina) ditolak dengan mesej yang menyuruh menukarnya dahulu; bacaan dan login tetap berfungsi.
 
 ## Data dalam satu fail
 

@@ -1,12 +1,12 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.0";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.0";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.0";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.0";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.0";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.0';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.0';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.0';
-import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.1.0';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.1";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.1";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, dayCodeFromDate, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.1";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.1";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.1";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.1';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.1';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.1';
+import { openReliefPdf, shouldUseDirectPdf } from './relief-pdf.js?v=3.1.1';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";

@@ -1,10 +1,13 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {createHmac,randomUUID} from 'node:crypto';
-function server() {
+function server(unlocked) {
   const props=new Map(),cache=new Map();
   const propertyApi={getProperty:k=>props.get(k)||null,setProperty:(k,v)=>props.set(k,v),deleteProperty:k=>props.delete(k)};
   const context=vm.createContext({console,PropertiesService:{getScriptProperties:()=>propertyApi},CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},Utilities:{getUuid:randomUUID,computeHmacSha256Signature:(text,key)=>createHmac('sha256',key).update(text).digest(),base64EncodeWebSafe:value=>Buffer.from(value).toString('base64url'),formatDate:(date,zone,format)=>format==='yyyy-MM-dd'?'2026-09-11':new Intl.DateTimeFormat('en-CA',{timeZone:zone}).format(date)}});
   for(const file of ['Code.gs','Auth.gs','Builder.gs'])vm.runInContext(readFileSync(new URL(`../apps-script/${file}`,import.meta.url),'utf8'),context);
-  context.output_=data=>data;context.initializeAdmin_();return {context,props,cache};
+  context.output_=data=>data;context.initializeAdmin_();
+  // Writes are refused while the initial admin/admin password is in use, so write tests unlock first.
+  if(unlocked) context.changePassword_({currentPassword:'admin',newPassword:'kata-laluan-baharu-123'});
+  return {context,props,cache};
 }
 test('no session means all writes and private bootstrap are rejected',()=>{
   const {context}=server();
@@ -56,19 +59,19 @@ test('seven-day session survives cache eviction and expires server-side',()=>{
   assert.throws(()=>context.requireSession_(login.token),/AUTH_REQUIRED/);
 });
 test('server rejects over-limit relief batch before any write',()=>{
-  const {context}=server();let writes=0;context.configValue_=()=>'';context.readObjects_=name=>name==='Absences'?[{date:'2026-09-09',teacherId:'absent',allDay:true,status:'active'}]:[];context.upsert_=()=>writes++;
+  const {context}=server(true);let writes=0;context.configValue_=()=>'';context.readObjects_=name=>name==='Absences'?[{date:'2026-09-09',teacherId:'absent',allDay:true,status:'active'}]:[];context.upsert_=()=>writes++;
   const rows=[1,2,3].map(period=>({id:String(period),date:'2026-09-09',period,absentTeacherId:'absent',replacementTeacherId:'g',status:'published'}));
   assert.throws(()=>context.routeWrite_('saveReliefs',rows),/Had relief/);assert.equal(writes,0);
   context.configValue_=()=>3;context.audit_=()=>{};assert.equal(context.routeWrite_('saveReliefs',rows).count,3);
 });
 
 test('server refuses to publish relief after its absence was cancelled',()=>{
-  const {context}=server();context.readObjects_=()=>[];
+  const {context}=server(true);context.readObjects_=()=>[];
   assert.throws(()=>context.routeWrite_('saveReliefs',[{id:'r',date:'2026-09-09',period:2,absentTeacherId:'g1',replacementTeacherId:'g2',status:'published'}]),/telah dipadam/);
 });
 
 test('server refuses a replacement teacher who is absent in the same period',()=>{
-  const {context}=server();
+  const {context}=server(true);
   context.readObjects_=name=>name==='Absences'?[{
     date:'2026-09-09',teacherId:'original',allDay:true,periods:[],status:'active'
   },{
@@ -80,7 +83,7 @@ test('server refuses a replacement teacher who is absent in the same period',()=
 });
 
 test('saving a replacement teacher absence cancels only overlapping relief assignments',()=>{
-  const {context}=server();
+  const {context}=server(true);
   const rows={Reliefs:[
     {id:'r2',date:'2026-09-09',period:2,absentTeacherId:'g1',replacementTeacherId:'wee',status:'published'},
     {id:'r3',date:'2026-09-09',period:3,absentTeacherId:'g1',replacementTeacherId:'wee',status:'published'},
@@ -98,7 +101,7 @@ test('saving a replacement teacher absence cancels only overlapping relief assig
 });
 
 test('legacy orphan reliefs do not consume the daily server limit',()=>{
-  const {context}=server();let writes=0;
+  const {context}=server(true);let writes=0;
   context.configValue_=key=>key==='RELIEF_DAILY_LIMIT'?'2':'';
   context.readObjects_=name=>name==='Absences'
     ?[{date:'2026-09-09',teacherId:'active-away',allDay:true,status:'active'}]
@@ -110,7 +113,7 @@ test('legacy orphan reliefs do not consume the daily server limit',()=>{
 });
 
 test('server cancels an absence and all related reliefs atomically',()=>{
-  const {context}=server();
+  const {context}=server(true);
   const rows={
     Absences:[{id:'a1',date:'2026-09-09',teacherId:'g1',allDay:true,periods:[],status:'active'}],
     Reliefs:[
@@ -128,4 +131,51 @@ test('server cancels an absence and all related reliefs atomically',()=>{
   assert.equal(writes[0].row[6],'cancelled');
   assert.equal(writes[1].row[10],'cancelled');
   assert.throws(()=>context.routeWrite_('cancelAbsence',{id:'missing'}),/tidak ditemui/);
+});
+
+test('writes are held back until the initial admin password is changed',()=>{
+  const {context}=server();
+  assert.throws(()=>context.routeWrite_('saveReliefSettings',{dailyLimit:2}),/Kata laluan awal/);
+  assert.throws(()=>context.routeWrite_('saveTeacher',{id:'g',name:'Guru'}),/Kata laluan awal/);
+  assert.doesNotThrow(()=>context.changePassword_({currentPassword:'admin',newPassword:'kata-laluan-baharu-123'}));
+  context.setConfig_=()=>{};context.audit_=()=>{};
+  assert.equal(context.routeWrite_('saveReliefSettings',{dailyLimit:3}).dailyLimit,3);
+});
+
+test('reads and login stay open while the initial password is unchanged',()=>{
+  const {context}=server();
+  assert.equal(context.defaultPasswordInUse_(),true);
+  assert.ok(context.login_({username:'admin',password:'admin'}).token);
+  context.changePassword_({currentPassword:'admin',newPassword:'kata-laluan-baharu-123'});
+  assert.equal(context.defaultPasswordInUse_(),false);
+});
+
+test('the audit log is trimmed in blocks instead of growing forever',()=>{
+  const {context}=server();
+  const calls=[];
+  const big={getLastRow:()=>5200,appendRow:()=>calls.push('append'),deleteRows:(start,count)=>calls.push('delete '+start+'x'+count)};
+  context.database_=()=>({getSheetByName:name=>name==='Audit'?big:null});
+  context.audit_('saveTeacher','t1','');
+  assert.deepEqual(calls,['append','delete 2x1000']);
+  const small={getLastRow:()=>42,appendRow:()=>calls.push('append kecil'),deleteRows:()=>calls.push('tidak sepatutnya')};
+  context.database_=()=>({getSheetByName:name=>name==='Audit'?small:null});
+  context.audit_('saveTeacher','t1','');
+  assert.deepEqual(calls,['append','delete 2x1000','append kecil']);
+});
+
+test('saving the builder draft discards the revision rows it replaced',()=>{
+  const {context}=server(true);
+  const rows=[[1,0,'json:{"guru":'],[1,1,'[]}'],[2,0,'json:{"lama":true}']];
+  const written=[];let cleared=0;
+  const sheet={getLastRow:()=>rows.length+1,deleteRow:()=>{},
+    getRange:()=>({getValues:()=>rows.map(row=>row.slice()),setValues:value=>written.push(value),clearContent:()=>{cleared++;}})};
+  context.database_=()=>({getSheetByName:name=>name==='BuilderState'?sheet:null});
+  context.readObjects_=name=>name==='BuilderState'?rows.map(row=>({revision:row[0],index:row[1],chunk:row[2]})):[];
+  context.setConfig_=()=>{};context.audit_=()=>{};
+  context.configValue_=key=>key==='BUILDER_REVISION'?'2':'';
+  const result=context.saveBuilder_({baseRevision:2,state:{guru:[],kelas:[],subjek:[]}});
+  assert.equal(result.builderRevision,3);
+  assert.equal(result.pruned,3,'every row of the replaced revisions is dropped');
+  assert.equal(cleared,1,'the sheet is rewritten in one block');
+  assert.deepEqual(Array.from(written[0],row=>row[0]),[3],'only the new revision is stored');
 });

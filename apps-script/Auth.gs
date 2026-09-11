@@ -46,3 +46,10 @@ function changePassword_(data) {
   if(typeof data.newPassword!=='string'||data.newPassword.length<12) throw new Error('Gunakan sekurang-kurangnya 12 aksara.');
   props.setProperty('ADMIN_HASH',passwordHash_(data.newPassword));props.setProperty('AUTH_EPOCH',Utilities.getUuid());return {changed:true};
 }
+
+// True while the initial admin/admin password is still in place. Reads stay open so the admin can
+// log in and fix it; only the write actions are held back.
+function defaultPasswordInUse_() {
+  var expected=PropertiesService.getScriptProperties().getProperty('ADMIN_HASH');
+  return !!expected&&equalSecret_(String(expected),passwordHash_('admin'));
+}
