@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.15";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.15";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.15";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.15";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.15";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.15";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.15';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.15';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.15';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.15';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.16";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.16";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.16";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.16";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.16";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.16";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.16';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.16';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.16';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.16';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";

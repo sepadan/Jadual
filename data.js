@@ -1,4 +1,4 @@
-export const APP_VERSION = "3.1.15";
+export const APP_VERSION = "3.1.16";
 
 export const PERIODS = [
   { period: 0, startTime: "07:20", endTime: "07:30" },
