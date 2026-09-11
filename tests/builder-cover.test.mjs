@@ -101,6 +101,6 @@ test("a builder without cover links copies nothing", () => {
   const current = state();
   current.guru = [current.guru[0]];
   const context = builderContext(current);
-  assert.deepEqual(context.__pautan(), []);
+  assert.deepEqual([...context.__pautan()], []);
   assert.deepEqual(JSON.parse(JSON.stringify(context.__jana())), { added: 0, skipped: 0, total: 0 });
 });
