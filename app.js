@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.20";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.20";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.20";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.20";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.20";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.20";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.20';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.20';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.20';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.20';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.21";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.21";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.21";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.21";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.21";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.21";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.21';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.21';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.21';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.21';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -945,8 +945,8 @@ function wireEvents() {
   $("#parsePdf").addEventListener("click", parsePdf);
   $("#saveImport").addEventListener("click", saveImportedSchedule);
   $("#syncButton").addEventListener("click", () => syncData(true));
-  $("#testApi").addEventListener("click", async () => { try { const temp = new ApiClient({ ...config, apiUrl: $("#apiUrl").value.trim() }); const result = await temp.health(); toast(`${result.school || "API"} bersambung.`, "success"); } catch (error) { toast(error.message, "error"); } });
-  $("#saveSettings").addEventListener("click", async () => {if(!requireAdmin()) return; const next={apiUrl:$("#apiUrl").value.trim(),autoSync:true};if(!new ApiClient(next).isConfigured()) return toast('URL Apps Script tidak sah.','error');const changed=next.apiUrl!==config.apiUrl;config=next;saveConfig(config);if(changed) await leaveAdmin();else api.config=config;updateConnectionUi();toast(changed?'Sambungan diubah. Login semula.':'Tetapan disimpan.','success');});
+
+
   $("#checkUpdate").addEventListener("click", async () => { const registration = await navigator.serviceWorker?.getRegistration(); await registration?.update(); toast("Semakan kemas kini selesai.", "success"); });
   $("#installButton").addEventListener("click", async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; $("#installButton").classList.add("hidden"); });
   window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; $("#installButton").classList.remove("hidden"); });
@@ -965,7 +965,7 @@ function init() {
   $("#reliefDate").value = date;
   $("#todayLabel").textContent = new Intl.DateTimeFormat("ms-MY", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${date}T12:00:00`)).toUpperCase();
   $("#effectiveDate").value = date;
-  $("#apiUrl").value = config.apiUrl || ""; $("#autoSync").checked = config.autoSync !== false;
+
   $("#appVersion").textContent = APP_VERSION;
   populatePeriodPicker(); wireEvents(); renderAll(); showView("jadual");
   resumeSession(savedSession);
