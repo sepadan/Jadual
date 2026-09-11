@@ -366,6 +366,8 @@ function bumpRevision_() {
   var revision = Number(configValue_("DATA_REVISION") || 0) + 1;
   setConfig_("DATA_REVISION", String(revision));
   setConfig_("UPDATED_AT", new Date().toISOString());
+  // Every write invalidates the cached public payload, so visitors never wait for it to expire.
+  publicCacheClear_();
   return revision;
 }
 

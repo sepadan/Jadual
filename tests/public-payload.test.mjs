@@ -13,7 +13,13 @@ function server({ today = "2026-09-11", revision = 41 } = {}) {
   const locks = [];
   const clock = { today };
   const propertyApi = { getProperty: (k) => props.get(k) || null, setProperty: (k, v) => props.set(k, v), deleteProperty: (k) => props.delete(k) };
-  const blob = (data) => ({ getBytes: () => data, getDataAsString: () => String(data) });
+  // The stand-in mirrors two real Apps Script rules: base64Encode refuses a Blob, and gzip/ungzip
+  // refuse a Blob whose content type is null.
+  const blob = (data, contentType) => ({ getBytes: () => data, getDataAsString: () => String(data), getContentType: () => (contentType === undefined ? null : contentType) });
+  const requireContentType = (value, operation) => {
+    if (value && typeof value.getContentType === "function" && value.getContentType() === null) throw new Error("Blob object must have non-null content type for this operation.");
+    return value;
+  };
   const context = vm.createContext({
     console,
     PropertiesService: { getScriptProperties: () => propertyApi },
@@ -30,9 +36,9 @@ function server({ today = "2026-09-11", revision = 41 } = {}) {
         return Buffer.from(value).toString("base64");
       },
       base64Decode: (value) => Buffer.from(value, "base64"),
-      newBlob: (data, type, name) => blob(Buffer.isBuffer(data) ? data : Buffer.from(String(data))),
-      gzip: (value) => blob(gzipSync(value.getBytes())),
-      ungzip: (value) => blob(gunzipSync(value.getBytes())),
+      newBlob: (data, type, name) => blob(Buffer.isBuffer(data) ? data : Buffer.from(String(data)), type),
+      gzip: (value) => blob(gzipSync(requireContentType(value, "gzip").getBytes()), "application/x-gzip"),
+      ungzip: (value) => blob(gunzipSync(requireContentType(value, "ungzip").getBytes()), "application/json"),
       formatDate: (date, zone, format) => (format === "yyyy-MM-dd" ? clock.today : new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(date)),
     },
   });
@@ -43,7 +49,7 @@ function server({ today = "2026-09-11", revision = 41 } = {}) {
   context.initializeAdmin_();
   const scriptedConfigValue = context.configValue_;
   context.configValue_ = (key) => (key === "DATA_REVISION" ? String(revision) : key === "UPDATED_AT" ? "2026-09-11T11:04:10.964Z" : scriptedConfigValue(key));
-  return { context, cache, locks, props, clock };
+  return { context, cache, locks, props, clock, scriptedConfigValue };
 }
 
 function version(id, effectiveDate, status, createdAt) {
@@ -99,7 +105,7 @@ test("a visitor gets a one-line reply when they already hold the current revisio
   const first = context.doGet({ parameter: { action: "public" } });
   assert.equal(first.ok, true);
   assert.equal(reads, 1);
-  assert.ok(cache.has("public:41:2026-09-11"), "the payload is cached under the revision and the day");
+  assert.ok(cache.has("public-payload-v1"), "the payload is cached for the day");
   const repeat = context.doGet({ parameter: { action: "public", revision: "41", day: "2026-09-11" } });
   assert.equal(repeat.changed, false);
   assert.equal(repeat.data, undefined);
@@ -115,6 +121,32 @@ test("a new calendar day invalidates the answer even when the revision is unchan
   const reply = context.doGet({ parameter: { action: "public", revision: "41", day: "2026-09-11" } });
   assert.ok(reply.data, "the client must receive fresh data after midnight");
   assert.equal(reads, 2);
+});
+
+test("a warm payload answers without reading a single sheet", () => {
+  const { context, scriptedConfigValue } = server({ revision: 41 });
+  let sheetReads = 0;
+  context.bootstrap_ = () => schoolFixture();
+  context.configValue_ = scriptedConfigValue;
+  context.readObjects_ = (name) => { sheetReads += 1; return name === "Config" ? [{ key: "DATA_REVISION", value: "41" }, { key: "UPDATED_AT", value: "2026-09-11T11:04:10.964Z" }] : []; };
+  assert.ok(context.doGet({ parameter: { action: "public" } }).data, "first visitor builds the payload");
+  assert.ok(sheetReads > 0);
+  sheetReads = 0;
+  assert.ok(context.doGet({ parameter: { action: "public" } }).data, "next visitor is served from the cache");
+  assert.equal(sheetReads, 0, "no spreadsheet read at all");
+  assert.equal(context.doGet({ parameter: { action: "public", revision: "41", day: "2026-09-11" } }).changed, false);
+  assert.equal(sheetReads, 0);
+});
+
+test("a write clears the cached payload so visitors never see a stale timetable", () => {
+  const { context, cache } = server({ revision: 41 });
+  context.bootstrap_ = () => schoolFixture();
+  assert.ok(context.doGet({ parameter: { action: "public" } }).data);
+  assert.ok(cache.has("public-payload-v1"));
+  context.setConfig_ = () => {};
+  context.audit_ = () => {};
+  context.bumpRevision_();
+  assert.equal(cache.has("public-payload-v1"), false);
 });
 
 test("a stale revision receives the payload and the sheets are read once per revision", () => {

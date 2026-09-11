@@ -78,30 +78,57 @@ function publicBootstrap_() {
   }};
 }
 
-// Serves the cached payload for the current revision, and answers a visitor who already holds
-// that revision with a tiny "unchanged" reply instead of the whole timetable.
+// One cache entry per day, holding the payload and the day it was built for. A warm entry means
+// a public request touches no spreadsheet at all: building the payload costs six sheet reads,
+// which is the ten seconds visitors used to wait for.
+var PUBLIC_CACHE_KEY = 'public-payload-v1';
+
+function publicCacheToday_() {
+  return Utilities.formatDate(new Date(),'Asia/Kuala_Lumpur','yyyy-MM-dd');
+}
+
+function publicCacheRead_(cache,today) {
+  if(!cache) return null;
+  try {
+    var hit=cache.get(PUBLIC_CACHE_KEY);
+    if(!hit) return null;
+    // ungzip refuses a Blob without a content type, so the type must be set here.
+    var entry=JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(hit),'application/x-gzip','public.json')).getDataAsString());
+    if(!entry||entry.day!==today||!entry.payload||!entry.payload.ok) return null;
+    return entry.payload;
+  } catch (error) {return null;}
+}
+
+function publicCacheWrite_(cache,payload,today) {
+  if(!cache||!payload||!payload.ok) return;
+  try {
+    // base64Encode accepts bytes or a string, never a Blob.
+    var encoded=Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify({day:today,payload:payload}),'application/json','public.json')).getBytes());
+    if(encoded.length<95000) cache.put(PUBLIC_CACHE_KEY,encoded,300);
+  } catch (error) {}
+}
+
+function publicCacheClear_() {
+  try {CacheService.getScriptCache().remove(PUBLIC_CACHE_KEY);} catch (error) {}
+}
+
+// Serves the cached payload, and answers a visitor who already holds the current revision with a
+// tiny "unchanged" reply instead of the whole timetable.
 function publicBootstrapCached_(e) {
-  var revision=Number(configValue_('DATA_REVISION')||0);
   var since=Number((e&&e.parameter&&e.parameter.revision)||0);
-  var today=Utilities.formatDate(new Date(),'Asia/Kuala_Lumpur','yyyy-MM-dd');
+  var today=publicCacheToday_();
   var asked=(e&&e.parameter&&e.parameter.day)||today;
-  // The payload depends on the calendar day because a version takes effect at midnight, so the
-  // cache entry and the "unchanged" answer both expire with the day.
-  var key='public:'+revision+':'+today;
-  if(since>0&&since===revision&&String(asked)===today) return {ok:true,changed:false,revision:revision,updatedAt:configValue_('UPDATED_AT')||''};
   var cache=null;
   try {cache=CacheService.getScriptCache();} catch (error) {cache=null;}
-  if(cache) {
-    var hit=cache.get(key);
-    if(hit) {try {return JSON.parse(Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(hit))).getDataAsString());} catch (error) {}}
+  var cached=publicCacheRead_(cache,today);
+  if(cached) {
+    if(since>0&&since===Number(cached.data.revision||0)&&String(asked)===today) return {ok:true,changed:false,revision:Number(cached.data.revision||0),updatedAt:cached.data.updatedAt||''};
+    return cached;
   }
+  // The payload depends on the calendar day because a version takes effect at midnight.
+  var revision=Number(configValue_('DATA_REVISION')||0);
+  if(since>0&&since===revision&&String(asked)===today) return {ok:true,changed:false,revision:revision,updatedAt:configValue_('UPDATED_AT')||''};
   var payload=publicBootstrap_();
-  if(cache&&payload&&payload.ok) {
-    try {
-      // base64Encode accepts bytes or a string, never a Blob.
-      var encoded=Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify(payload),'application/json','public.json')).getBytes());
-      if(encoded.length<95000) cache.put(key,encoded,120);
-    } catch (error) {}
-  }
+  publicCacheWrite_(cache,payload,today);
   return payload;
 }
