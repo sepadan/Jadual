@@ -96,3 +96,26 @@ test("reset needs the confirmation word and only clears what was chosen", () => 
   assert.equal(world.__tables.Teachers.length, 2, "a table that was not chosen must survive");
   assert.equal(world.__tables.ScheduleVersions.length, 3);
 });
+
+test("the device copy round-trips as data, not as a nested string", () => {
+  const source = readFileSync(new URL("../app.js", import.meta.url), "utf8");
+  const start = source.indexOf('const ADMIN_DB_KEY');
+  const block = source.slice(start, source.indexOf("function persist()", start));
+  let store = {};
+  const context = vm.createContext({
+    JSON, Date, localStorage: {
+      setItem: (key, value) => { store[key] = String(value); },
+      getItem: (key) => (key in store ? store[key] : null),
+    },
+    db: { revision: 42, teachers: [{ id: "t1" }] },
+  });
+  vm.runInContext(block, context);
+  vm.runInContext("cacheAdminDb()", context);
+  const restored = vm.runInContext("cachedAdminDb().data", context);
+  assert.equal(restored.revision, 42, "a refresh must get the records back, not null");
+  assert.equal(restored.teachers.length, 1);
+  store["sistem-jadual-data-admin-v1"] = JSON.stringify({ savedAt: 1, data: JSON.stringify({ revision: 42 }) });
+  assert.equal(vm.runInContext("cachedAdminDb()", context), null, "a doubly-encoded payload must be rejected, not crash the refresh");
+  store["sistem-jadual-data-admin-v1"] = "{not json";
+  assert.equal(vm.runInContext("cachedAdminDb()", context), null, "a corrupt payload must not break the app");
+});
