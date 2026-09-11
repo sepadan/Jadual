@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.22";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.22";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.22";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.22";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.22";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.22";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.22';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.22';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.22';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.22';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.23";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.23";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.23";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.23";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.23";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.23";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.23';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.23';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.23';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.23';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -533,6 +533,21 @@ function cancelAbsence(id) {
   remoteWrite("cancelAbsence", { id, updatedAt }, message);
 }
 
+function populatePreschoolReliefTimes(selected = "") {
+  const select = $("#teacherPreschoolEndTime");
+  const version = officialScheduleVersion(db) || selectedScheduleVersion(db, todayIso());
+  const rows = version ? db.schedule.filter((row) => row.versionId === version.id) : [];
+  const times = PERIODS.filter((period) => period.period > 0).map((period) => {
+    const stored = rows.find((row) => Number(row.period) === period.period && row.startTime)?.startTime;
+    return { period: period.period, startTime: clockValue(stored, period.period, "startTime") };
+  }).filter((item, index, all) => item.startTime && all.findIndex((other) => other.startTime === item.startTime) === index);
+  select.innerHTML = `<option value="">Pilih waktu mula relief</option>${times.map((item) => `<option value="${esc(item.startTime)}">Waktu ${item.period} · ${esc(item.startTime)}</option>`).join("")}`;
+  const chosen = times.some((item) => item.startTime === selected)
+    ? selected
+    : times.find((item) => validClockTime(selected) && item.startTime >= selected)?.startTime || "";
+  select.value = chosen;
+}
+
 function openTeacherDialog(id = "") {
   if (!requireAdmin()) return;
   const teacher = db.teachers.find((item) => item.id === id);
@@ -546,7 +561,7 @@ function openTeacherDialog(id = "") {
   positionSelect.value=standard?position:'__other__';
   $('#teacherPositionOther').value=standard?'':position;
   toggleTeacherPositionOther();
-  $("#teacherPreschoolEndTime").value = teacher?.preschoolEndTime || "";
+  populatePreschoolReliefTimes(teacher?.preschoolEndTime || "");
   togglePreschoolEndTime();
   coverDraft = coverList(teacher || {}).map((entry) => ({ teacherId: entry.teacherId, all: !entry.subjects.length, subjects: entry.subjects }));
   renderTeacherCover();

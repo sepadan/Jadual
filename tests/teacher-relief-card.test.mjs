@@ -18,9 +18,12 @@ test('kad guru exposes a keyboard-accessible relief eligibility toggle without h
   assert.match(css,/\.teacher-card\.relief-excluded/);
 });
 
-test('profil Guru Prasekolah has one required session-end time shown only for that position',()=>{
+test('profil Guru Prasekolah uses one required timetable-period dropdown shown only for that position',()=>{
   assert.match(html,/id="teacherPreschoolEndWrap" class="hidden"/);
-  assert.match(html,/id="teacherPreschoolEndTime" type="time"/);
+  assert.match(html,/<select id="teacherPreschoolEndTime"><\/select>/);
+  assert.doesNotMatch(html,/id="teacherPreschoolEndTime" type="time"/);
+  assert.match(app,/function populatePreschoolReliefTimes/);
+  assert.match(app,/PERIODS\.filter\(\(period\) => period\.period > 0\)/);
   assert.match(app,/function togglePreschoolEndTime/);
   assert.match(app,/position === "Guru Prasekolah"/);
   assert.match(app,/\$\("#teacherPreschoolEndTime"\)\.required = preschool/);
