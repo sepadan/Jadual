@@ -140,3 +140,19 @@ test("the preview stacks the period number above its clock", () => {
   assert.match(css, /\.relief-preview \.relief-print-period \{ display: block;/, "without this the number and clock run together as 107:30 on screen");
   assert.match(css, /\.relief-preview \.relief-print-clock \{ display: block;/);
 });
+
+test("generated relief drafts are kept on the device, not only in memory", () => {
+  assert.match(app, /const DRAFT_KEY = "sistem-jadual-draf-relief-v1"/);
+  assert.match(app, /function saveDrafts\(\) \{[\s\S]*?localStorage\.setItem\(DRAFT_KEY/);
+  // every place the drafts change must write them out, or a reload loses the work
+  assert.equal((app.match(/saveDrafts\(\)/g) || []).length >= 6, true, "a draft change still does not save");
+  assert.match(app, /function restoreDrafts\(\) \{[\s\S]*?stored\.key !== reliefInputKey\(\)[\s\S]*?currentDrafts = stored\.drafts/);
+  assert.match(app, /restoreAdminShell\(session\);updateConnectionUi\(\);restoreDrafts\(\)/);
+});
+
+test("login no longer waits for the whole database", () => {
+  const api = readFileSync(new URL("../admin-api.js", import.meta.url), "utf8");
+  assert.match(api, /includeBootstrap:false/);
+  assert.equal(api.includes("includeBootstrap:true"), false, "login still pulls the full bootstrap");
+  assert.match(app, /if\(cached\) renderAll\(\);[\s\S]*?const snapshot=result\.snapshot\|\|await api\.bootstrap\(\);/);
+});

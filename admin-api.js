@@ -1,4 +1,4 @@
-import { SITE_CONFIG } from './site-config.js?v=3.1.16';
+import { SITE_CONFIG } from './site-config.js?v=3.1.17';
 const CONFIG_KEY='relief-skpr-config-v1';
 export function loadConfig() {
   let saved={};try {saved=JSON.parse(localStorage.getItem(CONFIG_KEY)||'{}');} catch {}
@@ -27,7 +27,10 @@ export class ApiClient {
     return this.readResponse(await fetch(`${this.config.apiUrl}?action=public${query}`,{cache:'no-store'}));
   }
   async status() {if(!this.isConfigured()) throw new Error('Sambungan sekolah belum disediakan.');return this.readResponse(await fetch(`${this.config.apiUrl}?action=status`,{cache:'no-store'}));}
-  async login(username,password) {const result=await this.request('login',{username,password,includeBootstrap:true});this.token=result.token;return result;}
+  // Login returns a session only: pulling the whole school database inside the login request is
+  // what made logging in wait on six sheet reads. The app shows its cached view at once and loads
+  // the private data in the background.
+  async login(username,password) {const result=await this.request('login',{username,password,includeBootstrap:false});this.token=result.token;return result;}
   async logout() {try {if(this.token) await this.request('logout',{},true);} finally {this.token='';}}
   bootstrap() {return this.request('bootstrap',{},true);}
   builderData() {return this.request('builder',{},true);}

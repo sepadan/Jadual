@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.16";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.16";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.16";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.16";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.16";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.16";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.16';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.16';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.16';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.16';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.17";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.17";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.17";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.17";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.17";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.17";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.17';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.17';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.17';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.17';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -102,6 +102,24 @@ function cachedPublicRevision() {
   return Number(db.revision) || 0;
 }
 
+// Generated relief drafts are kept on the device: losing a whole day's relief work because the
+// page was reloaded (or the tablet slept) is the one thing an admin cannot be asked to redo.
+const DRAFT_KEY = "sistem-jadual-draf-relief-v1";
+function saveDrafts() {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ key: generatedReliefKey, drafts: currentDrafts })); } catch {}
+}
+function restoreDrafts() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+    if (!stored || !Array.isArray(stored.drafts) || !stored.drafts.length) return;
+    if (stored.key !== reliefInputKey()) { localStorage.removeItem(DRAFT_KEY); return; }
+    currentDrafts = stored.drafts;
+    generatedReliefKey = stored.key;
+    renderAll();
+    toast(`${currentDrafts.length} draf relief dipulihkan. Semak sebelum terbitkan.`, "info");
+  } catch {}
+}
+
 function persist() {
   db.updatedAt = new Date().toISOString();
   // Private administration data stays in memory; Sheets is the source of truth.
@@ -176,7 +194,7 @@ function renderDashboard() {
   const absences = db.absences.filter((item) => item.date === date && item.status !== "cancelled");
   const published = db.reliefs.filter((item) => item.date === date && item.status !== "cancelled" && reliefHasActiveAbsence(db, item));
   renderReliefPrint(date);
-  if(!admin || generatedReliefKey!==reliefInputKey()) {currentDrafts=[];generatedReliefKey='';}
+  if(!admin || generatedReliefKey!==reliefInputKey()) {if(currentDrafts.length||generatedReliefKey){currentDrafts=[];generatedReliefKey='';saveDrafts();}}
   $('#reliefGuide').textContent=admin ? (generatedReliefKey ? `Draf dijana: ${currentDrafts.length} slot baharu. Semak guru ganti, kemudian Terbitkan.` : 'Buka Rekod guru tiada untuk menambah guru yang tidak hadir, kemudian tekan Jana. Perubahan data memerlukan jana semula.') : 'Jadual relief yang telah diterbitkan oleh admin.';
   const items = [...published.map((item) => ({ ...item, candidates: [] })), ...currentDrafts];
   $("#metricAbsent").textContent = new Set(absences.map((item) => item.teacherId)).size;
@@ -410,7 +428,7 @@ function saveAbsenceRecord(event) {
   db.absences.push(absence);
   const invalidatedReliefs = cancelReliefsAssignedToAbsence(db, absence, absence.updatedAt);
   $("#reliefDate").value = date;
-  currentDrafts = buildReliefDrafts(db, date);
+  currentDrafts = buildReliefDrafts(db, date);saveDrafts();
   generatedReliefKey = reliefInputKey();
   persist(); $("#absenceDialog").close(); renderAll();
   showView("hari-ini");
@@ -446,7 +464,7 @@ function cancelAbsence(id) {
   if (!item || !confirm("Batalkan rekod ketiadaan ini?")) return;
   const updatedAt = new Date().toISOString();
   const result = cancelAbsenceAndReliefs(db, id, updatedAt);
-  currentDrafts = currentDrafts.filter((draft) => !reliefMatchesAbsence(draft, result.absence));
+  currentDrafts = currentDrafts.filter((draft) => !reliefMatchesAbsence(draft, result.absence));saveDrafts();
   generatedReliefKey = "";
   persist(); renderAll();
   const message = result.reliefs.length
@@ -629,7 +647,7 @@ function publishReliefs() {
   if (errors.length) return toast(errors[0], "error");
   const now = new Date().toISOString();
   const records = currentDrafts.map(({ candidates, ...item }) => ({ ...item, status: "published", createdAt: now, updatedAt: now }));
-  db.reliefs.push(...records); persist(); renderAll();
+  db.reliefs.push(...records); currentDrafts=[]; generatedReliefKey=''; saveDrafts(); persist(); renderAll();
   remoteWrite("saveReliefs", records, `${records.length} relief diterbitkan. Tekan Cetak / simpan PDF untuk jadual rasmi.`);
 }
 
@@ -767,7 +785,7 @@ function wireEvents() {
     if(currentDrafts.length&&!confirm('Jana semula dan gantikan pilihan draf yang belum diterbitkan?')) return;
     const date=$('#reliefDate').value;
     if(!date||!dayCodeFromDate(date)) return toast('Pilih tarikh persekolahan Isnin hingga Jumaat.','error');
-    currentDrafts=buildReliefDrafts(db,date);generatedReliefKey=reliefInputKey();renderDashboard();
+    currentDrafts=buildReliefDrafts(db,date);generatedReliefKey=reliefInputKey();saveDrafts();renderDashboard();
     toast(currentDrafts.length?`${currentDrafts.length} slot relief dijana. Semak sebelum terbitkan.`:reliefEmptyMessage(date));
   });
   wireAdminEvents();
@@ -872,7 +890,7 @@ async function resumeSession(session=storedAdminSession()) {
       await leaveAdmin(false);
       toast('Sesi tujuh hari telah tamat atau dibatalkan. Sila login semula.','error');
     } else {
-      restoreAdminShell(session);updateConnectionUi();
+      restoreAdminShell(session);updateConnectionUi();restoreDrafts();
       toast('Sesi admin masih disimpan. Data Google Sheets akan dicuba semula apabila sambungan pulih.','error');
     }
   }
@@ -905,15 +923,20 @@ async function ensureBuilder() {
   $('#builderCloudStatus').textContent=cloud.builder?.state?'Draf Sheets telah dimuatkan':'Draf baharu — simpan ke Sheets apabila siap';
 }
 async function enterAdmin(result) {
-  const snapshot=result.snapshot||await api.bootstrap();
-  db={...emptyDatabase(),...normalizeDatabaseTimes(snapshot.data)};confirmedDb=structuredClone(db);
-  builderCloudLoaded=false;builderDirty=false;
+  const cached = db && db.revision ? db : null;
   admin=true;window.systemAdminActive=true;sessionExpiry=result.expiresAt;
   localStorage.setItem('jadual-admin-session',JSON.stringify({token:api.token,expiresAt:sessionExpiry}));
   document.body.classList.remove('public-mode');$('#loginButton').classList.add('hidden');
   $('#builderCloudStatus').textContent='Pembina akan dimuatkan apabila dibuka';
   $('#passwordNotice').textContent=result.mustChangePassword?'Kata laluan awal masih digunakan. Tukar kepada kata laluan yang lebih kuat.':'';
-  $('#loginDialog').close();$('#loginPassword').value='';renderAll();
+  $('#loginDialog').close();$('#loginPassword').value='';
+  // Show the admin screens straight away from the last published data, then pull the private
+  // records: waiting for six sheet reads before the first paint is what made login feel slow.
+  if(cached) renderAll();
+  const snapshot=result.snapshot||await api.bootstrap();
+  db={...emptyDatabase(),...normalizeDatabaseTimes(snapshot.data)};confirmedDb=structuredClone(db);renderAll();
+  restoreDrafts();
+  builderCloudLoaded=false;builderDirty=false;
 }
 async function leaveAdmin(remoteLogout=true) {
   const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');
