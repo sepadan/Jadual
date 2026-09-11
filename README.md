@@ -40,7 +40,7 @@ Naikkan versi dengan `npm run release 3.1.0`. Skrip itu menulis semula semua tem
 
 ## Paparan awam
 
-Paparan awam hanya menerima jadual **versi rasmi (active)** yang berkuat kuasa hari ini; import lama tidak lagi dihantar, jadi muatan turun kira-kira separuh. Peranti pengunjung menyimpan helaian awam terakhir, dan pengunjung yang sudah memegang revisi semasa hanya menerima jawapan `changed: false` (kira-kira 80 bait) — bukan keseluruhan jadual. Pelayan menyimpan salinan termampat mengikut revisi selama dua minit. Admin yang login tetap menerima semua data melalui `bootstrap`.
+Paparan awam hanya menerima jadual **versi rasmi (active)** yang berkuat kuasa hari ini; import lama tidak lagi dihantar, jadi muatan turun kira-kira separuh. Peranti pengunjung menyimpan helaian awam terakhir, dan pengunjung yang sudah memegang revisi semasa hanya menerima jawapan `changed: false` (kira-kira 80 bait) — bukan keseluruhan jadual. Pelayan menyimpan salinan termampat selama enam jam; setiap penulisan membatalkannya serta-merta, dan hari baharu membatalkannya sendiri. Admin yang login tetap menerima semua data melalui `bootstrap`.
 
 ## Penyelenggaraan
 

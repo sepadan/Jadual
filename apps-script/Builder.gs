@@ -119,7 +119,9 @@ function publicCacheWrite_(cache,payload,today) {
   try {
     // base64Encode accepts bytes or a string, never a Blob.
     var encoded=Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(JSON.stringify({day:today,payload:payload}),'application/json','public.json')).getBytes());
-    if(encoded.length<95000) cache.put(PUBLIC_CACHE_KEY,encoded,300);
+    // Writes invalidate this entry explicitly, so it can live long: the six sheet reads behind a
+    // rebuild are the ten seconds a visitor would otherwise wait for.
+    if(encoded.length<95000) cache.put(PUBLIC_CACHE_KEY,encoded,21600);
   } catch (error) {}
 }
 
