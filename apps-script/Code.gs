@@ -91,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.24", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.25", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -134,9 +134,8 @@ function doPost(e) {
 }
 
 function routeWrite_(action, data) {
-  // The school starts on admin/admin. Until it is changed, reads and login stay open but nothing
-  // may be written, so a public repository URL cannot be used to alter the school's records.
-  if(defaultPasswordInUse_()&&action!=='changePassword') throw new Error('Kata laluan awal admin masih digunakan. Tukar kata laluan dalam Tetapan dahulu.');
+  // A valid seven-day admin session is sufficient for writes. The initial password remains
+  // changeable in Settings but does not block a school that intentionally keeps it.
   if(action==='saveReliefSettings') {
     var limit=Number(data.dailyLimit);
     if(!Number.isInteger(limit)||limit<0||limit>13) throw new Error('Had relief mesti 0 hingga 13 waktu.');

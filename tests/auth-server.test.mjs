@@ -5,7 +5,7 @@ function server(unlocked) {
   const context=vm.createContext({console,PropertiesService:{getScriptProperties:()=>propertyApi},CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},Utilities:{getUuid:randomUUID,computeHmacSha256Signature:(text,key)=>createHmac('sha256',key).update(text).digest(),base64EncodeWebSafe:value=>Buffer.from(value).toString('base64url'),formatDate:(date,zone,format)=>format==='yyyy-MM-dd'?'2026-09-11':new Intl.DateTimeFormat('en-CA',{timeZone:zone}).format(date)}});
   for(const file of ['Code.gs','Auth.gs','Builder.gs'])vm.runInContext(readFileSync(new URL(`../apps-script/${file}`,import.meta.url),'utf8'),context);
   context.output_=data=>data;context.initializeAdmin_();
-  // Writes are refused while the initial admin/admin password is in use, so write tests unlock first.
+  // Some authentication tests still request a non-default password explicitly.
   if(unlocked) context.changePassword_({currentPassword:'admin',newPassword:'kata-laluan-baharu-123'});
   return {context,props,cache};
 }
@@ -133,12 +133,10 @@ test('server cancels an absence and all related reliefs atomically',()=>{
   assert.throws(()=>context.routeWrite_('cancelAbsence',{id:'missing'}),/tidak ditemui/);
 });
 
-test('writes are held back until the initial admin password is changed',()=>{
+test('writes are allowed while the initial admin password is still in use',()=>{
   const {context}=server();
-  assert.throws(()=>context.routeWrite_('saveReliefSettings',{dailyLimit:2}),/Kata laluan awal/);
-  assert.throws(()=>context.routeWrite_('saveTeacher',{id:'g',name:'Guru'}),/Kata laluan awal/);
-  assert.doesNotThrow(()=>context.changePassword_({currentPassword:'admin',newPassword:'kata-laluan-baharu-123'}));
   context.setConfig_=()=>{};context.audit_=()=>{};
+  assert.equal(context.defaultPasswordInUse_(),true);
   assert.equal(context.routeWrite_('saveReliefSettings',{dailyLimit:3}).dailyLimit,3);
 });
 
