@@ -91,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.18", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.19", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -224,16 +224,58 @@ function cancelAbsence_(data) {
   return { id: absence.id, reliefCount: reliefs.length };
 }
 
+// Reading the whole database costs six sheet reads. The result is cached under the data revision, so
+// a repeat login (or a second device) answers from cache: one light round trip instead of six sheet
+// reads. A new write bumps the revision, which points at a fresh key, so nothing stale can be served.
+// Values over CacheService's 100 KB per-key limit are split into ordered chunks.
+var BOOT_CACHE_TTL_ = 21600;
+var BOOT_CHUNK_SIZE_ = 90000;
+function bootCacheKeys_(revision) {
+  return {
+    count: "boot-" + revision + "-n",
+    chunk: function(index) { return "boot-" + revision + "-" + index; }
+  };
+}
+function readBootCache_(revision) {
+  try {
+    var keys = bootCacheKeys_(revision);
+    var cache = CacheService.getScriptCache();
+    var stored = cache.get(keys.count);
+    if (!stored) return null;
+    var count = Number(stored) || 0;
+    if (count < 1 || count > 40) return null;
+    var wanted = [];
+    for (var index = 0; index < count; index += 1) wanted.push(keys.chunk(index));
+    var found = cache.getAll(wanted);
+    var text = "";
+    for (var index = 0; index < count; index += 1) {
+      var part = found[keys.chunk(index)];
+      if (part == null) return null;
+      text += part;
+    }
+    return JSON.parse(text);
+  } catch (error) { return null; }
+}
+function writeBootCache_(revision, data) {
+  try {
+    var text = JSON.stringify(data);
+    var keys = bootCacheKeys_(revision);
+    var count = Math.ceil(text.length / BOOT_CHUNK_SIZE_);
+    if (count < 1 || count > 40) return;
+    var map = {};
+    for (var index = 0; index < count; index += 1) map[keys.chunk(index)] = text.substr(index * BOOT_CHUNK_SIZE_, BOOT_CHUNK_SIZE_);
+    map[keys.count] = String(count);
+    CacheService.getScriptCache().putAll(map, BOOT_CACHE_TTL_);
+  } catch (error) {}
+}
+
 function bootstrap_(sinceRevision) {
   var revision = Number(configValue_("DATA_REVISION") || 0);
   var updatedAt = configValue_("UPDATED_AT") || new Date().toISOString();
   if (sinceRevision === revision) return { ok: true, changed: false, revision: revision, updatedAt: updatedAt };
-  return {
-    ok: true,
-    changed: true,
-    revision: revision,
-    updatedAt: updatedAt,
-    data: {
+  var cached = readBootCache_(revision);
+  if (cached) return { ok: true, changed: true, revision: revision, updatedAt: updatedAt, data: cached };
+  var data = {
       school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar",
       reliefSettings: {dailyLimit:reliefDailyLimit_(),ignorePairingWhenCovered:bool_(configValue_('RELIEF_IGNORE_PAIRING'))},
       revision: revision,
@@ -243,8 +285,9 @@ function bootstrap_(sinceRevision) {
       schedule: readObjects_("Schedule"),
       absences: readObjects_("Absences").map(function(item) { item.periods = parseJson_(item.periods, []); return item; }),
       reliefs: readObjects_("Reliefs")
-    }
   };
+  writeBootCache_(revision, data);
+  return { ok: true, changed: true, revision: revision, updatedAt: updatedAt, data: data };
 }
 
 function importSchedule_(payload) {
