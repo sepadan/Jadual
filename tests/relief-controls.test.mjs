@@ -27,6 +27,16 @@ test("the relief screen offers plain actions instead of numbered steps", () => {
   }
 });
 
+test("export sits before print, on the tab row, with the date above", () => {
+  const toolbar = html.slice(html.indexOf('class="relief-toolbar"'), html.indexOf('id="absenceBlock"'));
+  const bar = toolbar.slice(toolbar.indexOf('<div class="button-row">'));
+  assert.ok(bar.indexOf("Eksport PDF") < bar.indexOf(">Cetak<"), "Eksport PDF must come before Cetak");
+  assert.ok(toolbar.includes('data-relief-tab="ketiadaan"') && toolbar.includes('data-relief-tab="relief"'), "the buttons are not on the same row as the sub tabs");
+  const head = html.slice(html.indexOf('id="reliefDate"'), html.indexOf('class="relief-toolbar"'));
+  assert.ok(head.includes('id="reliefDate"'), "the date is not above the toolbar");
+  assert.equal(head.includes("exportReliefPdf"), false, "the buttons must not sit next to the date");
+});
+
 test("the generate button still exists and carries its own label", () => {
   const button = html.match(/<button id="generateRelief"[^>]*>([^<]*)</);
   assert.ok(button, "the generate button is missing");
