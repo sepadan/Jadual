@@ -69,3 +69,19 @@ test("only real work counts as an edit", () => {
   }
   assert.match(app, /\["pointerdown", "keydown"\]\) \$\("#schedule-generator-pane"\)\.addEventListener/, "nothing listens for real touches on the builder");
 });
+
+// Skrin yang sudah memaparkan draf tidak "sedang disediakan": teks itu berbohong tentang keadaan.
+test("a pane that already holds a draft says it is re-checking, not preparing", () => {
+  const app = read("app.js");
+  assert.match(app, /function builderAdaDraf\(\)/, "there is no way to tell a full pane from an empty one");
+  assert.match(app, /"#builderLoading"\)\?\.classList\.toggle\("hidden", !busy \|\| adaDraf\)/, "the preparing line still covers a draft that is already open");
+  assert.match(app, /adaDraf \? "Menyemak draf terbaharu di Sheets…" : "Menyediakan pembina jadual…"/, "the status cannot tell the two cases apart");
+});
+
+// Salinan peranti perlu kecil: menulis draf sebelum logo dikecilkan menyimpan ~950 KB dalam cache.
+test("the device copy is written after the logo shrink", () => {
+  const app = read("app.js").replace(/\r\n/g, "\n");
+  const body = app.slice(app.indexOf("async function loadBuilder()"), app.indexOf("async function enterAdmin("));
+  assert.ok(body.indexOf("await applyBuilderCloud(cloud, openedWith)") < body.indexOf("writeBuilderDeviceCache({ revision: builderRevision"),
+    "the device copy is written before the logo is shrunken");
+});

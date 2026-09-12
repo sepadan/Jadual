@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.50";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.50";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.50";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.50";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.50";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.50";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.50';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.50';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.50';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.50';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.50';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.50';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.51";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.51";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.51";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.51";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.51";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.51";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.51';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.51';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.51';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.51';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.51';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.51';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -224,6 +224,11 @@ function setScheduleMode(mode) {
 // answered, which reads as a dead button. The pane now switches on the press itself and reports
 // what it is waiting for.
 let builderOpening = false;
+// Draf yang sudah dipaparkan (nama sekolah ada) bermakna skrin tidak kosong: teks "Menyediakan" akan
+// berbohong kepadanya.
+function builderAdaDraf() {
+  try { return String(window.jadualBuilder?.getState()?.sekolah?.nama || "").length > 2; } catch (error) { return false; }
+}
 function setBuilderBusy(busy, button = null) {
   builderOpening = busy;
   const tab = button || $('[data-schedule-mode="generator"]');
@@ -234,12 +239,18 @@ function setBuilderBusy(busy, button = null) {
     // user would lose their place while the pane they asked for is still opening.
     tab.setAttribute("aria-disabled", String(busy));
   }
-  $("#builderLoading")?.classList.toggle("hidden", !busy);
+  const adaDraf = builderAdaDraf();
+  $("#builderLoading")?.classList.toggle("hidden", !busy || adaDraf);
   const status = $("#builderCloudStatus");
   if (!status) return;
-  if (busy) { status.dataset.resting = status.textContent; status.textContent = "Menyediakan pembina jadual…"; return; }
+  if (busy) {
+    status.dataset.resting = status.textContent;
+    // Draf yang sudah dibuka dari salinan peranti tidak "sedang disediakan": ia sedang disemak semula.
+    status.textContent = adaDraf ? "Menyemak draf terbaharu di Sheets…" : "Menyediakan pembina jadual…";
+    return;
+  }
   // A failed open must not leave a line that reads like a fresh draft is ready to edit.
-  if (status.textContent === "Menyediakan pembina jadual…") {
+  if (status.textContent === "Menyediakan pembina jadual…" || status.textContent === "Menyemak draf terbaharu di Sheets…") {
     status.textContent = builderReadyPromise ? (status.dataset.resting || "Draf baharu — simpan ke Sheets apabila siap") : "Pembina tidak dimuatkan — tekan tab sekali lagi untuk cuba semula";
   }
 }
@@ -1539,8 +1550,9 @@ async function loadBuilder() {
     try { cloud = await api.builderData(); }
     catch (error) { cloud = { builder: null }; }
   }
-  if (cloud.builder) await writeBuilderDeviceCache(cloud.builder);
   await applyBuilderCloud(cloud, openedWith);
+  // Salinan peranti disimpan selepas logo dikecilkan, jadi yang tersimpan itu kecil dan bukannya ~1 MB.
+  if (cloud.builder) await writeBuilderDeviceCache({ revision: builderRevision, state: window.jadualBuilder.getState() });
   builderCloudLoaded = true;
 }
 async function enterAdmin(result) {
