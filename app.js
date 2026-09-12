@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.25";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.25";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.25";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.25";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.25";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.25";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.25';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.25';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.25';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.25';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.26";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.26";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.26";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.26";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.26";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.26";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.26';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.26';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.26';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.26';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -390,6 +390,14 @@ function renderAbsences() {
 function activeTeachers() { const hidden = coverageHiddenIds(db); return db.teachers.filter((teacher) => teacher.active && !hidden.has(teacher.id)).sort((a, b) => a.name.localeCompare(b.name, "ms")); }
 function teacherOptions(selected = "") { return activeTeachers().map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === selected ? "selected" : ""}>${esc(teacher.name)}</option>`).join(""); }
 
+function tahunKelas(nama) {
+  const padan = String(nama || "").match(/\d+/);
+  const tahun = padan ? Number(padan[0]) : 99;
+  return tahun >= 1 && tahun <= 6 ? tahun : 99;
+}
+function bandingNamaKelas(a, b) {
+  return tahunKelas(a) - tahunKelas(b) || String(a).localeCompare(String(b), "ms", {numeric:true, sensitivity:"base"});
+}
 function renderTeacherLists() {
   const absence = $("#absenceTeacher");
   const schedule = $("#scheduleTeacher");
@@ -398,7 +406,7 @@ function renderTeacherLists() {
   absence.innerHTML = `<option value="">Pilih guru</option>${teacherOptions(selectedAbsence)}`;
   const byClass = admin && $("#scheduleType").value === "class";
   $("#scheduleEntityLabel").textContent = byClass ? "Kelas" : "Guru";
-  schedule.innerHTML = byClass ? `<option value="">Pilih kelas</option>${[...new Set(db.schedule.map(r=>r.className).filter(Boolean))].sort().map(name=>`<option value="${esc(name)}" ${selectedSchedule===name?'selected':''}>${esc(name)}</option>`).join('')}` : `<option value="">Pilih guru</option>${teacherOptions(selectedSchedule)}`;
+  schedule.innerHTML = byClass ? `<option value="">Pilih kelas</option>${[...new Set(db.schedule.map(r=>r.className).filter(Boolean))].sort(bandingNamaKelas).map(name=>`<option value="${esc(name)}" ${selectedSchedule===name?'selected':''}>${esc(name)}</option>`).join('')}` : `<option value="">Pilih guru</option>${teacherOptions(selectedSchedule)}`;
 }
 
 function initials(name) { return String(name).split(" ").filter((word) => !["BIN", "BINTI"].includes(word)).slice(0, 2).map((word) => word[0]).join(""); }

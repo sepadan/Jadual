@@ -1,32 +1,34 @@
-const VERSION = "3.1.25";
+const VERSION = "3.1.26";
 const CACHE = `sistem-jadual-${VERSION}`;
 const APP_SHELL = [
   "./",
   "./index.html",
 
-  "./styles.css?v=3.1.25",
-  "./app.js?v=3.1.25",
-  "./builder.js?v=3.1.25",
-  "./builder.css?v=3.1.25",
-  "./workspace.css?v=3.1.25",
-  "./builder-relief.js?v=3.1.25",
-  "./admin-api.js?v=3.1.25",
-  "./site-config.js?v=3.1.25",
-  "./public-ui.css?v=3.1.25",
-  "./data.js?v=3.1.25",
-  "./relief-engine.js?v=3.1.25",
-  "./pdf-import.js?v=3.1.25",
-  "./pdf-builder.js?v=3.1.25",
-  "./teacher-transfer.js?v=3.1.25",
-  "./teacher-coverage.js?v=3.1.25",
-  "./relief-print.js?v=3.1.25",
-  "./relief-pdf.js?v=3.1.25",
+  "./styles.css?v=3.1.26",
+  "./app.js?v=3.1.26",
+  "./builder.js?v=3.1.26",
+  "./builder.css?v=3.1.26",
+  "./workspace.css?v=3.1.26",
+  "./builder-relief.js?v=3.1.26",
+  "./admin-api.js?v=3.1.26",
+  "./site-config.js?v=3.1.26",
+  "./public-ui.css?v=3.1.26",
+  "./data.js?v=3.1.26",
+  "./relief-engine.js?v=3.1.26",
+  "./pdf-import.js?v=3.1.26",
+  "./pdf-builder.js?v=3.1.26",
+  "./teacher-transfer.js?v=3.1.26",
+  "./teacher-coverage.js?v=3.1.26",
+  "./relief-print.js?v=3.1.26",
+  "./relief-pdf.js?v=3.1.26",
   "./manifest.webmanifest",
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./vendor/pdf.min.js",
-  "./vendor/pdf.worker.min.js"
+  "./vendor/pdf.worker.min.js",
+  "./vendor/html2canvas-1.4.1.min.js",
+  "./vendor/jspdf-3.0.4.umd.min.js"
 ];
 
 self.addEventListener("install", (event) => {

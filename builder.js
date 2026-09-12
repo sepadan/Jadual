@@ -102,6 +102,19 @@ function waktuPagi(p){
 }
 function waktuHari(h){ return num(S.masa.waktu[h], maxWaktu()); }
 
+function tahunKelas(kelas){
+  const tahap=Number(kelas&&kelas.tahap);
+  if(tahap>=1&&tahap<=6) return tahap;
+  const padan=String(kelas&&kelas.nama||kelas||'').match(/\d+/);
+  const tahun=padan?Number(padan[0]):99;
+  return tahun>=1&&tahun<=6?tahun:99;
+}
+function bandingKelas(a,b){
+  return tahunKelas(a)-tahunKelas(b)
+    || String(a&&a.nama||a||'').localeCompare(String(b&&b.nama||b||''),'ms',{numeric:true,sensitivity:'base'});
+}
+function susunKelas(){ S.kelas.sort(bandingKelas); }
+
 /* ---------- Carian ---------- */
 const byId=(arr,id)=>arr.find(x=>x.id===id);
 const subjekById=id=>byId(S.subjek,id);
@@ -222,6 +235,7 @@ function autoAgihGuru(){
    ============================================================ */
 const VIEWS={};
 function go(v){
+  susunKelas();
   VIEW=v;
   $$('#nav .navbtn').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   const def=VIEWS[v]||VIEWS.dash;
@@ -1648,7 +1662,7 @@ function ringkasanKelas(id){
   const peta={};
   slots.forEach(x=>{ const k=x.subjekId+'|'+x.guruId; peta[k]=(peta[k]||0)+num(x.panjang,1); });
   const rows=Object.keys(peta).map(k=>{const [sid,gid]=k.split('|');
-    return {subjek:kodSubjek(sid),kelas:namaGuru(gid),jum:peta[k]};});
+    return {subjek:kodSubjek(sid),kelas:namaGuru(gid,true),jum:peta[k]};});
   rows.sort((a,b)=>b.jum-a.jum||a.subjek.localeCompare(b.subjek));
   const ac=acaraUntuk('kelas',id).map(a=>({subjek:a.kod,kelas:'—',jum:num(a.panjang,1)}));
   const semua=ac.concat(rows);
@@ -1714,7 +1728,7 @@ function lembaranKelas(id,padat){
   const R=ringkasanKelas(id);
   const rh=padat?'13mm':`min(30mm, calc(158mm / ${S.hari.length}))`;
   return `<div class="sheet ${padat?'compact':''}" style="--rowh:${rh}">
-    ${kepalaLembaran(S.sekolah.tajukKelas,k.nama,`${S.sekolah.bermula?`BERMULA ${esc(tarikhCetak(S.sekolah.bermula))}<br><br>`:''}GURU KELAS:<br><span style="font-weight:400">${esc(k.guruKelas?namaGuru(k.guruKelas):'—')}</span>`)}
+    ${kepalaLembaran(S.sekolah.tajukKelas,k.nama,`${S.sekolah.bermula?`BERMULA ${esc(tarikhCetak(S.sekolah.bermula))}<br><br>`:''}GURU KELAS:<br><span style="font-weight:400">${esc(k.guruKelas?namaGuru(k.guruKelas,true):'—')}</span>`)}
     <div class="sh-body">
       <div class="sh-main">${jadualCetak('kelas',id)}</div>
       <div class="sh-side">
@@ -1757,7 +1771,7 @@ function lembaranIndukBahagian(mode,hari,senarai,indeks,jumlahBahagian){
     const m=matriks(mode,entiti.id);
     const nama=mode==='kelas'?entiti.nama:(entiti.kod||entiti.nama);
     body+=`<tr><th class="pt-master-name" title="${esc(entiti.nama)}">${esc(nama)}</th>`;
-    if(pra) body+=`<td class="pt-master-pre">${esc(S.masa.pra.label||'PENGURUSAN')}</td>`;
+    if(pra&&ri===0) body+=`<td class="vert pt-master-pre" rowspan="${senarai.length}">${esc(S.masa.pra.label||'PENGURUSAN')}</td>`;
     for(let p=1;p<=N;p++){
       const c=m[d][p];
       if(p>waktuHari(hari)) body+='<td class="pt-closed"></td>';
@@ -1812,7 +1826,8 @@ VIEWS.cetak={t:'Cetak / PDF', r(){
       <div class="right row">
         ${cetakJenis!=='semua'?`<button class="btn" onclick="pilihSemuaCetak(true)">Pilih semua</button>
         <button class="btn" onclick="pilihSemuaCetak(false)">Kosongkan</button>`:''}
-        <button class="btn pri" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+        <button class="btn pri" id="btnExportBuilderPdf" onclick="eksportPdfJadual()">⬇️ Eksport PDF</button>
+        <button class="btn" onclick="cetakJadual()">🖨️ Cetak</button>
       </div>
     </div>
     ${cetakJenis==='semua'
@@ -1830,6 +1845,72 @@ function pilihSemuaCetak(on){
   cetakPilih=new Set(on?senarai.map(x=>x.id):[]); ulang();
 }
 function ulangCetakPratonton(){ $('#cetakArea').innerHTML=pratontonCetak(); }
+function cetakJadual(){ window.print(); }
+const pemuatanSkripPdf=new Map();
+function muatSkripPdf(src,sedia){
+  if(sedia()) return Promise.resolve();
+  if(pemuatanSkripPdf.has(src)) return pemuatanSkripPdf.get(src);
+  const janji=new Promise((selesai,gagal)=>{
+    const lama=document.querySelector(`script[data-pdf-lib="${src}"]`);
+    if(lama) lama.remove();
+    const skrip=document.createElement('script');
+    skrip.src=src; skrip.dataset.pdfLib=src;
+    skrip.onload=()=>{
+      if(sedia()) selesai();
+      else{skrip.remove();gagal(new Error('Pustaka PDF dimuatkan tetapi tidak boleh digunakan.'));}
+    };
+    skrip.onerror=()=>{skrip.remove();gagal(new Error('Pustaka PDF tidak dapat dimuatkan.'));};
+    document.head.appendChild(skrip);
+  }).finally(()=>pemuatanSkripPdf.delete(src));
+  pemuatanSkripPdf.set(src,janji);
+  return janji;
+}
+function namaFailPdf(){
+  const jenis={guru:'jadual-guru',kelas:'jadual-kelas','induk-kelas':'jadual-induk-kelas','induk-guru':'jadual-induk-guru',semua:'semua-jadual'}[cetakJenis]||'jadual';
+  const sekolah=String(S.sekolah.nama||'sekolah').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  return `${jenis}-${sekolah||'sekolah'}.pdf`;
+}
+async function eksportPdfJadual(){
+  const lembaran=$$('#cetakArea .sheet').filter(el=>getComputedStyle(el).display!=='none');
+  if(!lembaran.length) return toast('Pilih sekurang-kurangnya satu jadual.','warn');
+  const butang=$('#btnExportBuilderPdf'),teksAsal=butang&&butang.textContent;
+  if(butang){butang.disabled=true;butang.textContent='Menjana PDF…';}
+  try{
+    await Promise.all([
+      muatSkripPdf('./vendor/html2canvas-1.4.1.min.js',()=>typeof window.html2canvas==='function'),
+      muatSkripPdf('./vendor/jspdf-3.0.4.umd.min.js',()=>Boolean(window.jspdf&&window.jspdf.jsPDF)),
+    ]);
+    if(document.fonts&&document.fonts.ready) await document.fonts.ready;
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
+    const lebarHalaman=pdf.internal.pageSize.getWidth(),tinggiHalaman=pdf.internal.pageSize.getHeight(),margin=5;
+    for(let i=0;i<lembaran.length;i++){
+      if(butang) butang.textContent=`Menjana PDF ${i+1}/${lembaran.length}…`;
+      const el=lembaran[i];
+      const skala=Math.min(2,1600/Math.max(1,el.scrollWidth));
+      el.classList.add('pdf-capture');
+      let canvas;
+      try{
+        canvas=await window.html2canvas(el,{backgroundColor:'#ffffff',scale:skala,useCORS:true,logging:false,
+          width:el.scrollWidth,height:el.scrollHeight,windowWidth:Math.max(1100,el.scrollWidth),scrollX:0,scrollY:-window.scrollY});
+      }finally{el.classList.remove('pdf-capture');}
+      const nisbah=canvas.width/canvas.height;
+      let lebar=lebarHalaman-margin*2,tinggi=lebar/nisbah;
+      if(tinggi>tinggiHalaman-margin*2){tinggi=tinggiHalaman-margin*2;lebar=tinggi*nisbah;}
+      if(i) pdf.addPage('a4','landscape');
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.9),'JPEG',(lebarHalaman-lebar)/2,(tinggiHalaman-tinggi)/2,lebar,tinggi,undefined,'FAST');
+      canvas.width=1;canvas.height=1;
+      await new Promise(selesai=>setTimeout(selesai,0));
+    }
+    pdf.save(namaFailPdf());
+    toast(`${lembaran.length} muka surat PDF dieksport.`);
+  }catch(err){
+    console.error(err);
+    toast('PDF gagal dijana. Cuba Cetak dan pilih Simpan sebagai PDF.','bad',5200);
+  }finally{
+    if(butang){butang.disabled=false;butang.textContent=teksAsal;}
+  }
+}
 function pratontonCetak(){
   if(cetakJenis==='semua')
     return S.guru.map(g=>lembaranGuru(g.id,cetakPadat)).join('')
