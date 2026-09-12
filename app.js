@@ -1,13 +1,14 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.33";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.33";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.33";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.33";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.33";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.33";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.33';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.33';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.33';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.33';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.34";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.34";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.34";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.34";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.34";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.34";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.34';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.34';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.34';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.34';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows } from './setting-slots.js?v=3.1.34';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -471,9 +472,10 @@ function renderTeachers() {
     <button type="button" class="teacher-card-toggle" data-toggle-relief="${esc(teacher.id)}" aria-pressed="${teacherReliefReady(teacher)}" title="Tukar kelayakan relief ${esc(teacher.name)}">
       <span class="avatar">${esc(initials(teacher.name))}</span><span class="teacher-card-copy"><span class="teacher-name">${esc(teacher.name)}</span><span class="teacher-status">${esc(teacher.position)} · ${esc(teacherReliefStatus(teacher))}</span>${coverLine(teacher)}</span>
     </button>
-    <div class="teacher-actions"><button class="mini-button" data-edit-teacher="${esc(teacher.id)}" title="Ubah">✎</button><button class="mini-button delete" data-delete-teacher="${esc(teacher.id)}" title="Padam">×</button></div>
+    <div class="teacher-actions">${teacher.position === "Guru Pemulihan" ? `<button class="mini-button setting" data-setting-slots="${esc(teacher.id)}" title="Buka jadual mingguan untuk menanda masa pemulihan">Tetapan Jadual</button>` : ""}<button class="mini-button" data-edit-teacher="${esc(teacher.id)}" title="Ubah">✎</button><button class="mini-button delete" data-delete-teacher="${esc(teacher.id)}" title="Padam">×</button></div>
   </article>`).join("");
   $$('[data-toggle-relief]').forEach((button) => button.addEventListener("click", () => toggleTeacherReliefEligibility(button.dataset.toggleRelief)));
+  $$('[data-setting-slots]').forEach((button) => button.addEventListener("click", () => openSettingDialog(button.dataset.settingSlots)));
   $$('[data-edit-teacher]').forEach((button) => button.addEventListener("click", () => openTeacherDialog(button.dataset.editTeacher)));
   $$('[data-delete-teacher]').forEach((button) => button.addEventListener("click", () => removeTeacherRecord(button.dataset.deleteTeacher)));
 }
@@ -492,6 +494,90 @@ async function restoreTeacherProfiles() {
   if (!saved) return;
   await syncData(false);
   toast(`Senarai guru dipulihkan: ${db.teachers.length} guru. Import PDF kini boleh memadankan nama.`, "success");
+}
+
+// ===== Tetapan jadual Guru Pemulihan =====
+// A remedial teacher's week is blocked by "masa tetapan" periods that belong to no class. The card
+// opens that teacher's own week and the admin touches the empty spaces; each touched cell becomes a
+// duty row in the active version, which is exactly how the builder's fixed activities block relief.
+let settingTeacherId = "";
+let settingSelection = new Set();
+
+function settingVersion() {
+  return officialScheduleVersion(db) || selectedScheduleVersion(db, todayIso());
+}
+
+function settingVersionRows(version) {
+  return (db.schedule || []).filter((row) => row.versionId === version?.id);
+}
+
+function openSettingDialog(id) {
+  if (!requireAdmin()) return;
+  const teacher = teacherById(id);
+  if (!teacher) return;
+  const version = settingVersion();
+  if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
+  settingTeacherId = id;
+  settingSelection = new Set(settingSelectionFromRows({ rows: settingVersionRows(version), teacherId: id }));
+  $("#settingDialogTitle").textContent = `Tetapan jadual · ${teacher.name}`;
+  renderSettingGrid();
+  $("#settingDialog").showModal();
+}
+
+function renderSettingGrid() {
+  const version = settingVersion();
+  const model = settingGridModel({ rows: settingVersionRows(version), teacherId: settingTeacherId, periods: PERIODS });
+  const label = SETTING_SUBJECT.charAt(0) + SETTING_SUBJECT.slice(1).toLowerCase();
+  const head = `<tr><th scope="col">Hari</th>${model.periods.map((number) => {
+    const time = PERIODS.find((period) => Number(period.period) === number);
+    return `<th scope="col"><span>${number}</span><small>${esc(time?.startTime || "")}</small></th>`;
+  }).join("")}</tr>`;
+  const body = model.cells.length ? model.days.map((day) => `<tr><th scope="row">${esc(settingDayName(day))}</th>${model.periods.map((number) => {
+    const cell = model.cells.find((item) => item.day === day && item.period === number);
+    const key = settingKey(day, number);
+    if (cell.state === "lesson") return `<td class="setting-cell lesson" title="${esc(`${cell.subject} ${cell.className}`.trim())}"><strong>${esc(cell.subject)}</strong><small>${esc(cell.className || "Kelas")}</small></td>`;
+    const chosen = cell.state === "setting" || settingSelection.has(key);
+    return `<td class="setting-cell ${chosen ? "chosen" : "free"}" data-setting-cell="${key}" role="button" tabindex="0" aria-pressed="${chosen}" title="${chosen ? "Buang tanda" : "Tanda sebagai masa pemulihan"}">${chosen ? `<strong>${esc(label)}</strong><small>tekan untuk buang</small>` : "<small>kosong</small>"}</td>`;
+  }).join("")}</tr>`).join("") : "";
+  $("#settingGrid").innerHTML = `<table class="setting-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  $$("#settingGrid [data-setting-cell]").forEach((cell) => {
+    cell.addEventListener("click", () => toggleSettingCell(cell.dataset.settingCell));
+    cell.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      toggleSettingCell(cell.dataset.settingCell);
+    });
+  });
+  $("#settingCount").textContent = settingSelection.size
+    ? `${settingSelection.size} waktu ${label.toLowerCase()} ditanda.`
+    : `Belum ada waktu ${label.toLowerCase()} ditanda.`;
+}
+
+function toggleSettingCell(key) {
+  if (settingSelection.has(key)) settingSelection.delete(key);
+  else settingSelection.add(key);
+  renderSettingGrid();
+}
+
+function clearSettingSlots() {
+  settingSelection = new Set();
+  renderSettingGrid();
+}
+
+function saveSettingSlots() {
+  if (!requireAdmin()) return;
+  const version = settingVersion();
+  if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
+  const teacher = teacherById(settingTeacherId);
+  const result = mergeSettingRows({ rows: db.schedule, teacherId: settingTeacherId, versionId: version.id, selected: [...settingSelection], periods: PERIODS });
+  db.schedule = result.rows;
+  persist();
+  renderAll();
+  $("#settingDialog").close();
+  // The Sheets handler rewrites every row of the version, so the whole version travels with it.
+  const versionRows = db.schedule.filter((row) => row.versionId === version.id);
+  remoteWrite("importSchedule", { version, rows: versionRows },
+    `${result.added} waktu tetapan disimpan untuk ${teacher?.name || "guru ini"}.`);
 }
 
 function validClockTime(value) {
@@ -1129,6 +1215,9 @@ function wireEvents() {
   $("#printRelief").addEventListener("click", printReliefSheet);
   $("#exportReliefPdf").addEventListener("click", exportReliefPdf);
   $$('[data-relief-panel]').forEach((button) => button.addEventListener("click", () => setReliefPanel(button.dataset.reliefPanel)));
+  $$('[data-close-setting]').forEach((button) => button.addEventListener("click", () => $("#settingDialog").close()));
+  $("#saveSettingSlots").addEventListener("click", saveSettingSlots);
+  $("#clearSettingSlots").addEventListener("click", clearSettingSlots);
   setReliefPanel(reliefPanel);
   $$('[data-relief-tab]').forEach((button) => button.addEventListener("click", () => setReliefTab(button.dataset.reliefTab)));
   // One arrow-key handler serves every tablist in the app (relief sub tabs, the view switch

@@ -192,6 +192,28 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 .schedule-cell strong { margin-top: 15px; color: var(--green-800); }
 .schedule-cell span { margin-top: 5px; font-size: 12px; }
 .schedule-cell.free { background: #fafcfb; }
+
+/* Guru Pemulihan: the card's "Tetapan Jadual" button opens the teacher's own week and the empty
+   spaces are touched to claim setting periods. The table is wide, so it scrolls inside the dialog. */
+.mini-button.setting { width: auto; padding: 0 9px; font-size: 11px; font-weight: 750; white-space: nowrap; }
+#settingDialog { width: min(1040px, calc(100% - 24px)); padding: 25px; }
+.setting-grid { overflow-x: auto; margin: 14px 0 0; }
+.setting-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.setting-table th, .setting-table td { padding: 5px 6px; border: 1px solid var(--line); text-align: center; vertical-align: middle; }
+.setting-table thead th { background: #eef6f3; font-size: 10px; }
+.setting-table thead th small { display: block; font-weight: 500; color: var(--muted); }
+.setting-table tbody th { text-align: left; white-space: nowrap; background: #f7faf9; }
+.setting-cell { min-width: 64px; }
+.setting-cell strong, .setting-cell small { display: block; }
+.setting-cell small { margin-top: 3px; font-size: 9px; }
+.setting-cell.lesson { background: #f1f5f4; color: var(--muted); }
+.setting-cell.lesson strong { color: #4a5d59; font-size: 11px; }
+.setting-cell.free { cursor: pointer; background: #fff; }
+.setting-cell.free small { color: #91a09c; }
+.setting-cell.free:hover { background: #eef8f5; }
+.setting-cell.chosen { cursor: pointer; color: var(--green-800); background: #d9f0e6; }
+.setting-cell:focus-visible { outline: 2px solid var(--green-800); outline-offset: -2px; }
+.setting-count { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
 .schedule-switch { width: fit-content; margin: 0 0 14px; }
 .schedule-pane { min-width: 0; }
 .module-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
@@ -281,6 +303,8 @@ dialog form { padding: 25px; }
   /* A 30px control is below the 40px touch target a school phone needs; both phone switchers
      carry the compact .segmented padding, so give the pair the same floor. */
   .relief-switch button, .schedule-switch button { min-height: 40px; }
+  /* The remedial teacher's card button is used with a thumb on a phone, so it gets the same floor. */
+  .mini-button.setting { min-height: 40px; }
   .relief-switch button { flex: 1; }
   /* On a phone the tab row and the Eksport/Cetak row were fighting for one line and overlapped.
      Stack them: the buttons keep the desktop top-right position, the tabs keep the underline. */

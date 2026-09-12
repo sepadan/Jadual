@@ -31,6 +31,7 @@ const files = [
   "pdf-builder.js",
   "public-ui.css",
   "relief-engine.js",
+  "setting-slots.js",
   "relief-pdf.js",
   "relief-print.js",
   "teacher-transfer.js",
