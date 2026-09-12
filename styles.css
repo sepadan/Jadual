@@ -250,8 +250,10 @@ dialog form { padding: 25px; }
   .module-head { align-items: stretch; flex-direction: column; }
   .module-head .button { text-align: center; }
   .module-frame { height: 72vh; min-height: 560px; border-radius: 12px; }
-  .bottom-nav { position: fixed; inset: auto 0 0; z-index: 30; display: grid; grid-template-columns: repeat(5, 1fr); padding: 7px 6px calc(7px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(255,255,255,.96); backdrop-filter: blur(14px); }
-  .bottom-nav button { display: grid; place-items: center; gap: 2px; padding: 4px 2px; border: 0; color: #74817e; background: transparent; font-size: 9px; }
+  /* The bar holds as many buttons as the viewer may use (2 to 4), so the visible ones share the
+     width instead of sitting in the first columns of a fixed five-column grid. */
+  .bottom-nav { position: fixed; inset: auto 0 0; z-index: 30; display: flex; align-items: stretch; padding: 7px 6px calc(7px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(255,255,255,.96); backdrop-filter: blur(14px); }
+  .bottom-nav button { flex: 1 1 0; min-width: 0; display: grid; place-items: center; gap: 2px; padding: 4px 2px; border: 0; color: #74817e; background: transparent; font-size: 9px; }
   .bottom-nav span { font-size: 19px; }
   .bottom-nav button.active { color: var(--green-800); font-weight: 800; }
   .sticky-actions { bottom: 68px; align-items: start; padding: 11px 12px; }

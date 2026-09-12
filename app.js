@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.28";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.28";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.28";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.28";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.28";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.28";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.28';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.28';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.28';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.28';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.29";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.29";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.29";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.29";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.29";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.29";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.29';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.29';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.29';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.29';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -1101,7 +1101,7 @@ function init() {
   $("#effectiveDate").value = date;
 
   $("#appVersion").textContent = APP_VERSION;
-  populatePeriodPicker(); wireEvents(); renderAll(); showView("jadual");
+  populatePeriodPicker(); wireEvents(); renderAll(); showView("hari-ini");
   resumeSession(savedSession);
 }
 
@@ -1190,7 +1190,7 @@ async function leaveAdmin(remoteLogout=true) {
   restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;builderCloudLoaded=false;
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';
   $$('dialog').forEach(d=>{d.close();d.querySelector('form')?.reset();});
-  db=loadDb();if(!db.revision) db.teachers=[];confirmedDb=structuredClone(db);$('#scheduleType').value='teacher';setScheduleMode('relief');showView('jadual');
+  db=loadDb();if(!db.revision) db.teachers=[];confirmedDb=structuredClone(db);$('#scheduleType').value='teacher';setScheduleMode('relief');showView('hari-ini');
   api=new ApiClient(config);await finalWrites;writeOutbox=[];failedWrites=0;saveWriteOutbox();if(remoteLogout) await previous.logout().catch(()=>{});await syncData(false);
 }
 async function saveBuilderCloud() {

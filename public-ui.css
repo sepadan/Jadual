@@ -15,7 +15,7 @@
 .public-mode .summary-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
 .public-mode .metric.accent{display:none;}
 .relief-date{font-size:12px;min-width:165px;}
-.public-mode .bottom-nav{grid-template-columns:repeat(3,1fr);}
+
 #builderRoot .navlist{display:none;}
 #builderRoot .side{display:none;}
 .builder-section-picker{display:block;max-width:420px;}
