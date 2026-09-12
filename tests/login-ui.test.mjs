@@ -28,7 +28,9 @@ test('login shows progress, rejects duplicate submissions and restores button',a
   assert.equal(h.$('#submitLogin').disabled,false);assert.equal(h.$('#submitLogin').textContent,'Login');
 });
 test('builder is lazy-loaded outside the login path and appears only inside Jadual navigation',()=>{
-  const openLogin=source.slice(source.indexOf('function openLogin()'),source.indexOf('\nasync function ensureBuilder()'));
+  // The builder body is now loadBuilder(), wrapped by ensureBuilder() so the warm-up and the press
+  // share one open; the marker follows the shared promise that starts that section.
+  const openLogin=source.slice(source.indexOf('function openLogin()'),source.indexOf('\nlet builderReadyPromise'));
   const enterAdmin=source.slice(source.indexOf('async function enterAdmin'),source.indexOf('\nasync function leaveAdmin'));
   assert.ok(!openLogin.includes('ensureBuilder'));
   assert.ok(enterAdmin.includes('result.snapshot||await api.bootstrap(since)'),'enterAdmin must ask the server only for changes since the cached revision');

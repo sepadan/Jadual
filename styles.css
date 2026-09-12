@@ -22,7 +22,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: var(--canvas); }
 button, input, select { font: inherit; }
-button { cursor: pointer; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .app-shell { min-height: 100vh; }
 .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 20; width: 244px; display: flex; flex-direction: column; padding: 28px 18px; color: #fff; background: linear-gradient(170deg, var(--green-950), #075449 70%, #0a6555); }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 28px; color: inherit; text-decoration: none; }
@@ -69,6 +69,34 @@ p { color: var(--muted); line-height: 1.55; }
 .segmented { display: flex; gap: 3px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: #eaf0ed; }
 .segmented button { padding: 7px 10px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; }
 .segmented button.active { color: var(--ink); background: #fff; box-shadow: 0 2px 8px rgba(17,48,42,.08); }
+
+/* Every control a finger presses answers the press by itself, in under a tenth of a second, before
+   anything is sent to Google Sheets. A control that only reacts once the network has replied feels
+   broken, which is exactly what a slow builder open looked like. The rule covers every <button>
+   (the builder's own menu and the relief sub-tabs included) plus the file drop zone, which is a
+   label: listing classes one by one had already missed two of them. */
+button:active:not(:disabled), .dropzone:active {
+  transform: translateY(1px) scale(.985);
+  /* Opacity stays on the compositor: a brightness filter would force an off-screen raster pass on
+     every press, which is exactly the wrong cost on the low-end Android phones the school uses. */
+  opacity: .88;
+  transition-duration: .06s;
+}
+.button.primary:active { background: var(--green-950); }
+.button.ghost:active { background: #edf3f1; }
+.segmented button.active:active { background: #f1f6f4; }
+/* A tab that has started work keeps the press visible until the pane it opened is ready. */
+.schedule-switch button { position: relative; }
+.schedule-switch button.is-busy { color: var(--ink); }
+.schedule-switch button.is-busy::after {
+  /* Pinned to the corner: adding it to the text flow would shove the label around inside a narrow
+     tab, which is a layout shift right under the thumb that pressed it. */
+  content: ""; position: absolute; top: 5px; right: 7px; width: 10px; height: 10px;
+  border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%;
+  animation: press-spin .7s linear infinite;
+}
+@keyframes press-spin { to { transform: rotate(360deg); } }
+.builder-loading { margin: 0 0 12px; color: var(--green-700); font-size: 13px; font-weight: 750; }
 .relief-list, .card-list { display: grid; gap: 10px; }
 
 /* Sub-tab skrin relief: bar bergaris bawah untuk tab induk (Ketiadaan guru | Relief), manakala

@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.29";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.29";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.29";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.29";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.29";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.29";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.29';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.29';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.29';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.29';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.30";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.30";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.30";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.30";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.30";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.30";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.30';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.30';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.30';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.30';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -188,6 +188,8 @@ function showView(name) {
   $("#viewTitle").textContent = titleByView[name] || "Sistem Jadual";
   localStorage.setItem("relief-skpr-view", name);
   if (name === "jadual") setScheduleMode(scheduleMode);
+  // The builder tab lives on this screen, so its download starts as the screen is shown.
+  if (name === "jadual") warmBuilder();
   renderAll();
 }
 
@@ -202,6 +204,47 @@ function setScheduleMode(mode) {
     button.setAttribute("aria-selected", String(active));
   });
   document.body.classList.toggle("print-builder", $("#view-jadual").classList.contains("active") && scheduleMode === "generator");
+}
+
+// The builder tab used to change nothing until builder.js had downloaded and Google Sheets had
+// answered, which reads as a dead button. The pane now switches on the press itself and reports
+// what it is waiting for.
+let builderOpening = false;
+function setBuilderBusy(busy, button = null) {
+  builderOpening = busy;
+  const tab = button || $('[data-schedule-mode="generator"]');
+  if (tab) {
+    tab.classList.toggle("is-busy", busy);
+    tab.setAttribute("aria-busy", String(busy));
+    // aria-disabled instead of disabled: a disabled control drops keyboard focus, so a keyboard
+    // user would lose their place while the pane they asked for is still opening.
+    tab.setAttribute("aria-disabled", String(busy));
+  }
+  $("#builderLoading")?.classList.toggle("hidden", !busy);
+  const status = $("#builderCloudStatus");
+  if (!status) return;
+  if (busy) { status.dataset.resting = status.textContent; status.textContent = "Menyediakan pembina jadual…"; return; }
+  // A failed open must not leave a line that reads like a fresh draft is ready to edit.
+  if (status.textContent === "Menyediakan pembina jadual…") {
+    status.textContent = builderReadyPromise ? (status.dataset.resting || "Draf baharu — simpan ke Sheets apabila siap") : "Pembina tidak dimuatkan — tekan tab sekali lagi untuk cuba semula";
+  }
+}
+
+// Fetching builder.js and the Sheets draft takes seconds on a school connection. Starting that when
+// the timetable screen is opened means the press only has to show the pane — while the login path
+// still loads no builder at all, which the login UI test pins down.
+function warmBuilder() {
+  if (!admin || window.jadualBuilder || builderReadyPromise) return;
+  if (navigator.connection?.saveData) return;
+  // iOS Safari has no saveData, so the slower networks are checked directly when they are reported.
+  const type = navigator.connection?.effectiveType;
+  if (type === "slow-2g" || type === "2g") return;
+  const start = () => Promise.resolve(ensureBuilder()).catch(() => {});
+  // Both are armed: an idle callback keeps the download off the first paint, and the timer is the
+  // guarantee, because a browser without a frame loop (headless, some embedded webviews) never
+  // runs an idle callback at all. ensureBuilder() is shared, so the second call is free.
+  if (window.requestIdleCallback) window.requestIdleCallback(start, { timeout: 4000 });
+  setTimeout(start, 2500);
 }
 
 function updateConnectionUi() {
@@ -1030,11 +1073,21 @@ function wireEvents() {
   $("#confirmBuilderPublish").addEventListener("click", publishBuilderSchedule);
   $$('[data-view]').forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
   $$('[data-schedule-mode]').forEach((button) => button.addEventListener("click", async () => {
-    if(button.dataset.scheduleMode==='generator') {
-      if(!requireAdmin()) return;
-      try {await ensureBuilder();} catch(error) {return toast(error.message,'error');}
+    const mode = button.dataset.scheduleMode;
+    if (mode !== "generator") { setScheduleMode(mode); return; }
+    if (!requireAdmin() || builderOpening) return;
+    // The pane answers the press before the builder script and the Sheets round trip start.
+    setScheduleMode(mode);
+    setBuilderBusy(true, button);
+    try { await ensureBuilder(); }
+    catch (error) {
+      // The builder is what was asked for, so the pane stays and says why it is empty: switching
+      // the tab back would pull the screen out from under the press.
+      const notice = $("#builderNotice");
+      if (notice) { notice.textContent = `${error.message} Tekan tab ini sekali lagi untuk cuba semula.`; notice.classList.remove("hidden"); }
+      toast(error.message, "error");
     }
-    setScheduleMode(button.dataset.scheduleMode);
+    finally { setBuilderBusy(false, button); }
   }));
   $$('[data-open-absence]').forEach((button) => button.addEventListener("click", openAbsenceDialog));
   $("#mobileSettings").addEventListener("click", () => showView("tetapan"));
@@ -1136,7 +1189,16 @@ function openLogin() {
   $('#loginApiUrl').value=config.apiUrl;$('#loginDialog').showModal();
   $('#loginPassword').focus();
 }
-async function ensureBuilder() {
+// One promise for the whole open, shared by the warm-up and the press: two callers must never
+// fetch the Sheets draft twice, and a failure must leave the next attempt free to try again.
+let builderReadyPromise = null;
+function ensureBuilder() {
+  if (!builderReadyPromise) {
+    builderReadyPromise = loadBuilder().catch((error) => { builderReadyPromise = null; throw error; });
+  }
+  return builderReadyPromise;
+}
+async function loadBuilder() {
   if (!window.jadualBuilder&&!builderLoadPromise) builderLoadPromise = new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`./builder.js?v=${APP_VERSION}`;script.onload=resolve;script.onerror=()=>{script.remove();builderLoadPromise=null;reject(new Error('Pembina gagal dimuatkan. Cuba lagi.'));};document.body.appendChild(script);});
   await builderLoadPromise;
   if(!admin||builderCloudLoaded) return;

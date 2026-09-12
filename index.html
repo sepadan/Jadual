@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.29">
-  <link rel="stylesheet" href="./builder.css?v=3.1.29">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.29">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.29"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
+  <link rel="stylesheet" href="./styles.css?v=3.1.30">
+  <link rel="stylesheet" href="./builder.css?v=3.1.30">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.30">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.30"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
 <body class="public-mode">
   <div class="app-shell">
@@ -100,6 +100,7 @@
           <button type="button" data-schedule-mode="relief" role="tab">Jadual aktif untuk relief</button>
         </div>
         <div id="schedule-generator-pane" class="schedule-pane admin-only hidden">
+          <p id="builderLoading" class="builder-loading hidden" role="status">Menyediakan pembina jadual…</p>
           <div class="builder-actions"><p id="builderCloudStatus">Draf belum disimpan ke Sheets</p><div><button class="button ghost" id="saveBuilderCloud">Simpan draf ke Sheets</button><button class="button ghost" id="loadBuilderCloud">Muat draf Sheets</button><button class="button ghost" id="syncBuilderTeachers">Ambil senarai guru</button><button class="button primary" id="useBuilderSchedule">Gunakan untuk relief →</button></div></div>
           <div id="builderNotice" class="alert hidden" role="alert"></div>
           <label class="builder-section-picker">Bahagian pembina<select id="builderSection"><option value="dash">Ruang bina jadual</option><option value="tetapan">Sekolah &amp; masa</option><option value="subjek">Subjek</option><option value="kelas">Kelas</option><option value="guru">Guru &amp; ketersediaan</option><option value="peruntukan">Peruntukan waktu</option><option value="agihan">Agihan guru</option><option value="acara">Slot tetap</option><option value="kekangan">Kekangan</option><option value="jana">Jana jadual</option><option value="lihat">Lihat &amp; edit</option><option value="cetak">Cetak / PDF</option><option value="data">Data &amp; sandaran</option><option value="bantuan">Panduan</option></select></label>
@@ -266,6 +267,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.29"></script>
+  <script type="module" src="./app.js?v=3.1.30"></script>
 </body>
 </html>
