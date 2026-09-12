@@ -324,6 +324,8 @@ Selain membaca jadual, admin boleh **membina** jadual dari kosong atau mengimpor
 | **Ambil senarai guru** | Menyelaraskan senarai guru pembina dengan senarai guru rasmi dalam tab **Guru**, termasuk pautan guru gantian (Personel MySTEP / Guru Praktikal). |
 | **Gunakan untuk relief →** | Menyemak jadual yang dijana (mesti sudah dijana dan tiada isu belum selesai), kemudian membuka dialog **"Gunakan untuk relief"** untuk mengesahkan nama versi dan **tarikh kuat kuasa** sebelum diaktifkan. |
 
+Cara membaca kad ini: draf pembina disimpan **pada peranti** semasa tuan bekerja, jadi menutup pelayar tidak menghilangkannya. **Simpan draf ke Sheets** ialah satu-satunya cara draf itu selamat melepasi peranti itu (telefon hilang, tukar komputer, atau dibuka oleh pentadbir lain) — ia **tidak** berlaku secara automatik. **Muat draf Sheets** jarang diperlukan kerana draf Sheets sudah dimuatkan sendiri semasa log masuk; gunakannya jika pentadbir lain mengubah draf di tempat lain. **Ambil senarai guru** perlu selepas tuan menambah atau menukar nama guru di tab **Guru** (penyelarasan automatik hanya berlaku apabila pembina masih belum ada guru). **Gunakan untuk relief** wajib dan tidak boleh dibuang — tanpanya jadual yang dibina tidak menjadi jadual rasmi yang digunakan oleh relief.
+
 ### 8.2 Draf pembina lawan jadual aktif — PERBEZAAN PALING PENTING
 
 **Draf pembina** dan **jadual aktif untuk relief** ialah **dua rekod yang berasingan**:
