@@ -193,9 +193,8 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 .schedule-cell span { margin-top: 5px; font-size: 12px; }
 .schedule-cell.free { background: #fafcfb; }
 
-/* Guru Pemulihan: the card's "Tetapan Jadual" button opens the teacher's own week and the empty
-   spaces are touched to claim setting periods. The table is wide, so it scrolls inside the dialog. */
-.mini-button.setting { width: auto; padding: 0 9px; font-size: 11px; font-weight: 750; white-space: nowrap; }
+/* Guru Pemulihan: the profile dialog's "Tetapan Jadual" button opens the teacher's own week and the
+   empty spaces are touched to claim setting periods. The table is wide, so it scrolls in the dialog. */
 #settingDialog { width: min(1040px, calc(100% - 24px)); padding: 25px; }
 .setting-grid { overflow-x: auto; margin: 14px 0 0; }
 .setting-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -303,12 +302,10 @@ dialog form { padding: 25px; }
   /* A 30px control is below the 40px touch target a school phone needs; both phone switchers
      carry the compact .segmented padding, so give the pair the same floor. */
   .relief-switch button, .schedule-switch button { min-height: 40px; }
-  /* The remedial teacher's card button is used with a thumb on a phone, so it gets the same floor.
-     That labelled button also needs its own line, or it squeezes the teacher's name to a column. */
-  .mini-button.setting { min-height: 40px; }
-  .teacher-card:has(.mini-button.setting) { grid-template-columns: minmax(0, 1fr); }
-  .teacher-card:has(.mini-button.setting) .teacher-actions { justify-content: flex-end; }
   .relief-switch button { flex: 1; }
+  /* The profile dialog carries the remedial teacher's "Tetapan Jadual" now. Its buttons are pressed
+     with a thumb, and the base .button padding only just reaches the 40px floor at this width. */
+  #teacherDialog .dialog-actions .button { min-height: 40px; }
   /* On a phone the tab row and the Eksport/Cetak row were fighting for one line and overlapped.
      Stack them: the buttons keep the desktop top-right position, the tabs keep the underline. */
   .relief-toolbar { flex-direction: column-reverse; align-items: stretch; gap: 0; }

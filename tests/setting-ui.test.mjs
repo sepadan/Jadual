@@ -14,12 +14,30 @@ test("the teacher profile offers Guru Pemulihan as a standard position", () => {
   assert.match(html, /<option>Guru Pemulihan<\/option>/, "the position cannot be chosen on the teacher card");
 });
 
-test("the teacher card offers the timetable button, and only for a remedial teacher", () => {
+// The button belongs to the profile dialog now, never to the card face: a card that carries it again
+// would put a labelled button in the row of icon buttons the whole list shares.
+test("the card no longer offers the timetable button", () => {
   const card = app.slice(app.indexOf("function renderTeachers"), app.indexOf("function renderTeacherRestoreNotices"));
-  assert.match(card, /teacher\.position === "Guru Pemulihan"/, "the button is not gated on the role");
-  assert.match(card, /data-setting-slots="\$\{esc\(teacher\.id\)\}"/, "the button does not carry the teacher id");
-  assert.match(card, /Tetapan Jadual/, "the button label is missing from the card");
-  assert.match(card, /\[data-setting-slots\]'\)\.forEach\(\(button\) => button\.addEventListener\("click", \(\) => openSettingDialog\(button\.dataset\.settingSlots\)\)\)/, "the card button is not wired");
+  assert.doesNotMatch(card, /data-setting-slots/, "the button is back on the card face");
+  assert.match(card, /<div class="teacher-actions"><button class="mini-button" data-edit-teacher=/, "the edit button was lost with it");
+});
+
+test("the profile dialog holds the timetable button, and only for a saved remedial teacher", () => {
+  const dialog = html.slice(html.indexOf('id="teacherDialog"'), html.indexOf('id="settingDialog"'));
+  assert.match(dialog, /<button type="button" class="button ghost hidden" id="teacherSettingSlots"/, "the button is missing from the profile or starts visible");
+  assert.match(dialog, /tetapan jadual/i, "the button has no label");
+  const toggle = app.slice(app.indexOf("function toggleTeacherSettingButton"), app.indexOf("function currentTeacherPosition"));
+  assert.match(toggle, /db\.teachers\.find\(\(item\) => item\.id === \$\("#teacherId"\)\.value\)/, "a brand-new teacher would be offered the button before it is saved");
+  assert.match(toggle, /currentTeacherPosition\(\) !== "Guru Pemulihan"/, "a teacher of another jawatan would be offered the button");
+  assert.match(app, /toggleTeacherSettingButton\(\);\s*\n\s*populatePreschoolReliefTimes/, "the button is not refreshed when the profile opens");
+  assert.match(app, /\$\('#teacherPosition'\)\.addEventListener\('change',[\s\S]*toggleTeacherSettingButton\(\);/, "choosing Guru Pemulihan in the dropdown does not reveal the button");
+});
+
+test("opening the grid from the profile closes the profile first", () => {
+  const wiring = app.slice(app.indexOf("$('#teacherSettingSlots').addEventListener"), app.indexOf("$('#downloadTeachers').addEventListener"));
+  assert.match(wiring, /\$\('#teacherDialog'\)\.close\(\)/, "a second dialog would stack on top of the profile");
+  assert.ok(wiring.indexOf("$('#teacherId').value") < wiring.indexOf("openSettingDialog(id)"), "the grid opens for the wrong teacher");
+  assert.match(wiring, /if\(!id\) return;/, "an unsaved profile could open the grid for nobody");
 });
 
 test("the weekly dialog exists with its grid and its controls", () => {
@@ -75,9 +93,9 @@ test("the offline shell carries the new module so a phone can load it", () => {
   assert.match(sw, /"\.\/setting-slots\.js\?v=[\d.]+"/, "setting-slots.js is missing from the service-worker cache list");
 });
 
-test("the card button is big enough for a thumb on a phone", () => {
+test("the profile dialog's buttons are big enough for a thumb on a phone", () => {
   // Slice from the phone block itself: an earlier comment mentions @media print, so search forward.
   const start = css.indexOf("@media (max-width: 760px)");
   const mobile = css.slice(start, start + css.slice(start).indexOf("@media print"));
-  assert.match(mobile, /\.mini-button\.setting \{ min-height: 40px; \}/, "the remedial teacher's card button is below the phone touch target");
+  assert.match(mobile, /#teacherDialog \.dialog-actions \.button \{ min-height: 40px; \}/, "the remedial teacher's button is below the phone touch target");
 });

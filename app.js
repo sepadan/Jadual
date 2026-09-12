@@ -1,14 +1,14 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.36";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.36";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.36";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.36";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.36";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.36";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.36';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.36';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.36';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.36';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.36';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.37";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.37";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.37";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.37";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.37";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.37";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.37';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.37';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.37';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.37';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.37';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -472,10 +472,9 @@ function renderTeachers() {
     <button type="button" class="teacher-card-toggle" data-toggle-relief="${esc(teacher.id)}" aria-pressed="${teacherReliefReady(teacher)}" title="Tukar kelayakan relief ${esc(teacher.name)}">
       <span class="avatar">${esc(initials(teacher.name))}</span><span class="teacher-card-copy"><span class="teacher-name">${esc(teacher.name)}</span><span class="teacher-status">${esc(teacher.position)} · ${esc(teacherReliefStatus(teacher))}</span>${coverLine(teacher)}</span>
     </button>
-    <div class="teacher-actions">${teacher.position === "Guru Pemulihan" ? `<button class="mini-button setting" data-setting-slots="${esc(teacher.id)}" title="Buka jadual mingguan untuk menanda masa pemulihan">Tetapan Jadual</button>` : ""}<button class="mini-button" data-edit-teacher="${esc(teacher.id)}" title="Ubah">✎</button><button class="mini-button delete" data-delete-teacher="${esc(teacher.id)}" title="Padam">×</button></div>
+    <div class="teacher-actions"><button class="mini-button" data-edit-teacher="${esc(teacher.id)}" title="Ubah">✎</button><button class="mini-button delete" data-delete-teacher="${esc(teacher.id)}" title="Padam">×</button></div>
   </article>`).join("");
   $$('[data-toggle-relief]').forEach((button) => button.addEventListener("click", () => toggleTeacherReliefEligibility(button.dataset.toggleRelief)));
-  $$('[data-setting-slots]').forEach((button) => button.addEventListener("click", () => openSettingDialog(button.dataset.settingSlots)));
   $$('[data-edit-teacher]').forEach((button) => button.addEventListener("click", () => openTeacherDialog(button.dataset.editTeacher)));
   $$('[data-delete-teacher]').forEach((button) => button.addEventListener("click", () => removeTeacherRecord(button.dataset.deleteTeacher)));
 }
@@ -785,12 +784,20 @@ function openTeacherDialog(id = "") {
   positionSelect.value=standard?position:'__other__';
   $('#teacherPositionOther').value=standard?'':position;
   toggleTeacherPositionOther();
+  toggleTeacherSettingButton();
   populatePreschoolReliefTimes(teacher?.preschoolEndTime || "");
   togglePreschoolEndTime();
   coverDraft = coverList(teacher || {}).map((entry) => ({ teacherId: entry.teacherId, all: !entry.subjects.length, subjects: entry.subjects }));
   renderTeacherCover();
   $("#teacherEligible").checked = teacher?.reliefEligible ?? true;
   $("#teacherDialog").showModal();
+}
+
+// The remedial teacher's week is set up from the profile dialog, not from the card face: only a
+// saved teacher whose jawatan is "Guru Pemulihan" can claim setting periods.
+function toggleTeacherSettingButton() {
+  const teacher = db.teachers.find((item) => item.id === $("#teacherId").value);
+  $("#teacherSettingSlots").classList.toggle("hidden", !teacher || currentTeacherPosition() !== "Guru Pemulihan");
 }
 
 function currentTeacherPosition() {
@@ -1240,10 +1247,17 @@ function wireEvents() {
   $$('[data-close-absence]').forEach(button=>button.addEventListener('click',()=>$('#absenceDialog').close()));
   $("#addTeacher").addEventListener("click", () => openTeacherDialog());
   $("#teacherForm").addEventListener("submit", saveTeacherRecord);
-  $('#teacherPosition').addEventListener('change',()=>{toggleTeacherPositionOther();togglePreschoolEndTime();renderTeacherCover();});
-  $('#teacherPositionOther').addEventListener('input',renderTeacherCover);
+  $('#teacherPosition').addEventListener('change',()=>{toggleTeacherPositionOther();togglePreschoolEndTime();renderTeacherCover();toggleTeacherSettingButton();});
+  $('#teacherPositionOther').addEventListener('input',()=>{renderTeacherCover();toggleTeacherSettingButton();});
   $('#teacherCoverAdd').addEventListener('click',()=>{ syncCoverDraft(); coverDraft.push({ teacherId:'', all:true, subjects:[] }); renderCoverRows(); });
   $$('[data-close-teacher]').forEach(button=>button.addEventListener('click',()=>$('#teacherDialog').close()));
+  // The setting grid is opened from the profile, so the profile closes first instead of stacking dialogs.
+  $('#teacherSettingSlots').addEventListener('click',()=>{
+    const id=$('#teacherId').value;
+    if(!id) return;
+    $('#teacherDialog').close();
+    openSettingDialog(id);
+  });
   $('#downloadTeachers').addEventListener('click',()=>{
     if(!requireAdmin()) return;
     const url=URL.createObjectURL(new Blob([exportTeachers(db.teachers)],{type:'application/json'}));
