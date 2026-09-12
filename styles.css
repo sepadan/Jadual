@@ -76,7 +76,8 @@ p { color: var(--muted); line-height: 1.55; }
    (the builder's own menu and the relief sub-tabs included) plus the file drop zone, which is a
    label: listing classes one by one had already missed two of them. */
 button:active:not(:disabled), .dropzone:active {
-  transform: translateY(1px) scale(.985);
+  /* Nudge only: a fractional scale leaves the label blurry for a frame on 1x school monitors. */
+  transform: translateY(1px);
   /* Opacity stays on the compositor: a brightness filter would force an off-screen raster pass on
      every press, which is exactly the wrong cost on the low-end Android phones the school uses. */
   opacity: .88;
@@ -87,8 +88,9 @@ button:active:not(:disabled), .dropzone:active {
 .segmented button.active:active { background: #f1f6f4; }
 /* A tab that has started work keeps the press visible until the pane it opened is ready. */
 .schedule-switch button { position: relative; }
-.schedule-switch button.is-busy { color: var(--ink); }
-.schedule-switch button.is-busy::after {
+/* Every control that has started work keeps the press visible until what it opened is ready. */
+button.is-busy { position: relative; color: var(--ink); }
+button.is-busy::after {
   /* Pinned to the corner: adding it to the text flow would shove the label around inside a narrow
      tab, which is a layout shift right under the thumb that pressed it. */
   content: ""; position: absolute; top: 5px; right: 7px; width: 10px; height: 10px;

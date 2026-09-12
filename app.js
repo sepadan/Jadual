@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.30";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.30";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.30";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.30";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.30";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.30";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.30';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.30';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.30';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.30';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.31";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.31";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.31";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.31";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.31";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.31";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.31';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.31';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.31';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.31';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -228,6 +228,14 @@ function setBuilderBusy(busy, button = null) {
   if (status.textContent === "Menyediakan pembina jadual…") {
     status.textContent = builderReadyPromise ? (status.dataset.resting || "Draf baharu — simpan ke Sheets apabila siap") : "Pembina tidak dimuatkan — tekan tab sekali lagi untuk cuba semula";
   }
+}
+
+// One failure path for every way into the builder: the screen the press opened stays, and the reason
+// it is empty is written where the missing content would be.
+function showBuilderFailure(error) {
+  const notice = $("#builderNotice");
+  if (notice) { notice.textContent = `${error.message} Tekan sekali lagi untuk cuba semula.`; notice.classList.remove("hidden"); }
+  toast(error.message, "error");
 }
 
 // Fetching builder.js and the Sheets draft takes seconds on a school connection. Starting that when
@@ -1067,7 +1075,14 @@ function wireEvents() {
   $("#scheduleType").addEventListener("change",()=>{renderTeacherLists();renderSchedule();});
   $("#builderSection").addEventListener("change", event => window.jadualBuilder.go(event.target.value));
   document.addEventListener("builder-view", event => { $("#builderSection").value = event.detail; });
-  $$('[data-builder-open]').forEach(button => button.addEventListener("click", async () => { if (!requireAdmin()) return; await ensureBuilder(); setScheduleMode("generator"); showView("jadual"); window.jadualBuilder.go(button.dataset.builderOpen); }));
+  $$('[data-builder-open]').forEach(button => button.addEventListener("click", async () => {
+    if (!requireAdmin() || builderOpening) return;
+    // Same rule as the tab: answer the press by switching, then load, and report while waiting.
+    setScheduleMode("generator"); showView("jadual"); setBuilderBusy(true, button);
+    try { await ensureBuilder(); window.jadualBuilder.go(button.dataset.builderOpen); }
+    catch (error) { showBuilderFailure(error); }
+    finally { setBuilderBusy(false, button); }
+  }));
   $("#syncBuilderTeachers").addEventListener("click", () => { const count = window.jadualBuilder.mergeTeachers(db.teachers); toast(`${count} profil guru diselaraskan. Semak agihan guru sebelum menjana.`, "success"); });
   $("#useBuilderSchedule").addEventListener("click", previewBuilderSchedule);
   $("#confirmBuilderPublish").addEventListener("click", publishBuilderSchedule);
@@ -1083,9 +1098,7 @@ function wireEvents() {
     catch (error) {
       // The builder is what was asked for, so the pane stays and says why it is empty: switching
       // the tab back would pull the screen out from under the press.
-      const notice = $("#builderNotice");
-      if (notice) { notice.textContent = `${error.message} Tekan tab ini sekali lagi untuk cuba semula.`; notice.classList.remove("hidden"); }
-      toast(error.message, "error");
+      showBuilderFailure(error);
     }
     finally { setBuilderBusy(false, button); }
   }));
@@ -1270,9 +1283,14 @@ async function saveBuilderCloud() {
 }
 function wireAdminEvents() {
   $('#pdfToBuilder').addEventListener('click',async()=>{
-    if(!requireAdmin()||!importResult?.rows.length) return;
+    if(!requireAdmin()||!importResult?.rows.length||builderOpening) return;
+    const pdfButton=$('#pdfToBuilder');
+    setBuilderBusy(true,pdfButton);
     try {
       await ensureBuilder();
+    } catch(error) { setBuilderBusy(false,pdfButton); showBuilderFailure(error); return; }
+    setBuilderBusy(false,pdfButton);
+    try {
       if(!confirm('Gantikan draf pembina semasa dengan jadual PDF yang dipadankan? Jadual aktif tidak berubah sehingga anda mengaktifkannya.')) return;
       const metadata={
         ...(importResult.metadata||{}),

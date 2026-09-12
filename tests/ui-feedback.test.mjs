@@ -13,8 +13,12 @@ test("every pressable control answers the press", () => {
   // answers the press — the previous list had already missed the builder menu and the relief tabs.
   const generic = css.match(/button:active[^{]*\{[^}]*\}/);
   assert.ok(generic, "buttons have no :active rule, so a press changes nothing");
-  assert.match(generic[0], /transform/, "the pressed control does not move under the finger");
-  assert.match(generic[0], /filter|opacity|background/, "the pressed control does not change colour");
+  assert.match(generic[0], /transform/, "the pressed button does not move");
+  // A fractional scale re-rasterises the label and reads as blur on the 1x monitors in school.
+  assert.equal(/scale\(/.test(generic[0]), false, "the pressed rule scales the label and blurs it");
+  assert.match(generic[0], /filter|opacity|background/, "the pressed button does not change colour");
+  // Every entry point into the builder, not just the timetable tab, has to report that it is working.
+  assert.match(css, /button\.is-busy::after/, "only the timetable tab knows how to show that it is busy");
   const dropzone = css.match(/\.dropzone:active[^{]*\{[^}]*\}/);
   assert.ok(dropzone, "the file drop zone is a label, so it needs its own :active rule");
   // The generic rule reaches <button> elements only, so every pressable class must be one. Cards
@@ -66,16 +70,19 @@ test("the warm-up and the press share one builder open", () => {
 test("a failed open keeps the pane and says how to retry", () => {
   const start = app.indexOf("$$('[data-schedule-mode]').forEach((button) => button.addEventListener");
   const handler = app.slice(start, app.indexOf("\n  $$('[data-open-absence]')", start));
-  assert.match(handler, /builderNotice/, "the failure is not shown in the pane it opened");
-  assert.match(handler, /cuba semula/, "the user is not told how to try again");
+  assert.match(handler, /showBuilderFailure\(error\)/, "the press fails without explaining itself");
   assert.equal(/setScheduleMode\("relief"\)/.test(handler), false, "a failed press pulls the pane away");
+  // The explanation itself lives in one helper so every entry point fails the same way.
+  const helper = app.slice(app.indexOf("function showBuilderFailure"), app.indexOf("function warmBuilder"));
+  assert.match(helper, /builderNotice/, "the failure is not shown in the pane it opened");
+  assert.match(helper, /cuba semula/, "the user is not told how to try again");
 });
 
 test("the builder pane says what is happening while it loads", () => {
   assert.ok(html.includes('id="builderLoading"'), "there is no loading line inside the builder pane");
   assert.match(app, /function setBuilderBusy\(\w+, \w+ = null\)/, "the busy helper is missing");
   assert.match(app, /aria-busy/, "the pressed control is not announced as busy");
-  assert.match(css, /\.schedule-switch button\.is-busy/, "the busy tab has no spinner");
+  assert.match(css, /button\.is-busy::after/, "a control that started work has no spinner");
 });
 
 test("the builder is warmed when the timetable screen opens, not at login", () => {
@@ -94,4 +101,20 @@ test("a failed load says so instead of offering a draft", () => {
   const busy = app.slice(app.indexOf("function setBuilderBusy("), app.indexOf("function warmBuilder("));
   assert.match(busy, /builderReadyPromise \?/, "the status line cannot tell a fresh draft from a failed load");
   assert.match(busy, /Pembina tidak dimuatkan/, "a failed load still reads as a ready draft");
+});
+
+// Every way into the builder, not only the timetable tab, must answer its own press.
+test("the other ways into the builder report the wait too", () => {
+  for (const [marker, end, label] of [
+    ["$$('[data-builder-open]')", "\n  $(\"#syncBuilderTeachers\")", "the builder-open buttons"],
+    ["$('#pdfToBuilder')", "\n  $('#loginButton')", "the PDF draft button"],
+  ]) {
+    const handler = app.slice(app.indexOf(marker), app.indexOf(end, app.indexOf(marker)));
+    assert.ok(handler.length > 40, `${label} handler not found`);
+    const busyAt = handler.indexOf("setBuilderBusy(true");
+    const loadAt = handler.indexOf("await ensureBuilder()");
+    assert.ok(busyAt >= 0 && loadAt > busyAt, `${label} wait for the network before showing they are working`);
+    assert.match(handler, /showBuilderFailure\(error\)/, `${label} fail silently in the pane`);
+    assert.match(handler, /setBuilderBusy\(false/, `${label} never clear their busy state`);
+  }
 });
