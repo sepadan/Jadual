@@ -197,7 +197,6 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 .module-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .module-head strong { display: block; margin-bottom: 4px; }
 .module-head p { margin: 0; font-size: 12px; }
-.module-frame { display: block; width: 100%; height: calc(100vh - 245px); min-height: 680px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
 .import-layout, .settings-grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 18px; align-items: start; }
 .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .panel { padding: 25px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: 0 5px 18px rgba(17,48,42,.04); }
@@ -243,7 +242,6 @@ dialog form { padding: 25px; }
 .toast { position: fixed; right: 24px; bottom: 24px; z-index: 100; max-width: 370px; padding: 13px 16px; border-radius: 11px; color: #fff; background: #1e3732; box-shadow: var(--shadow); font-size: 12px; font-weight: 650; opacity: 0; transform: translateY(12px); pointer-events: none; transition: .2s ease; }
 .toast.show { opacity: 1; transform: translateY(0); }
 .bottom-nav { display: none; }
-.mobile-only { display: none; }
 .hidden { display: none !important; }
 
 @media (max-width: 1050px) {
@@ -254,7 +252,6 @@ dialog form { padding: 25px; }
 
 @media (max-width: 760px) {
   .sidebar { display: none; }
-  .mobile-only { display: grid; }
   main { margin-left: 0; padding: 0 16px 92px; }
   .topbar { padding: 19px 0 16px; }
   .top-actions .button.primary { width: 43px; overflow: hidden; padding: 10px 13px; white-space: nowrap; }
@@ -281,6 +278,9 @@ dialog form { padding: 25px; }
      .segmented{display:none} rule above used to delete it — and with it every route to the
      Preview panel — on phones. Restore it exactly like the schedule switcher. */
   .relief-switch { display: flex; width: 100%; }
+  /* A 30px control is below the 40px touch target a school phone needs; both phone switchers
+     carry the compact .segmented padding, so give the pair the same floor. */
+  .relief-switch button, .schedule-switch button { min-height: 40px; }
   .relief-switch button { flex: 1; }
   /* On a phone the tab row and the Eksport/Cetak row were fighting for one line and overlapped.
      Stack them: the buttons keep the desktop top-right position, the tabs keep the underline. */
@@ -290,7 +290,6 @@ dialog form { padding: 25px; }
   .relief-preview .relief-print-heading { flex-direction: column; gap: 8px; }
   .module-head { align-items: stretch; flex-direction: column; }
   .module-head .button { text-align: center; }
-  .module-frame { height: 72vh; min-height: 560px; border-radius: 12px; }
   /* The bar holds as many buttons as the viewer may use (2 to 4), so the visible ones share the
      width instead of sitting in the first columns of a fixed five-column grid. */
   .bottom-nav { position: fixed; inset: auto 0 0; z-index: 30; display: flex; align-items: stretch; padding: 7px 6px calc(7px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(255,255,255,.96); backdrop-filter: blur(14px); }

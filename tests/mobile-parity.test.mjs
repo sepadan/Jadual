@@ -60,6 +60,16 @@ test("the relief switcher keeps both views reachable on a phone", () => {
   assert.ok(app.includes("$('#reliefPanelPreview')"), "the preview panel is no longer toggled");
 });
 
+// The compact .segmented padding leaves a 30px control, which is under the 40px touch target a
+// phone in a school corridor needs. Both phone switchers carry the same floor.
+test("the phone switchers meet the minimum touch target", () => {
+  const rule = ruleFor(mobile, ".relief-switch button, .schedule-switch button")
+    || ruleFor(mobile, ".schedule-switch button, .relief-switch button");
+  assert.ok(rule, "the phone switchers lost their shared touch-target rule");
+  const min = Number((rule.match(/min-height:\s*(\d+)px/) || [])[1]);
+  assert.ok(min >= 40, `the phone switcher touch target dropped to ${min || 0}px`);
+});
+
 test("the relief toolbar stacks on a phone so the tabs and the buttons cannot overlap", () => {
   const toolbar = ruleFor(mobile, ".relief-toolbar");
   assert.ok(toolbar, ".relief-toolbar has no phone rule");
