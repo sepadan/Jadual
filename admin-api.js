@@ -1,4 +1,7 @@
-import { SITE_CONFIG } from './site-config.js?v=3.1.46';
+import { SITE_CONFIG } from './site-config.js?v=3.1.47';
+// Pembina (~1 MB) mengambil beberapa saat untuk dihantar pada sambungan sekolah. Pelayar yang
+// boleh membuka gzip menerima badan yang dimampatkan; yang lama terus dapat JSON biasa.
+const GZIP_CAPABLE = typeof DecompressionStream === 'function' && typeof Response === 'function';
 const CONFIG_KEY='relief-skpr-config-v1';
 export function loadConfig() {
   let saved={};try {saved=JSON.parse(localStorage.getItem(CONFIG_KEY)||'{}');} catch {}
@@ -12,10 +15,10 @@ export class ApiClient {
   async request(action,data={},privateRequest=false) {
     if(!this.isConfigured()) throw new Error('Sambungan sekolah belum disediakan. Masukkan URL Apps Script sekolah.');
     if(privateRequest&&!this.token) throw new Error('Sila login sebagai admin.');
-    const body=JSON.stringify({action,data,token:privateRequest?this.token:undefined});
+    const body=JSON.stringify({action,data,token:privateRequest?this.token:undefined,gz:GZIP_CAPABLE?1:0});
     return this.readResponse(await fetch(this.config.apiUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body,redirect:'follow',keepalive:body.length<60000}));
   }
-  async health() {if(!this.isConfigured()) throw new Error('URL Apps Script belum ditetapkan.');return this.readResponse(await fetch(`${this.config.apiUrl}?action=health`,{cache:'no-store'}));}
+  async health() {if(!this.isConfigured()) throw new Error('URL Apps Script belum ditetapkan.');return this.readResponse(await fetch(`${this.config.apiUrl}?action=health${GZIP_CAPABLE?'&gz=1':''}`,{cache:'no-store'}));}
   async publicData(revision, day) {
     if(!this.isConfigured()) throw new Error('Sambungan sekolah belum disediakan.');
     const since=Number(revision);
@@ -24,9 +27,9 @@ export class ApiClient {
     // The payload depends on the calendar day: a timetable version takes effect at midnight.
     if(/^\d{4}-\d{2}-\d{2}$/.test(String(day||''))) parts.push(`day=${day}`);
     const query=parts.length?`&${parts.join('&')}`:'';
-    return this.readResponse(await fetch(`${this.config.apiUrl}?action=public${query}`,{cache:'no-store'}));
+    return this.readResponse(await fetch(`${this.config.apiUrl}?action=public${query}${GZIP_CAPABLE?'&gz=1':''}`,{cache:'no-store'}));
   }
-  async status() {if(!this.isConfigured()) throw new Error('Sambungan sekolah belum disediakan.');return this.readResponse(await fetch(`${this.config.apiUrl}?action=status`,{cache:'no-store'}));}
+  async status() {if(!this.isConfigured()) throw new Error('Sambungan sekolah belum disediakan.');return this.readResponse(await fetch(`${this.config.apiUrl}?action=status${GZIP_CAPABLE?'&gz=1':''}`,{cache:'no-store'}));}
   // Login returns a session only: pulling the whole school database inside the login request is
   // what made logging in wait on six sheet reads. The app shows its cached view at once and loads
   // the private data in the background.
@@ -37,6 +40,18 @@ export class ApiClient {
   write(action,data) {return this.request(action,data,true);}
   async readResponse(response) {
     if(!response.ok) throw new Error(`Sambungan gagal (${response.status}).`);
-    const data=await response.json();if(!data.ok) {const error=new Error(data.error||'Operasi gagal.');error.code=data.code;throw error;}return data;
+    let data=await response.json();
+    if(data&&data.gz) data=await inflatePayload(data.gz);
+    if(!data.ok) {const error=new Error(data.error||'Operasi gagal.');error.code=data.code;throw error;}return data;
   }
+}
+
+// Apps Script tidak boleh memampatkan badan sendiri, jadi ia menghantar base64 gzip dan pelayar
+// membukanya di sini.
+async function inflatePayload(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  const text = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return JSON.parse(text);
 }

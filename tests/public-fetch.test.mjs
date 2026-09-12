@@ -16,15 +16,15 @@ function client() {
 test("a visitor with no cached revision asks for the whole payload once", async () => {
   const { api, calls } = client();
   await api.publicData();
-  assert.deepEqual(calls, [`${API}?action=public`]);
+  assert.deepEqual(calls, [`${API}?action=public&gz=1`]);
 });
 
 test("a visitor who already holds a revision asks the server to confirm it", async () => {
   const { api, calls } = client();
   await api.publicData(41, "2026-09-11");
-  assert.deepEqual(calls, [`${API}?action=public&revision=41&day=2026-09-11`]);
+  assert.deepEqual(calls, [`${API}?action=public&revision=41&day=2026-09-11&gz=1`]);
   await api.publicData(41, "bukan-tarikh");
-  assert.deepEqual(calls[1], `${API}?action=public&revision=41`);
+  assert.deepEqual(calls[1], `${API}?action=public&revision=41&gz=1`);
 });
 
 test("an unusable revision is ignored instead of sent", async () => {
@@ -33,7 +33,7 @@ test("an unusable revision is ignored instead of sent", async () => {
   await api.publicData(undefined);
   await api.publicData("abc");
   await api.publicData(-3);
-  assert.deepEqual(calls, [`${API}?action=public`, `${API}?action=public`, `${API}?action=public`, `${API}?action=public`]);
+  assert.deepEqual(calls, [`${API}?action=public&gz=1`, `${API}?action=public&gz=1`, `${API}?action=public&gz=1`, `${API}?action=public&gz=1`]);
 });
 
 test("an unchanged reply is not mistaken for data", async () => {

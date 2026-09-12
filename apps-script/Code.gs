@@ -89,9 +89,10 @@ function database_() {
 
 function doGet(e) {
   resetRequestCache_();
+  GZIP_REQUEST_ = wantsGzip_(e && e.parameter);
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.46", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.47", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -106,6 +107,7 @@ function doPost(e) {
   resetRequestCache_();
   try {
     var request = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    GZIP_REQUEST_ = wantsGzip_(request);
     if(request.action==='login') {
       var login=login_(request.data||{});
       if(request.data&&request.data.includeBootstrap) {
@@ -586,6 +588,22 @@ function audit_(action, recordId, details) {
   if (sheet.getLastRow() > AUDIT_MAX_ROWS_ + 1) sheet.deleteRows(2, AUDIT_TRIM_ROWS_);
 }
 
+// Badan ~1 MB mengambil beberapa saat untuk dihantar pada sambungan sekolah, jadi klien yang
+// menyatakan sokongan (gz:1) menerima gzip base64; klien lama terus menerima JSON biasa.
+var GZIP_REQUEST_ = false;
+function wantsGzip_(source) {
+  var raw = source && source.gz;
+  return raw === 1 || raw === '1' || raw === true || raw === 'true';
+}
 function output_(payload) {
-  return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(ContentService.MimeType.JSON);
+  var json = JSON.stringify(payload);
+  if (GZIP_REQUEST_) {
+    try {
+      var bytes = Utilities.gzip(Utilities.newBlob(json, 'application/json')).getBytes();
+      return ContentService.createTextOutput(JSON.stringify({ gz: Utilities.base64Encode(bytes) })).setMimeType(ContentService.MimeType.JSON);
+    } catch (error) {
+      // Pemampatan gagal: hantar JSON biasa supaya pelanggan tidak menerima muka surat kosong.
+    }
+  }
+  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
