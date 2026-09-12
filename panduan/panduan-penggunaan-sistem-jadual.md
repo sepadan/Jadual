@@ -581,7 +581,15 @@ Sesetengah simpanan — terutamanya menyimpan **masa tetapan guru pemulihan** �
 - Semak semula kelayakan relief guru yang bercuti panjang atau bertugas luar.
 - Semak tab **Jadual** bagi guru yang mempunyai masa tetapan — pastikan tandanya masih betul.
 
-### 15.3 Sekali sekala (awal sesi atau bila jadual berubah)
+### 15.3 Tabiat sebelum menerbitkan jadual (elak jadual lama kembali aktif)
+
+Jadual lama boleh jadi aktif semula **tanpa amaran** jika satu tulisan tertunda mendarat lewat: contohnya tuan menerbitkan jadual malam ini, tulisan itu tersangkut kerana sambungan terputus, lalu peranti menghantarnya sendiri pagi esok. Baris kedua-dua versi tetap ada di Sheets (boleh dipulihkan dengan terbit semula), tetapi sehingga perasan, sekolah memakai jadual lama. Tiga tabiat ini menutup hampir semua kejadian itu:
+
+1. Sebelum menutup aplikasi atau menerbitkan, pastikan penunjuk segerak menunjukkan **Google Sheets · masa nyata**. Jika ia berkata **menunggu Sheets**, ada tulisan tertunda yang akan mendarat lewat.
+2. **Muat semula** tab atau peranti yang sudah lama terbuka sebelum menekan **Gunakan untuk relief →** — halaman yang dimuat semula sentiasa menarik jadual terkini.
+3. Jika baris status kad **Draf** berkata **"Draf peranti ini digunakan"**, putuskan dahulu: **Simpan draf ke Sheets** (naikkan kerja peranti ini) atau **Muat draf Sheets** (ambil salinan awan). Jangan terus terbitkan.
+
+### 15.4 Sekali sekala (awal sesi atau bila jadual berubah)
 
 1. Terima/sediakan jadual baharu (Pembina atau Import PDF).
 2. **Semak** draf — pastikan kelas, subjek dan guru betul.
