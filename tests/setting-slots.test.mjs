@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PERIODS } from "../data.js";
-import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, settingGridModel, settingKey, settingSelectionFromRows, settingSignature } from "../setting-slots.js";
+import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, settingKey, settingSelectionFromRows, settingSignature } from "../setting-slots.js";
 
 const VERSION = "v1";
 const lesson = { versionId: VERSION, teacherId: "t1", day: "JUM", period: 3, startTime: "08:30", endTime: "09:00", subject: "BA", className: "3 BIJAK" };
@@ -44,18 +44,8 @@ test("only a PEMULIHAN duty row counts as a setting row", () => {
   assert.equal(isSettingRow(importedDuty), false, "a duty row imported from a PDF is not a setting row");
 });
 
-test("the weekly grid separates lessons, claimed periods and free spaces", () => {
-  const model = settingGridModel({ rows, teacherId: "t1", periods: PERIODS });
-  const at = (day, period) => model.cells.find((cell) => cell.day === day && cell.period === period);
-  assert.equal(model.cells.length, 5 * PERIODS.length);
-  assert.equal(at("JUM", 3).state, "lesson");
-  assert.equal(at("JUM", 3).subject, "BA");
-  assert.equal(at("IS", 1).state, "setting");
-  assert.equal(at("SEL", 2).state, "lesson", "an imported duty row keeps the period out of reach");
-  assert.equal(at("IS", 4).state, "free");
-  assert.equal(at("IS", 1).startTime, "07:30", "the grid carries the official clock of the period");
-});
-
+// The grid that used to be asserted here is now built by week-view.js, which owns the cell states;
+// setting-grid.test covers the part that matters for claiming: occupied cells stay out of reach.
 test("the dialog opens with this teacher's claimed periods already ticked", () => {
   assert.deepEqual(settingSelectionFromRows({ rows, teacherId: "t1" }), [settingKey("IS", 1)]);
   assert.deepEqual(settingSelectionFromRows({ rows: [{ ...oldSetting, versionId: "v2" }], teacherId: "t1" }), [settingKey("IS", 1)]);

@@ -1,4 +1,4 @@
-import { DAY_CODES } from "./data.js?v=3.1.38";
+import { DAY_CODES } from "./data.js?v=3.1.39";
 
 // A Guru Pemulihan's own setting periods ("masa tetapan") belong to no class and no subject, so
 // they are stored the same way as the builder's fixed activities and the duty cells read from an
@@ -36,35 +36,6 @@ export function settingSignature({ rows, versionId }) {
     ].join("|"))
     .sort();
   return `${parts.length}~${parts.join(";")}`;
-}
-
-// One entry per school day and period: "lesson" (a real class, not touchable), "setting" (already
-// claimed) or "free" (touchable). A period the teacher teaches is never offered for setting.
-export function settingGridModel({ rows, teacherId, periods = [] }) {
-  const byKey = new Map();
-  for (const row of rows || []) {
-    if (row.teacherId !== teacherId) continue;
-    const key = settingKey(row.day, row.period);
-    if (!byKey.has(key)) byKey.set(key, row);
-  }
-  const cells = [];
-  for (const day of SETTING_DAYS) {
-    for (const period of periods) {
-      const number = Number(period.period ?? period);
-      const row = byKey.get(settingKey(day, number));
-      cells.push({
-        day,
-        dayName: settingDayName(day),
-        period: number,
-        startTime: period.startTime || "",
-        endTime: period.endTime || "",
-        state: !row ? "free" : isSettingRow(row) ? "setting" : "lesson",
-        subject: row?.subject || "",
-        className: row?.className || "",
-      });
-    }
-  }
-  return { days: SETTING_DAYS, periods: periods.map((period) => Number(period.period ?? period)), cells };
 }
 
 // Writes the touched cells back into the timetable: this teacher's previous setting rows in that

@@ -184,47 +184,43 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 .teacher-actions { display: flex; gap: 4px; }
 .mini-button { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: #fff; }
 .mini-button.delete:hover { color: var(--danger); border-color: #e8b9bd; }
-.schedule-grid { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-/* A teacher's whole week: periods down the side, the five school days across the top. Fixed layout,
-   because the day columns must share the width evenly at 390px instead of following their content. */
-.week-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 11px; }
-.week-table th, .week-table td { padding: 6px 5px; border: 1px solid var(--line); text-align: center; vertical-align: middle; }
-.week-table thead th { background: #eef6f3; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
-.week-table thead th.today { color: #fff; background: var(--green-800); }
-/* The first column is the day label; with table-layout: fixed the browser reads the widths off the
-   first row, so the width has to sit on the header cell as well as the row heading. */
-.week-table thead th:first-child, .week-table tbody th { width: 62px; background: #f7faf9; font-weight: 700; }
-.week-table tbody th .period { display: block; font-size: 12px; font-weight: 800; }
-.week-table tbody th .clock { display: block; color: var(--muted); font-size: 9px; font-weight: 600; }
-.week-table td strong, .week-table td span { display: block; }
-.week-table td strong { color: var(--green-800); font-size: 12px; }
-.week-table td span { margin-top: 3px; font-size: 10px; color: var(--muted); }
-.week-table td.free { background: #fafcfb; }
-.week-table td.free .lapse { margin-top: 0; color: #91a09c; font-size: 10px; }
-/* A period claimed as setting time (Guru Pemulihan) is not a lesson: it carries no class, and it
-   blocks relief, so it must not read as a free space. */
-.week-table td.setting, .week-table td.setting strong { color: #8a5a11; }
-.week-table td.setting { background: #fdf6e9; }
+.schedule-grid { min-width: 0; }
+/* Every teacher timetable in the app uses one shape, the same as the builder's Lihat & Edit screen:
+   days down the side, periods across the top, a vertical REHAT column where the clock has a break,
+   a tinted block per subject and a colour legend under the grid. */
+.timetable-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding-bottom: 2px; }
+table.timetable { border-collapse: collapse; width: 100%; min-width: 720px; table-layout: fixed; font-size: 11px; }
+table.timetable th, table.timetable td { border: 1px solid var(--line); padding: 2px; text-align: center; vertical-align: middle; height: 46px; }
+table.timetable th { height: auto; padding: 4px 2px; background: #eef6f3; font-size: 11px; font-weight: 650; }
+table.timetable th.pnum { font-size: 12px; }
+table.timetable th.pnum .tm { display: block; font-size: 8.5px; font-weight: 500; color: var(--muted); }
+table.timetable th.day, table.timetable td.day { width: 52px; background: #f7faf9; font-size: 11px; font-weight: 750; }
+table.timetable th.day.today { color: #fff; background: var(--green-800); }
+table.timetable td.vert { width: 26px; background: #eef6f3; font-size: 10px; font-weight: 750; letter-spacing: .12em; writing-mode: vertical-rl; transform: rotate(180deg); }
+table.timetable td.blk { padding: 2px; }
+table.timetable td.blk .sub { display: block; font-size: 9px; font-weight: 750; line-height: 1.1; color: #10312b; }
+table.timetable td.blk .cls { display: block; font-weight: 750; font-size: 10.5px; line-height: 1.1; overflow-wrap: anywhere; }
+table.timetable td.blk .hint { display: block; font-size: 9px; font-weight: 600; color: #91a09c; }
+table.timetable td.has { background: var(--sc, #eef6f3); }
+table.timetable td.has .cls { color: #111; }
+table.timetable td.pick { cursor: pointer; }
+table.timetable td.locked { cursor: not-allowed; }
+table.timetable td.locked .lock { display: block; font-size: 8px; line-height: 1; }
+.timetable-hint { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.legend i { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 10.5px; font-style: normal; font-weight: 650; }
+.legend i b { width: 11px; height: 11px; border: 1px solid rgba(0,0,0,.08); border-radius: 3px; }
 
 /* Guru Pemulihan: the profile dialog's "Tetapan Jadual" button opens the teacher's own week and the
    empty spaces are touched to claim setting periods. The table is wide, so it scrolls in the dialog. */
 #settingDialog { width: min(1040px, calc(100% - 24px)); padding: 25px; }
-.setting-grid { overflow-x: auto; margin: 14px 0 0; }
-.setting-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.setting-table th, .setting-table td { padding: 5px 6px; border: 1px solid var(--line); text-align: center; vertical-align: middle; }
-.setting-table thead th { background: #eef6f3; font-size: 10px; }
-.setting-table thead th small { display: block; font-weight: 500; color: var(--muted); }
-.setting-table tbody th { text-align: left; white-space: nowrap; background: #f7faf9; }
-.setting-cell { min-width: 64px; }
-.setting-cell strong, .setting-cell small { display: block; }
-.setting-cell small { margin-top: 3px; font-size: 9px; }
-.setting-cell.lesson { background: #f1f5f4; color: var(--muted); }
-.setting-cell.lesson strong { color: #4a5d59; font-size: 11px; }
-.setting-cell.free { cursor: pointer; background: #fff; }
-.setting-cell.free small { color: #91a09c; }
-.setting-cell.free:hover { background: #eef8f5; }
-.setting-cell.chosen { cursor: pointer; color: var(--green-800); background: #d9f0e6; }
-.setting-cell:focus-visible { outline: 2px solid var(--green-800); outline-offset: -2px; }
+.setting-grid { margin: 14px 0 0; }
+/* The setting grid borrows the same block vocabulary as the timetable, so a claimed period looks
+   like a period on the builder's screen. Only the wrapper differs: it scrolls inside the dialog. */
+#settingDialog .timetable-wrap { border-radius: 12px; }
+#settingDialog table.timetable td.pick:focus-visible { outline: 2px solid var(--green-800); outline-offset: -2px; }
+#settingDialog table.timetable td.chosen .cls { color: #8a5a11; }
+#settingDialog table.timetable td.free .hint { font-size: 9px; }
 .setting-count { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
 .schedule-switch { width: fit-content; margin: 0 0 14px; }
 .schedule-pane { min-width: 0; }
@@ -318,13 +314,13 @@ dialog form { padding: 25px; }
   .relief-switch button { flex: 1; }
   /* The whole week has to fit a 390px phone: five day columns beside the clock column with no
      sideways scrolling, so the cells and the clock column get tighter instead of the table wider. */
-  .week-table { font-size: 10px; }
-  .week-table th, .week-table td { padding: 5px 2px; overflow-wrap: anywhere; }
-  .week-table thead th:first-child, .week-table tbody th { width: 42px; }
-  .week-table tbody th .period { font-size: 11px; }
-  .week-table tbody th .clock { font-size: 8px; }
-  .week-table td strong { font-size: 10px; }
-  .week-table td span, .week-table td.free .lapse { font-size: 9px; }
+  /* On a phone the timetable is wider than the screen on purpose — the periods stay readable and the
+     grid scrolls sideways, exactly like the builder's Lihat & Edit screen. The hint below says so. */
+  table.timetable { min-width: 640px; font-size: 10px; }
+  table.timetable th, table.timetable td { height: 42px; padding: 2px 1px; }
+  table.timetable th.day, table.timetable td.day { width: 44px; font-size: 10px; }
+  table.timetable td.blk .cls { font-size: 10px; }
+  #settingDialog .timetable-wrap { margin: 0 -6px; }
   /* The profile dialog carries the remedial teacher's "Tetapan Jadual" now. Its buttons are pressed
      with a thumb, and the base .button padding only just reaches the 40px floor at this width. */
   #teacherDialog .dialog-actions .button { min-height: 40px; }

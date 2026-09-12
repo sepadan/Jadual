@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.38";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.38";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.38";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.38";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.38";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.38";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.38';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.38';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.38';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.38';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.38';
-import { weekTableModel } from './week-view.js?v=3.1.38';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.39";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.39";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.39";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.39";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.39";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.39";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.39';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.39';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.39';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.39';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.39';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.39';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -532,27 +532,43 @@ function openSettingDialog(id) {
   $("#settingDialog").showModal();
 }
 
+// The school's own subject colours live in the builder draft. They are used when the builder is
+// loaded on this device (admin screens); otherwise every subject still gets a stable colour, so the
+// public view and a fresh phone show the same palette.
+function builderSubjectColours() {
+  try {
+    const list = window.jadualBuilder?.getState?.()?.subjek || [];
+    const map = {};
+    for (const item of list) {
+      const code = String(item?.kod || "").trim().toUpperCase();
+      if (code && item?.warna) map[code] = item.warna;
+    }
+    return map;
+  } catch { return {}; }
+}
+
+// Masa tetapan is not a lesson: it keeps the amber the guide and the relief screens use for it.
+const SETTING_COLOUR = "#fef3c7";
+
 function renderSettingGrid() {
   const version = settingVersion();
-  const model = settingGridModel({ rows: settingVersionRows(version), teacherId: settingTeacherId, periods: PERIODS });
-  // A period that has become a lesson cannot stay claimed: the claim could never be honoured.
+  const grid = weekGrid({ rows: settingVersionRows(version), teacherId: settingTeacherId, days: DAY_CODES, periods: PERIODS, colours: builderSubjectColours() });
+  // Only an empty period can be claimed, and an occupied one — a lesson or any other duty row such
+  // as an imported perhimpunan — can never be: the write would skip it and the tick would vanish.
   for (const key of [...settingSelection]) {
-    const cell = model.cells.find((item) => settingKey(item.day, item.period) === key);
-    if (!cell || cell.state === "lesson") settingSelection.delete(key);
+    const [day, period] = key.split("-");
+    const cell = grid.rows.find((line) => line.day === day)?.cells.find((item) => Number(item.period) === Number(period));
+    if (!claimableCell(cell)) settingSelection.delete(key);
   }
   const label = SETTING_SUBJECT.charAt(0) + SETTING_SUBJECT.slice(1).toLowerCase();
-  const head = `<tr><th scope="col">Hari</th>${model.periods.map((number) => {
-    const time = PERIODS.find((period) => Number(period.period) === number);
-    return `<th scope="col"><span>${number}</span><small>${esc(time?.startTime || "")}</small></th>`;
-  }).join("")}</tr>`;
-  const body = model.cells.length ? model.days.map((day) => `<tr><th scope="row">${esc(settingDayName(day))}</th>${model.periods.map((number) => {
-    const cell = model.cells.find((item) => item.day === day && item.period === number);
-    const key = settingKey(day, number);
-    if (cell.state === "lesson") return `<td class="setting-cell lesson" title="${esc(`${cell.subject} ${cell.className}`.trim())}"><strong>${esc(cell.subject)}</strong><small>${esc(cell.className || "Kelas")}</small></td>`;
+  $("#settingGrid").innerHTML = timetableHtml(grid, (cell) => {
+    const key = settingKey(cell.day, cell.period);
+    if (!claimableCell(cell)) {
+      return `<td class="blk has locked" data-locked-cell="${key}" title="${esc(`${cell.subject} ${cell.label}`.trim())}">${cell.subject ? `<span class="sub">${esc(cell.subject)}</span>` : ""}<span class="cls">${esc(cell.label)}</span><span class="lock" aria-hidden="true">🔒</span></td>`;
+    }
     const chosen = cell.state === "setting" || settingSelection.has(key);
-    return `<td class="setting-cell ${chosen ? "chosen" : "free"}" data-setting-cell="${key}" role="button" tabindex="0" aria-pressed="${chosen}" title="${chosen ? "Buang tanda" : "Tanda sebagai masa pemulihan"}">${chosen ? `<strong>${esc(label)}</strong><small>tekan untuk buang</small>` : "<small>kosong</small>"}</td>`;
-  }).join("")}</tr>`).join("") : "";
-  $("#settingGrid").innerHTML = `<table class="setting-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    return `<td class="blk ${chosen ? "has chosen" : "free"} pick" data-setting-cell="${key}" role="button" tabindex="0" aria-pressed="${chosen}" ${chosen ? `style="--sc:${SETTING_COLOUR}"` : ""} title="${chosen ? "Buang tanda" : "Tanda sebagai masa pemulihan"}">${chosen ? `<span class="cls">${esc(label)}</span><span class="hint">tekan untuk buang</span>` : `<span class="hint">kosong</span>`}</td>`;
+  });
   $$("#settingGrid [data-setting-cell]").forEach((cell) => {
     cell.addEventListener("click", () => toggleSettingCell(cell.dataset.settingCell));
     cell.addEventListener("keydown", (event) => {
@@ -661,9 +677,37 @@ function coverLine(teacher) {
   return label ? `<span class="cover-line">Menggantikan ${esc(label)}</span>` : "";
 }
 
-// The timetable pane is a week on one page: periods down the side, days across the top. A teacher
-// asked for their whole week, not one day at a time, and the whole week fits without horizontal
-// scrolling on the phones the school uses (five day columns instead of thirteen period columns).
+// One shape for every teacher timetable in the app: days down the side, periods across the top, a
+// vertical REHAT column where the school clock has a break, coloured blocks, a legend and — on a
+// phone — a hint that the grid scrolls sideways. Used by the relief timetable and by the remedial
+// teacher's setting grid, so the school only has to learn one layout.
+function timetableHtml(grid, cellHtml) {
+  const head = `<tr>${grid.columns.map((column) => {
+    if (column.kind === "label") return `<th class="day"></th>`;
+    if (column.kind === "rest") return `<th class="rest"></th>`;
+    return `<th class="pnum">${column.period}<span class="tm">${esc(column.startTime)}</span></th>`;
+  }).join("")}</tr>`;
+  const body = grid.rows.map((line, index) => {
+    const cells = grid.columns.map((column) => {
+      if (column.kind === "label") return `<th class="day ${line.today ? "today" : ""}" scope="row">${esc(settingDayName(line.day))}</th>`;
+      if (column.kind === "rest") {
+        if (index > 0) return "";
+        return `<td class="vert" rowspan="${grid.rows.length}">${esc(column.label)}</td>`;
+      }
+      const cell = line.cells.find((item) => item.period === column.period);
+      return cell ? cellHtml(cell) : "";
+    }).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+  const legend = grid.legend.length
+    ? `<div class="legend">${grid.legend.map((item) => `<i><b style="background:${esc(item.colour)}"></b>${esc(item.code)}</i>`).join("")}</div>`
+    : "";
+  return `<div class="timetable-wrap"><table class="timetable"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    <p class="timetable-hint">↔ Leret ke kiri/kanan untuk melihat semua waktu.</p>${legend}`;
+}
+
+// The timetable pane is a week on one page: days down the side, periods across the top, exactly like
+// the builder's Lihat & Edit screen, so a teacher reads the same shape everywhere.
 function renderSchedule() {
   // The grid shows the official timetable being prepared; relief for a date always follows
   // selectedScheduleVersion(), which respects the effective date.
@@ -680,12 +724,10 @@ function renderSchedule() {
     $("#scheduleGrid").innerHTML = `<div class="empty-state"><strong>${!version ? "Belum ada jadual aktif" : !entity ? "Pilih guru atau kelas untuk melihat jadual" : "Tiada rekod jadual untuk pilihan ini"}</strong>${admin ? 'Bina jadual atau import PDF aSc untuk bermula.' : 'Jadual akan tersedia selepas diterbitkan oleh admin.'}</div>`;
     return;
   }
-  const todayCode = dayCodeFromDate(todayIso());
-  const timeFor = (number) => clockValue(versionRows.find((row) => Number(row.period) === number)?.startTime, number, "startTime");
-  const model = weekTableModel({ rows, days: DAY_CODES, periods: PERIODS, timeFor, todayCode });
-  const head = `<tr><th scope="col">Waktu</th>${model.columns.map((column) => `<th scope="col" class="${column.today ? "today" : ""}">${esc(DAY_NAMES[column.code] || column.code)}</th>`).join("")}</tr>`;
-  const body = model.rows.map((line) => `<tr><th scope="row"><span class="period">${line.period}</span><span class="clock">${esc(line.time)}</span></th>${line.cells.map((cell) => `<td class="${cell.state}" data-schedule-cell="${cell.day}-${cell.period}">${cell.state === "free" ? `<span class="lapse">${esc(cell.label)}</span>` : `<strong>${esc(cell.subject)}</strong><span>${esc(cell.label)}</span>`}</td>`).join("")}</tr>`).join("");
-  $("#scheduleGrid").innerHTML = `<table class="week-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  const grid = weekGrid({ rows, days: DAY_CODES, periods: PERIODS, colours: builderSubjectColours(), todayCode: dayCodeFromDate(todayIso()) });
+  $("#scheduleGrid").innerHTML = timetableHtml(grid, (cell) => cell.state === "free"
+    ? `<td class="blk free" data-schedule-cell="${cell.day}-${cell.period}"></td>`
+    : `<td class="blk has" data-schedule-cell="${cell.day}-${cell.period}" style="--sc:${esc(cell.colour)}"><span class="sub">${esc(cell.subject)}</span><span class="cls">${esc(cell.label)}</span></td>`);
 }
 
 function openAbsenceDialog() {

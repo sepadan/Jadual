@@ -49,12 +49,12 @@ test("the weekly dialog exists with its grid and its controls", () => {
   assert.match(app, /\$\("#clearSettingSlots"\)\.addEventListener\("click", clearSettingSlots\)/, "clear is not wired");
 });
 
-test("a cell can be claimed by touch and by keyboard, and refuses a lesson", () => {
+test("a cell can be claimed by touch and by keyboard, and refuses an occupied period", () => {
   assert.match(app, /role="button" tabindex="0" aria-pressed="\$\{chosen\}"/, "the cells are not reachable or announced");
   assert.match(app, /if \(event\.key !== "Enter" && event\.key !== " "\) return;/, "the grid cannot be operated from a keyboard");
-  assert.match(app, /if \(cell\.state === "lesson"\) return/, "a teaching period is offered as a free space");
-  assert.match(css, /\.setting-cell\.free \{ cursor: pointer/, "a free space does not look tappable");
-  assert.match(css, /\.setting-grid \{ overflow-x: auto/, "the wide grid cannot be scrolled on a phone");
+  assert.match(app, /if \(!claimableCell\(cell\)\) \{/, "a teaching or duty period is offered as a free space");
+  assert.match(css, /table\.timetable td\.pick \{ cursor: pointer; \}/, "a claimable period does not look tappable");
+  assert.match(css, /\.timetable-wrap \{ overflow-x: auto/, "the wide grid cannot be scrolled on a phone");
 });
 
 test("saving sends every row of the active version, because Sheets rewrites that version", () => {
@@ -85,7 +85,7 @@ test("the dialog remembers the version it opened with", () => {
 
 test("a claim on a period that has become a lesson is dropped, not written", () => {
   const grid = app.slice(app.indexOf("function renderSettingGrid"), app.indexOf("function toggleSettingCell"));
-  assert.match(grid, /if \(!cell \|\| cell\.state === "lesson"\) settingSelection\.delete\(key\)/, "stale ticks survive a refresh and could claim a teaching period");
+  assert.match(grid, /if \(!claimableCell\(cell\)\) settingSelection\.delete\(key\)/, "stale ticks survive a refresh and could claim a teaching period");
 });
 
 test("the offline shell carries the new module so a phone can load it", () => {
