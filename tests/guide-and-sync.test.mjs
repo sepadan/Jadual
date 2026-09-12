@@ -20,8 +20,9 @@ test("the manual sync button is gone, because syncing is automatic", () => {
   assert.match(app, /window\.addEventListener\("online", \(\) => \{ updateConnectionUi\(\);/, "a reconnect no longer triggers a sync");
 });
 
-test("the round ? button opens the published guide", () => {
-  assert.match(html, /<button id="helpButton" class="icon-button round" title="Panduan penggunaan \(PDF\)" aria-label="Buka panduan penggunaan">\?<\/button>/, "the guide button is missing from the top bar");
+test("the round ? button opens the published guide, and only admins see it", () => {
+  assert.match(html, /<button id="helpButton" class="icon-button round admin-only" title="Panduan penggunaan \(PDF\)" aria-label="Buka panduan penggunaan">\?<\/button>/, "the guide button is missing from the top bar, or an ordinary visitor can see it");
+  assert.match(html, /\.public-mode \.admin-only\{display:none!important\}/, "the public-mode rule that hides admin controls is gone, so the button would show to everyone");
   assert.match(app, /\$\("#helpButton"\)\.addEventListener\("click", \(\) => window\.open\("\.\/panduan\/panduan-penggunaan-sistem-jadual\.pdf", "_blank", "noopener"\)\)/, "the guide button is not wired to the guide");
 });
 
@@ -39,6 +40,7 @@ test("the published guide describes this version of the app, not an older one", 
   const guide = read("panduan/panduan-penggunaan-sistem-jadual.html");
   assert.match(guide, new RegExp(version.replace(/\./g, "\\.")), `the guide does not mention version ${version} — regenerate it (python panduan_html.py … && node html-to-pdf.mjs …)`);
   assert.match(guide, /Butang bulat/, "the guide does not explain the guide button");
+  assert.match(guide, /hanya selepas log masuk pentadbir|hanya muncul selepas log masuk/i, "the guide does not say the button is admin-only");
 });
 
 test("the Panduan entry is out of the builder menu", () => {

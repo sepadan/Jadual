@@ -5,7 +5,7 @@ title: "PANDUAN PENGGUNAAN — Sistem Jadual (SePadan) — Edisi Terperinci"
 # PANDUAN PENGGUNAAN SISTEM JADUAL
 
 **Sistem Jadual — SePadan**
-**Edisi terperinci · berdasarkan versi aplikasi 3.1.40**
+**Edisi terperinci · berdasarkan versi aplikasi 3.1.41**
 
 Panduan ini ditulis untuk guru dan kakitangan sekolah yang tidak semestinya mahir teknikal. Ia menerangkan langkah demi langkah cara memasang aplikasi, log masuk, mengurus ketiadaan guru, menjana dan menerbitkan relief, membaca jadual minggu guru, menyediakan **masa tetapan guru pemulihan**, membina atau mengimport jadual waktu, dan menyelenggara data sekolah.
 
@@ -106,7 +106,7 @@ Jika butang itu tidak muncul: pelayar mungkin belum menganggap aplikasi "boleh d
 
 Selepas berjaya, bar atas menunjukkan pilihan admin (contohnya **Log keluar**) dan skrin **Guru** serta **Tetapan** menjadi tersedia.
 
-> **Butang bulat `?` di bar atas** membuka **panduan ini sebagai PDF** (`panduan/panduan-penggunaan-sistem-jadual.pdf` pada laman aplikasi). Ia boleh dibuka tanpa log masuk, jadi guru dan pentadbir boleh merujuknya terus dari telefon. Tiada butang segerak manual di bar atas — penyegerakan berlaku **automatik** (Bahagian 14).
+> **Butang bulat `?` di bar atas** membuka **panduan ini sebagai PDF** (`panduan/panduan-penggunaan-sistem-jadual.pdf` pada laman aplikasi). Ia **hanya muncul selepas log masuk pentadbir** — pelawat dan paparan awam tidak melihatnya. Tiada butang segerak manual di bar atas — penyegerakan berlaku **automatik** (Bahagian 14).
 
 ### 3.2 Kata laluan lalai dan peringatan keselamatan
 
@@ -691,6 +691,7 @@ Sesetengah simpanan — terutamanya menyimpan **masa tetapan guru pemulihan** �
 | Versi | Perubahan penting untuk pengguna |
 |---|---|
 | **3.1.40** | Butang bulat **`?`** di bar atas membuka **panduan PDF** ini; butang segerak manual dibuang kerana penyegerakan sudah automatik; item **Panduan** dibuang daripada menu Pembina. |
+| **3.1.41** | Butang buka panduan `?` dipaparkan **hanya kepada pentadbir** (paparan awam tidak melihatnya). |
 | **3.1.39** | Semua jadual guru memakai bentuk grid Pembina: **hari ke bawah, waktu melintang, lajur REHAT**, blok berwarna mengikut subjek dan legenda warna — pada tab Jadual, paparan Kelas dan dialog Tetapan Jadual guru pemulihan. |
 | **3.1.38** | Jadual guru dipaparkan sebagai **minggu penuh** (waktu di tepi, Isnin–Jumaat di atas; hari ini ditanda hijau; masa tetapan berwarna kuning) dan muat satu skrin telefon tanpa skrol mendatar. |
 | **3.1.36–3.1.37** | **Butang Tetapan Jadual berpindah ke dalam dialog profil guru** (bukan lagi pada muka kad). Simpanan masa tetapan kini **menyemak jadual terkini** dahulu — jika jadual telah berubah, ia meminta semak semula dan **tidak** menindih kerja pentadbir lain. |
@@ -699,7 +700,7 @@ Sesetengah simpanan — terutamanya menyimpan **masa tetapan guru pemulihan** �
 
 ### 20.3 Rujukan teknikal untuk pentadbir IT
 
-Panduan ini disemak berdasarkan kod sumber versi **3.1.40** dalam repositori tempatan `C:/Users/seman/work/Jadual-audit`:
+Panduan ini disemak berdasarkan kod sumber versi **3.1.41** dalam repositori tempatan `C:/Users/seman/work/Jadual-audit`:
 
 | Perkara | Fail berkaitan |
 |---|---|

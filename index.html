@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.40">
-  <link rel="stylesheet" href="./builder.css?v=3.1.40">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.40">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.40"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
+  <link rel="stylesheet" href="./styles.css?v=3.1.41">
+  <link rel="stylesheet" href="./builder.css?v=3.1.41">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.41">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.41"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
 <body class="public-mode">
   <div class="app-shell">
@@ -51,7 +51,7 @@
         </div>
         <div class="top-actions"><button id="loginButton" class="button primary">Login admin</button><button id="logoutButton" class="button ghost admin-only">Log keluar</button>
           <button id="installButton" class="button ghost hidden">Pasang aplikasi</button>
-          <button id="helpButton" class="icon-button round" title="Panduan penggunaan (PDF)" aria-label="Buka panduan penggunaan">?</button>
+          <button id="helpButton" class="icon-button round admin-only" title="Panduan penggunaan (PDF)" aria-label="Buka panduan penggunaan">?</button>
         </div>
       </header>
 
@@ -274,6 +274,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.40"></script>
+  <script type="module" src="./app.js?v=3.1.41"></script>
 </body>
 </html>
