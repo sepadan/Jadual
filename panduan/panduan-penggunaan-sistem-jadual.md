@@ -238,7 +238,7 @@ Dua butang berasingan disediakan pada bar alat skrin Relief:
 | **Eksport PDF** | Menjana fail **PDF A4** jadual guru ganti bagi tarikh yang dipilih, untuk disimpan atau dikongsi. |
 | **Cetak** | Membuka dialog cetak pelayar terus pada lembaran guru ganti tarikh yang dipilih. |
 
-Kedua-duanya bergantung pada medan **Tarikh** di bar alat, dan **hanya** memaparkan relief yang **telah diterbitkan**. Jika tiada relief diterbitkan pada tarikh itu, sistem memaparkan makluman ralat dan **tidak** menjana dokumen.
+Kedua-dua butang ini **hanya kelihatan selepas log masuk pentadbir**. Paparan awam (guru tanpa log masuk) tidak mempunyai butang Eksport PDF atau Cetak — guru hanya membaca lembaran relief pada skrin. Kedua-duanya bergantung pada medan **Tarikh** di bar alat, dan **hanya** memaparkan relief yang **telah diterbitkan**. Jika tiada relief diterbitkan pada tarikh itu, sistem memaparkan makluman ralat dan **tidak** menjana dokumen.
 
 Lembaran yang dihasilkan mengandungi:
 
@@ -520,7 +520,8 @@ Pelawat yang tidak log masuk hanya melihat:
 
 - jadual guru/kelas bagi **versi rasmi (aktif)** yang berkuat kuasa **pada hari ini** sahaja — jadual/versi lama tidak dihantar kepada pelawat;
 - senarai ketiadaan guru, **tanpa sebab ketiadaan**;
-- relief yang **telah diterbitkan** sahaja bagi hari yang dipilih — draf yang belum diterbitkan tidak kelihatan.
+- relief yang **telah diterbitkan** sahaja bagi hari yang dipilih — draf yang belum diterbitkan tidak kelihatan;
+- **tiada butang pengurusan**: Eksport PDF dan Cetak hanya muncul kepada pentadbir yang log masuk, begitu juga Jana, Terbitkan, + Tambah, dan butang panduan `?`.
 
 Maklumat berikut **tidak pernah** dihantar kepada paparan awam: sebab ketiadaan, catatan dalaman, draf relief, kelayakan/profil penuh guru, draf pembina jadual, atau masa tetapan guru pemulihan.
 
@@ -706,6 +707,7 @@ Jadual lama boleh jadi aktif semula **tanpa amaran** jika satu tulisan tertunda 
 | **3.1.41** | Butang buka panduan `?` dipaparkan **hanya kepada pentadbir** (paparan awam tidak melihatnya). |
 | **3.1.42** | Draf Pembina kini benar-benar **disimpan pada peranti** — memuat semula halaman tidak lagi membuang kerja yang belum dinaikkan ke Sheets; draf peranti diutamakan berbanding draf Sheets dan statusnya dinyatakan pada kad Draf. |
 | **3.1.43** | Amaran jelas apabila peranti enggan menyimpan **draf relief** (storan penuh / mod peribadi) — sebelum ini kegagalan itu senyap. |
+| **3.1.44** | Butang **Eksport PDF** dan **Cetak** pada skrin Relief hanya kelihatan kepada pentadbir — paparan awam tidak lagi memaparkannya. |
 | **3.1.39** | Semua jadual guru memakai bentuk grid Pembina: **hari ke bawah, waktu melintang, lajur REHAT**, blok berwarna mengikut subjek dan legenda warna — pada tab Jadual, paparan Kelas dan dialog Tetapan Jadual guru pemulihan. |
 | **3.1.38** | Jadual guru dipaparkan sebagai **minggu penuh** (waktu di tepi, Isnin–Jumaat di atas; hari ini ditanda hijau; masa tetapan berwarna kuning) dan muat satu skrin telefon tanpa skrol mendatar. |
 | **3.1.36–3.1.37** | **Butang Tetapan Jadual berpindah ke dalam dialog profil guru** (bukan lagi pada muka kad). Simpanan masa tetapan kini **menyemak jadual terkini** dahulu — jika jadual telah berubah, ia meminta semak semula dan **tidak** menindih kerja pentadbir lain. |

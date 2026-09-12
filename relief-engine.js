@@ -1,5 +1,5 @@
-import { coverageRows, fullyCoveredIds, sharedPairKey, sharedPairs } from "./teacher-coverage.js?v=3.1.43";
-import { DAY_CODES, PERIODS } from "./data.js?v=3.1.43";
+import { coverageRows, fullyCoveredIds, sharedPairKey, sharedPairs } from "./teacher-coverage.js?v=3.1.44";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.1.44";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
