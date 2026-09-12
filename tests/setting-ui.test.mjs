@@ -41,10 +41,33 @@ test("a cell can be claimed by touch and by keyboard, and refuses a lesson", () 
 
 test("saving sends every row of the active version, because Sheets rewrites that version", () => {
   const save = app.slice(app.indexOf("function settingVersion"), app.indexOf("function validClockTime"));
-  assert.match(save, /const versionRows = db\.schedule\.filter\(\(row\) => row\.versionId === version\.id\)/, "only the changed rows would travel and the rest of the version would be lost");
-  assert.match(save, /remoteWrite\("importSchedule", \{ version, rows: versionRows \}/, "the timetable is not saved through the schedule handler");
+  assert.match(save, /const versionRows = db\.schedule\.filter\(\(row\) => row\.versionId === active\.id\)/, "only the changed rows would travel and the rest of the version would be lost");
+  assert.match(save, /remoteWrite\("importSchedule", \{ version: active, rows: versionRows \}/, "the timetable is not saved through the schedule handler");
   assert.match(save, /return officialScheduleVersion\(db\) \|\| selectedScheduleVersion\(db, todayIso\(\)\)/, "the version being edited is not the active one");
   assert.match(save, /if \(!version\) return toast\(/, "saving without an active timetable is not refused");
+});
+
+// The whole-version rewrite is why a stale dialog used to be able to erase another admin's work:
+// the check must happen before the merge, and it must refuse instead of guessing.
+test("a fresh save checks the school revision before rewriting the version", () => {
+  const save = app.slice(app.indexOf("async function settingDriftCheck"), app.indexOf("function validClockTime"));
+  assert.match(save, /await api\.status\(\)/, "the school revision is never read before saving");
+  assert.match(save, /await syncData\(false\)/, "the newer timetable is never loaded, so the admin cannot see what changed");
+  assert.match(save, /if \(fresh && fresh\.id === version\.id && freshSignature === expected\.signature\) return \{ ok: true \}/, "an unchanged version is not recognised as safe to write");
+  assert.match(save, /renderSettingGrid\(\)/, "the grid is not refreshed after the drift, so the ticks would be stale");
+  const guarded = save.slice(save.indexOf("const check = await settingDriftCheck"));
+  assert.ok(guarded.indexOf("if (!check.ok) return toast") < guarded.indexOf("mergeSettingRows"), "the merge runs before the drift check");
+  assert.match(save, /catch \(error\) \{[\s\S]*Simpanan tidak dibuat/, "a failed check writes anyway instead of refusing");
+});
+
+test("the dialog remembers the version it opened with", () => {
+  const open = app.slice(app.indexOf("function openSettingDialog"), app.indexOf("function renderSettingGrid"));
+  assert.match(open, /settingGuard = \{ revision: Number\(db\.revision \|\| 0\), versionId: version\.id, signature: settingVersionSignature\(version\) \}/, "the dialog opens without a snapshot, so drift cannot be detected");
+});
+
+test("a claim on a period that has become a lesson is dropped, not written", () => {
+  const grid = app.slice(app.indexOf("function renderSettingGrid"), app.indexOf("function toggleSettingCell"));
+  assert.match(grid, /if \(!cell \|\| cell\.state === "lesson"\) settingSelection\.delete\(key\)/, "stale ticks survive a refresh and could claim a teaching period");
 });
 
 test("the offline shell carries the new module so a phone can load it", () => {

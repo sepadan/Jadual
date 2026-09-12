@@ -1,14 +1,14 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.35";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.35";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.35";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.35";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.35";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.35";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.35';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.35';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.35';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.35';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows } from './setting-slots.js?v=3.1.35';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.36";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.36";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.36";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.36";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.36";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.36";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.36';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.36';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.36';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.36';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.36';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -502,6 +502,9 @@ async function restoreTeacherProfiles() {
 // duty row in the active version, which is exactly how the builder's fixed activities block relief.
 let settingTeacherId = "";
 let settingSelection = new Set();
+// Saving a version rewrites all of its rows, so the dialog remembers what the version looked like
+// when it opened. Anything else changing that version means the admin must look again first.
+let settingGuard = null;
 
 function settingVersion() {
   return officialScheduleVersion(db) || selectedScheduleVersion(db, todayIso());
@@ -509,6 +512,10 @@ function settingVersion() {
 
 function settingVersionRows(version) {
   return (db.schedule || []).filter((row) => row.versionId === version?.id);
+}
+
+function settingVersionSignature(version) {
+  return version ? settingSignature({ rows: db.schedule, versionId: version.id }) : "";
 }
 
 function openSettingDialog(id) {
@@ -519,6 +526,7 @@ function openSettingDialog(id) {
   if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
   settingTeacherId = id;
   settingSelection = new Set(settingSelectionFromRows({ rows: settingVersionRows(version), teacherId: id }));
+  settingGuard = { revision: Number(db.revision || 0), versionId: version.id, signature: settingVersionSignature(version) };
   $("#settingDialogTitle").textContent = `Tetapan jadual · ${teacher.name}`;
   renderSettingGrid();
   $("#settingDialog").showModal();
@@ -527,6 +535,11 @@ function openSettingDialog(id) {
 function renderSettingGrid() {
   const version = settingVersion();
   const model = settingGridModel({ rows: settingVersionRows(version), teacherId: settingTeacherId, periods: PERIODS });
+  // A period that has become a lesson cannot stay claimed: the claim could never be honoured.
+  for (const key of [...settingSelection]) {
+    const cell = model.cells.find((item) => settingKey(item.day, item.period) === key);
+    if (!cell || cell.state === "lesson") settingSelection.delete(key);
+  }
   const label = SETTING_SUBJECT.charAt(0) + SETTING_SUBJECT.slice(1).toLowerCase();
   const head = `<tr><th scope="col">Hari</th>${model.periods.map((number) => {
     const time = PERIODS.find((period) => Number(period.period) === number);
@@ -564,20 +577,51 @@ function clearSettingSlots() {
   renderSettingGrid();
 }
 
-function saveSettingSlots() {
+// Saving rewrites every row of the version in Sheets, so a stale dialog must never win: the school
+// revision is checked first and, when it moved, the version this dialog saw is compared with the
+// fresh one before anything is written.
+async function settingDriftCheck(version) {
+  if (!api.isConfigured()) return { ok: true };
+  const expected = settingGuard || { revision: Number(db.revision || 0), versionId: version.id, signature: settingVersionSignature(version) };
+  try {
+    const status = await api.status();
+    if (Number(status.revision || 0) === Number(expected.revision)) return { ok: true };
+    await syncData(false);
+    const fresh = settingVersion();
+    const freshSignature = settingVersionSignature(fresh);
+    settingGuard = { revision: Number(db.revision || 0), versionId: fresh?.id || "", signature: freshSignature };
+    if (fresh && fresh.id === version.id && freshSignature === expected.signature) return { ok: true };
+    renderSettingGrid();
+    return { ok: false, reason: `Jadual ini sudah berubah pada pentadbir atau peranti lain. Data terkini sudah dimuatkan — semak ${settingSelection.size} tanda tuan, kemudian tekan Simpan sekali lagi.` };
+  } catch (error) {
+    return { ok: false, reason: `Tidak dapat mengesahkan jadual terkini (${error.message}). Simpanan tidak dibuat supaya perubahan pentadbir lain tidak hilang.` };
+  }
+}
+
+async function saveSettingSlots() {
   if (!requireAdmin()) return;
   const version = settingVersion();
   if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
-  const teacher = teacherById(settingTeacherId);
-  const result = mergeSettingRows({ rows: db.schedule, teacherId: settingTeacherId, versionId: version.id, selected: [...settingSelection], periods: PERIODS });
-  db.schedule = result.rows;
-  persist();
-  renderAll();
-  $("#settingDialog").close();
-  // The Sheets handler rewrites every row of the version, so the whole version travels with it.
-  const versionRows = db.schedule.filter((row) => row.versionId === version.id);
-  remoteWrite("importSchedule", { version, rows: versionRows },
-    `${result.added} waktu tetapan disimpan untuk ${teacher?.name || "guru ini"}.`);
+  const button = $("#saveSettingSlots");
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
+    const check = await settingDriftCheck(version);
+    if (!check.ok) return toast(check.reason, "error");
+    const active = settingVersion();
+    if (!active) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
+    const teacher = teacherById(settingTeacherId);
+    const result = mergeSettingRows({ rows: db.schedule, teacherId: settingTeacherId, versionId: active.id, selected: [...settingSelection], periods: PERIODS });
+    db.schedule = result.rows;
+    settingGuard = { revision: Number(db.revision || 0), versionId: active.id, signature: settingVersionSignature(active) };
+    persist();
+    renderAll();
+    $("#settingDialog").close();
+    // The Sheets handler rewrites every row of the version, so the whole version travels with it.
+    const versionRows = db.schedule.filter((row) => row.versionId === active.id);
+    remoteWrite("importSchedule", { version: active, rows: versionRows },
+      `${result.added} waktu tetapan disimpan untuk ${teacher?.name || "guru ini"}.`);
+  } finally { button.disabled = false; }
 }
 
 function validClockTime(value) {

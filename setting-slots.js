@@ -1,4 +1,4 @@
-import { DAY_CODES } from "./data.js?v=3.1.35";
+import { DAY_CODES } from "./data.js?v=3.1.36";
 
 // A Guru Pemulihan's own setting periods ("masa tetapan") belong to no class and no subject, so
 // they are stored the same way as the builder's fixed activities and the duty cells read from an
@@ -22,6 +22,20 @@ export function isSettingRow(row) {
 // The cells already claimed by this teacher, so the dialog opens with them ticked.
 export function settingSelectionFromRows({ rows, teacherId }) {
   return (rows || []).filter((row) => row.teacherId === teacherId && isSettingRow(row)).map((row) => settingKey(row.day, row.period));
+}
+
+// A signature of one version's rows. Saving sends the whole version, so the admin must be told when
+// someone else changed that version in the meantime instead of overwriting them in silence. The
+// signature is order-independent and readable on purpose: it is compared, not stored anywhere.
+export function settingSignature({ rows, versionId }) {
+  const parts = (rows || [])
+    .filter((row) => row.versionId === versionId)
+    .map((row) => [
+      String(row.day).toUpperCase(), Number(row.period), row.teacherId, row.subject || "",
+      row.className || "", row.isDuty ? "duty" : "lesson", row.startTime || "", row.endTime || "",
+    ].join("|"))
+    .sort();
+  return `${parts.length}~${parts.join(";")}`;
 }
 
 // One entry per school day and period: "lesson" (a real class, not touchable), "setting" (already
