@@ -5,7 +5,7 @@ title: "PANDUAN PENGGUNAAN — Sistem Jadual (SePadan) — Edisi Terperinci"
 # PANDUAN PENGGUNAAN SISTEM JADUAL
 
 **Sistem Jadual — SePadan**
-**Edisi terperinci · berdasarkan versi aplikasi 3.1.41**
+**Edisi terperinci · berdasarkan versi aplikasi 3.1.42**
 
 Panduan ini ditulis untuk guru dan kakitangan sekolah yang tidak semestinya mahir teknikal. Ia menerangkan langkah demi langkah cara memasang aplikasi, log masuk, mengurus ketiadaan guru, menjana dan menerbitkan relief, membaca jadual minggu guru, menyediakan **masa tetapan guru pemulihan**, membina atau mengimport jadual waktu, dan menyelenggara data sekolah.
 
@@ -325,6 +325,8 @@ Selain membaca jadual, admin boleh **membina** jadual dari kosong atau mengimpor
 | **Gunakan untuk relief →** | Menyemak jadual yang dijana (mesti sudah dijana dan tiada isu belum selesai), kemudian membuka dialog **"Gunakan untuk relief"** untuk mengesahkan nama versi dan **tarikh kuat kuasa** sebelum diaktifkan. |
 
 Cara membaca kad ini: draf pembina disimpan **pada peranti** semasa tuan bekerja, jadi menutup pelayar tidak menghilangkannya. **Simpan draf ke Sheets** ialah satu-satunya cara draf itu selamat melepasi peranti itu (telefon hilang, tukar komputer, atau dibuka oleh pentadbir lain) — ia **tidak** berlaku secara automatik. **Muat draf Sheets** jarang diperlukan kerana draf Sheets sudah dimuatkan sendiri semasa log masuk; gunakannya jika pentadbir lain mengubah draf di tempat lain. **Ambil senarai guru** perlu selepas tuan menambah atau menukar nama guru di tab **Guru** (penyelarasan automatik hanya berlaku apabila pembina masih belum ada guru). **Gunakan untuk relief** wajib dan tidak boleh dibuang — tanpanya jadual yang dibina tidak menjadi jadual rasmi yang digunakan oleh relief.
+
+Jika peranti ini masih menyimpan draf yang belum dinaikkan ke Sheets, aplikasi **menggunakan draf peranti itu dahulu** dan baris status kad menulis **"Draf peranti ini digunakan — tekan Simpan draf ke Sheets untuk naik ke awan"**. Ini memang sengaja: menimpanya dengan draf Sheets akan membuang kerja terakhir tuan. Tekan **Muat draf Sheets** jika tuan mahu salinan awan sebaliknya. Apabila storan peranti penuh (atau pelayar berada dalam mod peribadi), pil draf bertukar **"Storan peranti penuh"** — eksport JSON sebelum menutup aplikasi, kerana perubahan seterusnya hanya kekal selagi tab dibuka.
 
 ### 8.2 Draf pembina lawan jadual aktif — PERBEZAAN PALING PENTING
 
@@ -692,6 +694,7 @@ Sesetengah simpanan — terutamanya menyimpan **masa tetapan guru pemulihan** �
 |---|---|
 | **3.1.40** | Butang bulat **`?`** di bar atas membuka **panduan PDF** ini; butang segerak manual dibuang kerana penyegerakan sudah automatik; item **Panduan** dibuang daripada menu Pembina. |
 | **3.1.41** | Butang buka panduan `?` dipaparkan **hanya kepada pentadbir** (paparan awam tidak melihatnya). |
+| **3.1.42** | Draf Pembina kini benar-benar **disimpan pada peranti** — memuat semula halaman tidak lagi membuang kerja yang belum dinaikkan ke Sheets; draf peranti diutamakan berbanding draf Sheets dan statusnya dinyatakan pada kad Draf. |
 | **3.1.39** | Semua jadual guru memakai bentuk grid Pembina: **hari ke bawah, waktu melintang, lajur REHAT**, blok berwarna mengikut subjek dan legenda warna — pada tab Jadual, paparan Kelas dan dialog Tetapan Jadual guru pemulihan. |
 | **3.1.38** | Jadual guru dipaparkan sebagai **minggu penuh** (waktu di tepi, Isnin–Jumaat di atas; hari ini ditanda hijau; masa tetapan berwarna kuning) dan muat satu skrin telefon tanpa skrol mendatar. |
 | **3.1.36–3.1.37** | **Butang Tetapan Jadual berpindah ke dalam dialog profil guru** (bukan lagi pada muka kad). Simpanan masa tetapan kini **menyemak jadual terkini** dahulu — jika jadual telah berubah, ia meminta semak semula dan **tidak** menindih kerja pentadbir lain. |
@@ -700,7 +703,7 @@ Sesetengah simpanan — terutamanya menyimpan **masa tetapan guru pemulihan** �
 
 ### 20.3 Rujukan teknikal untuk pentadbir IT
 
-Panduan ini disemak berdasarkan kod sumber versi **3.1.41** dalam repositori tempatan `C:/Users/seman/work/Jadual-audit`:
+Panduan ini disemak berdasarkan kod sumber versi **3.1.42** dalam repositori tempatan `C:/Users/seman/work/Jadual-audit`:
 
 | Perkara | Fail berkaitan |
 |---|---|

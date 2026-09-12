@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.41";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.41";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.41";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.41";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.41";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.41";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.41';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.41';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.41';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.41';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.41';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.41';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.42";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.42";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.42";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.42";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.42";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.42";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.42';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.42';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.42';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.42';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.42';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.42';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -1414,11 +1414,25 @@ async function loadBuilder() {
     const snapshot=await api.bootstrap();cloud={builder:snapshot.builder};
   }
   restoringBuilder=true;
-  if(cloud.builder?.state) window.jadualBuilder.setState(cloud.builder.state);
+  // Draf peranti yang dipulihkan semasa mula mengalahkan draf Sheets: menimpanya secara senyap akan
+  // membuang kerja terakhir pentadbir pada peranti ini. Pentadbir boleh menarik draf Sheets bila-bila
+  // masa dengan butang "Muat draf Sheets".
+  const deviceDraft = typeof window.jadualBuilder.hasDeviceDraft === "function" && window.jadualBuilder.hasDeviceDraft();
+  let status;
+  if(cloud.builder?.state && deviceDraft){
+    const different = JSON.stringify(window.jadualBuilder.getState()) !== JSON.stringify(cloud.builder.state);
+    builderDirty = different;
+    status = different ? 'Draf peranti ini digunakan — tekan Simpan draf ke Sheets untuk naik ke awan' : 'Draf Sheets telah dimuatkan';
+  }
+  else {
+    if(cloud.builder?.state) window.jadualBuilder.setState(cloud.builder.state);
+    builderDirty=false;
+    status = cloud.builder?.state ? 'Draf Sheets telah dimuatkan' : 'Draf baharu — simpan ke Sheets apabila siap';
+  }
   builderRevision=cloud.builder?.revision||0;
   if(!window.jadualBuilder.getState().guru.length) window.jadualBuilder.mergeTeachers(db.teachers);
-  restoringBuilder=false;builderDirty=false;builderCloudLoaded=true;
-  $('#builderCloudStatus').textContent=cloud.builder?.state?'Draf Sheets telah dimuatkan':'Draf baharu — simpan ke Sheets apabila siap';
+  restoringBuilder=false;builderCloudLoaded=true;
+  $('#builderCloudStatus').textContent=status;
 }
 async function enterAdmin(result) {
   const stored = cachedAdminDb();

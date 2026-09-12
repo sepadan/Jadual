@@ -59,10 +59,28 @@ let VIEW='dash';
 
 /* ---------- Storan ---------- */
 const KEY='janajadual.v3';
-let memOnly=false;
+let memOnly=false, drafPeranti=false, tulisTimer=null;
+/* Draf disimpan pada peranti. Sebelum ini `simpan()` hanya menukar pil "Draf" dan `muat()` membaca
+   kunci yang tiada siapa tulis, jadi memuat semula halaman membuang seluruh kerja pembina yang belum
+   dinaikkan ke Sheets. Penulisan digabungkan (300 ms) kerana keadaan itu berpuluh kilobait, dan
+   dikosongkan segera apabila halaman ditinggalkan supaya tiada perubahan terakhir hilang. */
+function tulisStoran(){
+  tulisTimer=null;
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); memOnly=false; }
+  catch(e){
+    memOnly=true; drafPeranti=false;
+    const el=$('#saveState'); if(el){ el.textContent='Storan peranti penuh'; el.className='pill warn'; }
+  }
+}
+function flushStoran(){ if(tulisTimer){ clearTimeout(tulisTimer); tulisTimer=null; tulisStoran(); } }
+try{
+  if(typeof window!=='undefined'&&window.addEventListener) window.addEventListener('pagehide',flushStoran);
+  if(typeof document!=='undefined'&&document.addEventListener) document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flushStoran(); });
+}catch(e){}
 function simpan(quiet){
   const el=$('#saveState');
-  if(el){el.textContent='Draf';el.className='pill';}
+  if(el){el.textContent=memOnly?'Storan peranti penuh':'Draf';el.className=memOnly?'pill warn':'pill';}
+  if(!memOnly){ if(tulisTimer) clearTimeout(tulisTimer); tulisTimer=setTimeout(tulisStoran,300); }
   document.dispatchEvent(new CustomEvent("builder-saved"));
 }
 function muat(){
@@ -70,7 +88,7 @@ function muat(){
     const raw=localStorage.getItem(KEY);
     if(raw){ const o=JSON.parse(raw); S=Object.assign(kosong(),o); S.masa=Object.assign(kosong().masa,o.masa||{});
       S.kekangan=Object.assign(kosong().kekangan,o.kekangan||{}); S.sekolah=Object.assign(kosong().sekolah,o.sekolah||{});
-      return true; }
+      drafPeranti=true; return true; }
   }catch(e){ memOnly=true; }
   return false;
 }
@@ -2058,6 +2076,10 @@ window.jadualBuilder = {
   setState(state) {S=Object.assign(kosong(),clone(state));S.masa=Object.assign(kosong().masa,state.masa||{});ulang();},
   clear() {S=kosong();$('#content').innerHTML='';},
   getState: () => clone(S),
+  // Benar apabila draf pada peranti ini dipulihkan semasa mula. app.js menggunakannya supaya draf
+  // Sheets tidak menimpa kerja terakhir pentadbir tanpa sebarang amaran.
+  hasDeviceDraft: () => drafPeranti,
+  flush: () => flushStoran(),
   validate: () => semakJadual(),
   times: () => jalurMasa(),
   go,
