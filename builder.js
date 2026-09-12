@@ -470,6 +470,13 @@ function pilihLogo(n){ logoSlot=n; $('#logoIn').click(); }
 // Had saiz semasa cetak: 480 px cukup tajam untuk kepala surat A4, dan hasilnya di bawah ~150 KB.
 const LOGO_MAX_SIDE_=480;
 const LOGO_MAX_BYTES_=150*1024;
+function latarLutsinar_(ctx,lebar,tinggi){
+  try {
+    const data=ctx.getImageData(0,0,lebar,tinggi).data;
+    for(let i=3;i<data.length;i+=4) if(data[i]<250) return true;
+    return false;
+  } catch(error) { return true; }
+}
 async function kecilkanLogo_(src){
   if(!src||String(src).length<=LOGO_MAX_BYTES_) return src;
   try {
@@ -481,8 +488,11 @@ async function kecilkanLogo_(src){
     const ctx=kanvas.getContext('2d');
     ctx.drawImage(img,0,0,kanvas.width,kanvas.height);
     const png=kanvas.toDataURL('image/png');
-    const jpg=kanvas.toDataURL('image/jpeg',0.85);
-    const kecil=(png.length<=jpg.length?png:jpg);
+    // JPEG tidak menyimpan lutsinar — piksel lutsinar menjadi hitam. Crest sekolah selalunya
+    // berlatarbelakang lutsinar, jadi JPEG hanya dipakai apabila imej itu benar-benar legap.
+    const lutsinar=latarLutsinar_(ctx,kanvas.width,kanvas.height);
+    const jpg=lutsinar?null:kanvas.toDataURL('image/jpeg',0.85);
+    const kecil=(!jpg||png.length<=jpg.length)?png:jpg;
     return kecil.length<String(src).length?kecil:src;
   } catch(error) { return src; }
 }

@@ -1,4 +1,4 @@
-import { SITE_CONFIG } from './site-config.js?v=3.1.51';
+import { SITE_CONFIG } from './site-config.js?v=3.1.52';
 // Pembina (~1 MB) mengambil beberapa saat untuk dihantar pada sambungan sekolah. Pelayar yang
 // boleh membuka gzip menerima badan yang dimampatkan; yang lama terus dapat JSON biasa.
 const GZIP_CAPABLE = typeof DecompressionStream === 'function' && typeof Response === 'function';
@@ -18,7 +18,7 @@ export class ApiClient {
     const body=JSON.stringify({action,data,token:privateRequest?this.token:undefined,gz:GZIP_CAPABLE?1:0});
     return this.readResponse(await fetch(this.config.apiUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body,redirect:'follow',keepalive:body.length<60000}));
   }
-  async health() {if(!this.isConfigured()) throw new Error('URL Apps Script belum ditetapkan.');return this.readResponse(await fetch(`${this.config.apiUrl}?action=health${GZIP_CAPABLE?'&gz=1':''}`,{cache:'no-store'}));}
+  async health() {if(!this.isConfigured()) throw new Error('URL Apps Script belum ditetapkan.');return this.readResponse(await fetch(`${this.config.apiUrl}?action=health`,{cache:'no-store'}));}
   async publicData(revision, day) {
     if(!this.isConfigured()) throw new Error('Sambungan sekolah belum disediakan.');
     const since=Number(revision);
@@ -29,7 +29,8 @@ export class ApiClient {
     const query=parts.length?`&${parts.join('&')}`:'';
     return this.readResponse(await fetch(`${this.config.apiUrl}?action=public${query}${GZIP_CAPABLE?'&gz=1':''}`,{cache:'no-store'}));
   }
-  async status() {if(!this.isConfigured()) throw new Error('Sambungan sekolah belum disediakan.');return this.readResponse(await fetch(`${this.config.apiUrl}?action=status${GZIP_CAPABLE?'&gz=1':''}`,{cache:'no-store'}));}
+  async status() {if(!this.isConfigured()) throw new Error('Sambungan sekolah belum disediakan.');// status ialah muatan kecil: gzip + base64 hanya menambah saiz dan kerja CPU.
+    return this.readResponse(await fetch(`${this.config.apiUrl}?action=status`,{cache:'no-store'}));}
   // Login returns a session only: pulling the whole school database inside the login request is
   // what made logging in wait on six sheet reads. The app shows its cached view at once and loads
   // the private data in the background.
