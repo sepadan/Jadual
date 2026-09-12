@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.39";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.39";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.39";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.39";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.39";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.39";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.39';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.39';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.39';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.39';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.39';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.39';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.40";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.40";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.40";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.40";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.40";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.40";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.40';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.40';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.40';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.40';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.40';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.40';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -1200,7 +1200,6 @@ async function syncData(showSuccess = true) {
     const saved=await retryStoredWrites();
     if(!saved) return showSuccess&&toast("Perubahan masih selamat pada peranti dan akan dicuba semula.","error");
   }
-  $("#syncButton").disabled = true;
   syncPromise=(async()=>{try {
     const wasAdmin=admin;
     const result = wasAdmin ? await api.bootstrap() : await api.publicData(cachedPublicRevision(), todayIso());
@@ -1211,7 +1210,7 @@ async function syncData(showSuccess = true) {
   } catch (error) {
     if (showSuccess) toast(error.message, "error");
     if(error.code==='AUTH_REQUIRED') await leaveAdmin();
-  } finally { $("#syncButton").disabled = false;syncPromise=null; }})();
+  } finally { syncPromise=null; }})();
   return syncPromise;
 }
 
@@ -1335,9 +1334,11 @@ function wireEvents() {
   });
   $("#parsePdf").addEventListener("click", parsePdf);
   $("#saveImport").addEventListener("click", saveImportedSchedule);
-  $("#syncButton").addEventListener("click", () => syncData(true));
 
 
+  // The guide is a published PDF in this repository, so a teacher can open it offline-capable
+  // from any device without hunting for a file on the computer.
+  $("#helpButton").addEventListener("click", () => window.open("./panduan/panduan-penggunaan-sistem-jadual.pdf", "_blank", "noopener"));
   $("#checkUpdate").addEventListener("click", async () => { const registration = await navigator.serviceWorker?.getRegistration(); await registration?.update(); toast("Semakan kemas kini selesai.", "success"); });
   $("#installButton").addEventListener("click", async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; $("#installButton").classList.add("hidden"); });
   window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredInstallPrompt = event; $("#installButton").classList.remove("hidden"); });

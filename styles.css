@@ -54,6 +54,9 @@ p { color: var(--muted); line-height: 1.55; }
 .button.danger { color: var(--danger); border-color: #f0cdd0; background: #fff5f5; }
 .button.wide { width: 100%; }
 .icon-button { display: grid; place-items: center; width: 44px; height: 44px; color: var(--ink); border-color: var(--line); background: var(--surface); font-size: 20px; }
+/* The guide button: a round "?" that opens the user guide, in the place the manual sync button used
+   to sit — syncing is automatic now, so the top bar only carries what a teacher actually presses. */
+.icon-button.round { border-radius: 50%; font-size: 17px; font-weight: 750; }
 .view { display: none; animation: enter .25s ease; }
 .view.active { display: block; }
 @keyframes enter { from { opacity: 0; transform: translateY(4px); } }

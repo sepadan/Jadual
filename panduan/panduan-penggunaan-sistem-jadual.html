@@ -1,0 +1,1261 @@
+<!doctype html>
+<html lang="ms"><head><meta charset="utf-8">
+<title>Sistem Jadual</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 20mm; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #17201e; background: #fff;
+  font-family: "Segoe UI", Arial, "Helvetica Neue", sans-serif; font-size: 10.5pt; line-height: 1.55; }
+h1, h2, h3, h4 { color: #0b6b5b; line-height: 1.25; break-after: avoid-page; }
+h1 { font-size: 19pt; margin: 0 0 6mm; }
+h2 { font-size: 14pt; margin: 8mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 1.5px solid #cfe3dd; }
+h3 { font-size: 11.5pt; margin: 6mm 0 2mm; }
+h4 { font-size: 10.5pt; margin: 5mm 0 1.5mm; color: #1f4f46; }
+p, li { orphans: 3; widows: 3; }
+ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+li { margin-bottom: 1.2mm; }
+strong { color: #10312b; }
+code { font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; background: #f2f6f5;
+  padding: 0.5mm 1.2mm; border-radius: 1mm; }
+pre { background: #f2f6f5; border: 1px solid #dbe7e3; border-radius: 2mm; padding: 3mm; font-size: 9pt;
+  overflow-x: auto; break-inside: avoid; }
+pre code { background: none; padding: 0; }
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 9.5pt; break-inside: avoid; }
+th, td { border: 1px solid #cfdcd8; padding: 1.6mm 2mm; text-align: left; vertical-align: top; }
+th { background: #eaf3f0; color: #0b4f43; }
+tr:nth-child(even) td { background: #fafcfb; }
+blockquote { margin: 3mm 0; padding: 2mm 3mm; border-left: 3px solid #0b6b5b; background: #f6faf9;
+  color: #24403a; }
+hr { border: 0; border-top: 1px solid #dbe7e3; margin: 6mm 0; }
+a { color: #0b6b5b; text-decoration: none; }
+.cover { break-after: page; padding-top: 40mm; text-align: center; }
+.cover .mark { width: 22mm; height: 22mm; margin: 0 auto 8mm; border-radius: 5mm; background: #0b6b5b;
+  color: #fff; font-size: 30pt; font-weight: 700; display: grid; place-items: center; }
+.cover h1 { font-size: 26pt; margin-bottom: 3mm; }
+.cover .sub { color: #45635c; font-size: 12pt; margin: 0 0 14mm; }
+.cover .meta { display: inline-block; text-align: left; font-size: 10pt; color: #24403a;
+  border: 1px solid #cfdcd8; border-radius: 2mm; padding: 5mm 8mm; }
+.cover .meta div { margin: 1.2mm 0; }
+.footer-note { margin-top: 8mm; padding-top: 3mm; border-top: 1px solid #dbe7e3; color: #5c7370; font-size: 9pt; }
+</style>
+</head><body>
+<section class="cover">
+  <div class="mark">J</div>
+  <h1>Sistem Jadual</h1>
+  <p class="sub">Sistem Jadual &middot; SK Paya Redan, Muar</p>
+  <div class="meta">
+    <div><strong>Dokumen:</strong> Panduan penggunaan untuk pentadbir dan pengunjung</div>
+    <div><strong>Aplikasi:</strong> https://sepadan.github.io/Jadual/</div>
+    <div><strong>Versi sistem:</strong> 3.1.40</div>
+    <div><strong>Tarikh dokumen:</strong> 12/09/2026</div>
+  </div>
+</section>
+<h1>PANDUAN PENGGUNAAN SISTEM JADUAL</h1>
+<p><strong>Sistem Jadual — SePadan</strong>
+<strong>Edisi terperinci · berdasarkan versi aplikasi 3.1.40</strong></p>
+<p>Panduan ini ditulis untuk guru dan kakitangan sekolah yang tidak semestinya mahir teknikal. Ia menerangkan langkah demi langkah cara memasang aplikasi, log masuk, mengurus ketiadaan guru, menjana dan menerbitkan relief, membaca jadual minggu guru, menyediakan <strong>masa tetapan guru pemulihan</strong>, membina atau mengimport jadual waktu, dan menyelenggara data sekolah.</p>
+<blockquote>
+<p><strong>Cara menggunakan panduan ini.</strong> Bahagian 1–3 untuk semua pengguna (pengenalan, pemasangan, log masuk). Bahagian 4–7 ialah kerja <strong>harian</strong> pentadbir (ketiadaan → relief → cetak). Bahagian 7–12 ialah kerja <strong>sekali sekala atau bila jadual berubah</strong> (baca jadual minggu, bina/import jadual, urus guru, masa tetapan guru pemulihan, tetapan). Bahagian 13–16 menerangkan paparan awam, penunjuk segerak, senarai semak dan telefon. Bahagian 17–20 ialah glosari, penyelesaian masalah, keselamatan dan kad rujukan pantas.</p>
+</blockquote>
+<hr>
+<h2>1. Gambaran keseluruhan sistem</h2>
+<h3>1.1 Apa yang sistem ini uruskan</h3>
+<p>Sistem Jadual ialah aplikasi web (boleh dipasang sebagai aplikasi PWA) untuk sekolah menguruskan:</p>
+<ol>
+<li><strong>Jadual waktu</strong> guru dan kelas (versi rasmi yang berkuat kuasa pada sesuatu tarikh).</li>
+<li><strong>Rekod ketiadaan guru</strong> harian (sepanjang hari atau waktu tertentu sahaja).</li>
+<li><strong>Cadangan dan penerbitan guru ganti (relief)</strong> — termasuk jadual guru ganti untuk dicetak.</li>
+<li><strong>Pembinaan jadual</strong> dari kosong, atau <strong>import PDF</strong> laporan "Jadual Waktu Persendirian Guru" daripada perisian aSc.</li>
+<li><strong>Masa tetapan guru pemulihan</strong> — waktu mingguan yang bukan subjek, ditanda terus pada jadual guru berkenaan.</li>
+</ol>
+<h3>1.2 Di mana data disimpan</h3>
+<p>Semua data sekolah — guru, jadual, ketiadaan, relief, draf pembina — disimpan dalam <strong>satu fail Google Sheets sekolah</strong> bernama <strong>Sistem Jadual</strong>, melalui pelayan <strong>Google Apps Script</strong> yang terikat pada fail itu.</p>
+<ul>
+<li>Peranti anda menyimpan <strong>salinan sementara</strong> untuk memaparkan skrin dengan pantas dan supaya perubahan tidak hilang semasa sambungan terputus (lihat Bahagian 14).</li>
+<li>Data rasmi sentiasa yang berada di Google Sheets. Jika sesuatu perubahan tidak sempat dihantar ke Sheets, aplikasi memaparkan statusnya secara nyata pada penunjuk segerak.</li>
+<li>Aplikasi ini <strong>tidak berfungsi</strong> tanpa sambungan Apps Script yang disediakan oleh pentadbir sekolah.</li>
+</ul>
+<h3>1.3 Dua peranan pengguna</h3>
+<table>
+<thead>
+<tr>
+<th>Peranan</th>
+<th>Capaian</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Pelawat / orang awam</strong> (tanpa log masuk)</td>
+<td>Melihat jadual rasmi yang berkuat kuasa pada hari semasa serta senarai ketiadaan (<strong>tanpa sebab</strong>) dan relief yang <strong>telah diterbitkan</strong> bagi tarikh yang dipilih.</td>
+</tr>
+<tr>
+<td><strong>Admin</strong> (selepas log masuk)</td>
+<td>Mengurus guru dan jawatan, merekod ketiadaan, menjana/menerbitkan relief, menanda masa tetapan guru pemulihan, membina/mengimport jadual, mengubah tetapan, mengeksport, mengarkib dan mereset data.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Sistem ini pada asalnya dibina untuk <strong>SK Paya Redan</strong>, tetapi boleh disediakan semula untuk sekolah lain mengikut fail <code>SETUP-SEKOLAH.md</code> dalam repositori projek.</p>
+</blockquote>
+<h3>1.4 Peta skrin (di mana sesuatu berada)</h3>
+<table>
+<thead>
+<tr>
+<th>Skrin / tab</th>
+<th>Untuk apa</th>
+<th>Perlu log masuk?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Hari ini</strong> (Relief)</td>
+<td>Kerja harian: rekod guru tiada, jana dan terbitkan relief, cetak/eksport jadual guru ganti. Mempunyai dua sub-tab: <strong>Ketiadaan guru</strong> dan <strong>Relief</strong>.</td>
+<td>Sub-tab Relief boleh dilihat; merekod dan menerbitkan perlu admin</td>
+</tr>
+<tr>
+<td><strong>Jadual</strong></td>
+<td>Membaca jadual <strong>seminggu penuh</strong> bagi seseorang guru atau sesuatu kelas, dan (admin) membina serta mengimport jadual.</td>
+<td>Membaca: semua. Membina/import: admin</td>
+</tr>
+<tr>
+<td><strong>Guru</strong></td>
+<td>Direktori guru, jawatan, kelayakan relief, <strong>masa tetapan guru pemulihan</strong>.</td>
+<td>Admin</td>
+</tr>
+<tr>
+<td><strong>Tetapan</strong></td>
+<td>Had relief harian, akaun admin, maklumat aplikasi, arkib dan reset data.</td>
+<td>Admin</td>
+</tr>
+</tbody>
+</table>
+<p>Di telefon, navigasi ini muncul sebagai <strong>bar navigasi bawah</strong>; di desktop ia berada pada <strong>bar sisi kiri</strong>.</p>
+<hr>
+<h2>2. Memasang aplikasi (PWA desktop dan telefon)</h2>
+<h3>2.1 Pautan aplikasi</h3>
+<p>Repositori projek menerbitkan laman contoh di:</p>
+<pre><code>https://sepadan.github.io/Jadual/
+</code></pre>
+<blockquote>
+<p><strong>Penting:</strong> setiap sekolah yang menyediakan sistem ini sendiri mengikut <code>SETUP-SEKOLAH.md</code> akan menerbitkan salinan sendiri yang disambungkan kepada fail Google Sheets dan Apps Script sekolah itu. <strong>Gunakan pautan yang dibekalkan oleh pentadbir/IT sekolah anda.</strong> Jangan teka atau gunakan pautan sekolah lain.</p>
+</blockquote>
+<h3>2.2 Memasang di komputer (desktop)</h3>
+<ol>
+<li>Buka pautan aplikasi sekolah menggunakan pelayar (Chrome atau Edge disyorkan).</li>
+<li>Apabila aplikasi sedia dipasang, butang <strong>"Pasang aplikasi"</strong> muncul di bar atas aplikasi. Tekan butang tersebut.</li>
+<li>Sahkan pemasangan pada arahan pelayar.</li>
+<li>Selepas dipasang, aplikasi boleh dibuka dari menu Mula/skrin utama seperti aplikasi biasa.</li>
+</ol>
+<p>Jika butang itu tidak muncul: pelayar mungkin belum menganggap aplikasi "boleh dipasang", atau ia sudah dipasang. Cuba buka dalam tetingkap biasa (bukan mod penyamaran) dan muat semula halaman.</p>
+<h3>2.3 Memasang di telefon atau tablet</h3>
+<ol>
+<li>Buka pautan aplikasi dalam pelayar telefon.</li>
+<li>Tekan butang <strong>"Pasang aplikasi"</strong> jika ia muncul di bar atas, kemudian sahkan.</li>
+<li>Jika tidak muncul, gunakan menu pelayar (<strong>"Tambah ke skrin utama"</strong> / <strong>"Install app"</strong>) — nama menu bergantung pada pelayar.</li>
+</ol>
+<h3>2.4 Apa yang berfungsi tanpa internet</h3>
+<table>
+<thead>
+<tr>
+<th>Keadaan</th>
+<th>Tanpa internet</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Membuka aplikasi</td>
+<td><strong>Berfungsi</strong> — fail aplikasi disimpan dalam cache peranti oleh service worker.</td>
+</tr>
+<tr>
+<td>Melihat jadual/hari ini</td>
+<td>Berfungsi untuk <strong>salinan terakhir</strong> yang tersimpan pada peranti itu.</td>
+</tr>
+<tr>
+<td>Log masuk</td>
+<td><strong>Tidak berfungsi.</strong></td>
+</tr>
+<tr>
+<td>Menyimpan perubahan ke Google Sheets</td>
+<td>Perubahan disimpan <strong>sementara pada peranti</strong> dahulu dan dihantar apabila sambungan pulih (Bahagian 14).</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Memasang sebagai PWA mempercepat dan memudahkan cara membuka aplikasi; ia <strong>tidak</strong> menjadikan sistem berfungsi sepenuhnya tanpa internet.</p>
+</blockquote>
+<hr>
+<h2>3. Log masuk, sesi, dan kata laluan</h2>
+<h3>3.1 Langkah log masuk</h3>
+<ol>
+<li>Di skrin utama, tekan <strong>"Login admin"</strong> di bar atas.</li>
+<li>Dalam dialog <strong>Login admin</strong>, isi <strong>Nama pengguna</strong> dan <strong>Kata laluan</strong>.</li>
+<li>Jika sambungan Apps Script sekolah belum pernah disediakan pada peranti ini, dialog turut memaparkan medan <strong>"URL Apps Script sekolah"</strong> — masukkan URL <code>/exec</code> yang dibekalkan pentadbir sekolah.</li>
+<li>Tekan <strong>Login</strong>.</li>
+</ol>
+<p>Selepas berjaya, bar atas menunjukkan pilihan admin (contohnya <strong>Log keluar</strong>) dan skrin <strong>Guru</strong> serta <strong>Tetapan</strong> menjadi tersedia.</p>
+<blockquote>
+<p><strong>Butang bulat <code>?</code> di bar atas</strong> membuka <strong>panduan ini sebagai PDF</strong> (<code>panduan/panduan-penggunaan-sistem-jadual.pdf</code> pada laman aplikasi). Ia boleh dibuka tanpa log masuk, jadi guru dan pentadbir boleh merujuknya terus dari telefon. Tiada butang segerak manual di bar atas — penyegerakan berlaku <strong>automatik</strong> (Bahagian 14).</p>
+</blockquote>
+<h3>3.2 Kata laluan lalai dan peringatan keselamatan</h3>
+<p>Nama pengguna lalai ialah <code>admin</code> dan kata laluan lalai ialah <code>admin</code>. Ini sengaja dibenarkan oleh pembangun sistem supaya sekolah boleh terus menggunakan dan menyimpan data sebaik pemasangan selesai, tanpa disekat menunggu penukaran kata laluan.</p>
+<blockquote>
+<p><strong>Peringatan keselamatan:</strong> tukar <code>admin/admin</code> secepat mungkin selepas pemasangan di <strong>Tetapan → Akaun admin → Tukar kata laluan</strong> (Bahagian 12.2). Selagi kata laluan lalai digunakan, aplikasi hanya memaparkan makluman neutral "kata laluan lalai sedang digunakan dan dibenarkan" selepas log masuk — ia <strong>tidak</strong> menyekat simpanan atau terbitan relief.</p>
+</blockquote>
+<p>Kata laluan baharu mestilah sekurang-kurangnya <strong>12 aksara</strong>.</p>
+<h3>3.3 Berapa lama sesi bertahan, dan bila ia tamat</h3>
+<table>
+<thead>
+<tr>
+<th>Perkara</th>
+<th>Kelakuan sistem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tempoh sesi</td>
+<td><strong>7 hari</strong> pada peranti yang sama (token disimpan pada peranti, disahkan oleh pelayan Apps Script).</td>
+</tr>
+<tr>
+<td>Selepas 7 hari</td>
+<td>Admin perlu log masuk semula.</td>
+</tr>
+<tr>
+<td>Kata laluan ditukar</td>
+<td><strong>Semua</strong> sesi lama pada semua peranti dibatalkan serta-merta; admin perlu log masuk semula dengan kata laluan baharu.</td>
+</tr>
+<tr>
+<td>Lima percubaan salah berturut-turut</td>
+<td>Pelayan menyekat percubaan baharu selama <strong>15 minit</strong>.</td>
+</tr>
+<tr>
+<td>Membuka semula aplikasi</td>
+<td>Sesi yang masih sah dipulihkan secara automatik (tidak perlu taip semula).</td>
+</tr>
+</tbody>
+</table>
+<h3>3.4 Log keluar dengan selamat</h3>
+<p>Tekan <strong>Log keluar</strong> di bar atas. Jika ada <strong>draf pembina jadual</strong> yang belum disimpan atau perubahan yang masih <strong>menunggu Sheets</strong>, sistem meminta pengesahan terlebih dahulu.</p>
+<blockquote>
+<p>Baca status penunjuk segerak sebelum mengesahkan log keluar. Jika status menunjukkan <strong>Tersimpan di peranti · menunggu Sheets</strong>, perubahan itu belum tiba di Google Sheets; jika anda mengesahkan log keluar, salinan tertunda pada peranti itu dibuang. Cuba sambung semula internet, biarkan sehingga status kembali <strong>Google Sheets · masa nyata</strong>, kemudian baru log keluar.</p>
+<p>Sentiasa log keluar selepas menggunakan komputer atau telefon yang dikongsi bersama kakitangan lain.</p>
+</blockquote>
+<hr>
+<h2>4. Skrin Relief — sub-tab "Ketiadaan guru"</h2>
+<p>Skrin <strong>Hari ini</strong> ialah tempat kerja harian relief. Di bahagian atasnya terdapat pemilih <strong>Tarikh</strong> dan empat kad ringkasan bagi tarikh itu:</p>
+<table>
+<thead>
+<tr>
+<th>Kad ringkasan</th>
+<th>Maksud</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Guru tiada</strong></td>
+<td>Bilangan guru yang direkodkan tidak hadir pada tarikh itu.</td>
+</tr>
+<tr>
+<td><strong>Kelas terlibat</strong></td>
+<td>Bilangan kelas berbeza yang memerlukan relief.</td>
+</tr>
+<tr>
+<td><strong>Belum ditetapkan</strong></td>
+<td>Bilangan slot draf relief yang belum ada guru ganti.</td>
+</tr>
+<tr>
+<td><strong>Relief selesai</strong></td>
+<td>Bilangan relief yang telah <strong>diterbitkan</strong> bagi tarikh itu.</td>
+</tr>
+</tbody>
+</table>
+<h3>4.1 Merekod guru tidak hadir</h3>
+<ol>
+<li>Pastikan sub-tab <strong>Ketiadaan guru</strong> dipilih.</li>
+<li>Tekan <strong>"+ Tambah"</strong>.</li>
+<li>Pilih <strong>Guru</strong>, <strong>Tarikh</strong>, dan jika perlu tulis <strong>Sebab ringkas</strong> (contoh: "Kursus", "Cuti sakit").</li>
+<li>Biarkan <strong>"Sepanjang hari"</strong> bertanda jika guru tidak hadir sepanjang hari. Nyahtanda kotak itu untuk memilih <strong>waktu tertentu</strong> sahaja daripada senarai waktu yang dipaparkan — gunakan ini untuk guru yang hadir separuh hari (contoh: keluar kursus pada waktu 7–9 sahaja).</li>
+<li>Tekan <strong>"Simpan dan jana relief"</strong>.</li>
+</ol>
+<p>Selepas disimpan, sistem <strong>terus menjana draf cadangan relief</strong> untuk tarikh itu, dan senarai ketiadaan bagi tarikh tersebut dipaparkan.</p>
+<p>Perkara yang perlu diketahui:</p>
+<ul>
+<li>Guru yang <strong>sama</strong> tidak boleh direkod tidak hadir <strong>dua kali</strong> pada tarikh yang sama.</li>
+<li>Merekod ketiadaan <strong>tidak</strong> mengubah jadual rasmi. Ia hanya menghasilkan draf relief.</li>
+<li>Jika guru itu tidak mempunyai waktu mengajar pada tarikh tersebut, draf akan kosong — ini bukan ralat, tetapi sistem akan memberitahu sebabnya (Bahagian 5.1).</li>
+</ul>
+<h3>4.2 Memadam rekod ketiadaan</h3>
+<p>Tekan ikon <strong>🗑</strong> pada kad rekod. Sistem memadam rekod itu daripada Google Sheets <strong>berserta relief yang bergantung padanya</strong> bagi tarikh dan guru yang sama. Tindakan ini disahkan melalui dialog amaran dan <strong>tidak boleh dibatalkan</strong>.</p>
+<blockquote>
+<p>Jika anda hanya tersilap memasukkan <strong>sebab</strong>, anda tidak perlu memadam rekod — kesannya hanya pada paparan admin, bukan pada relief.</p>
+</blockquote>
+<hr>
+<h2>5. Skrin Relief — sub-tab "Relief" (jana, semak, terbitkan)</h2>
+<p>Berpindah ke sub-tab <strong>Relief</strong> bermakna anda mula menetapkan guru ganti.</p>
+<h3>5.1 Menjana cadangan relief ("Jana")</h3>
+<p>Tekan <strong>"Jana"</strong>. Sistem akan:</p>
+<ol>
+<li>Menyemak semua rekod ketiadaan <strong>aktif</strong> bagi tarikh yang dipilih.</li>
+<li>Mencari <strong>waktu mengajar</strong> guru tersebut dalam jadual rasmi yang berkuat kuasa pada tarikh itu.</li>
+<li>Mencadangkan guru ganti yang <strong>layak relief</strong>, <strong>tidak sibuk</strong> pada waktu itu, <strong>tidak turut tiada</strong>, dan belum melebihi <strong>had relief harian</strong>.</li>
+<li>Mengutamakan guru dengan jumlah <strong>waktu mengajar + relief</strong> hari itu yang <strong>paling sedikit</strong>, supaya beban relief tidak menumpuk pada orang yang sama.</li>
+</ol>
+<p>Jika sudah ada draf yang belum diterbitkan, sistem meminta pengesahan sebelum menjana semula — kerana <strong>draf lama akan digantikan</strong>.</p>
+<p><strong>Mengapa draf boleh keluar kosong.</strong> Sistem akan memberitahu sebabnya, contohnya:</p>
+<ul>
+<li>tiada jadual rasmi yang berkuat kuasa pada tarikh itu;</li>
+<li>tiada rekod ketiadaan pada tarikh itu;</li>
+<li>guru tidak hadir itu tiada waktu mengajar yang perlu diganti;</li>
+<li>slot itu sudah dilindungi oleh aturan pairing guru (Bahagian 12.1) atau relief sudah diterbitkan;</li>
+<li>had relief harian guru calon sudah penuh (had lalai 2 waktu sehari).</li>
+</ul>
+<h3>5.2 Dua paparan: Senarai relief dan Preview</h3>
+<table>
+<thead>
+<tr>
+<th>Paparan</th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Senarai relief</strong></td>
+<td>Kad demi kad: waktu, kelas/subjek, guru tidak hadir, dan <strong>dropdown guru ganti</strong>. Di sinilah admin menukar calon yang dicadangkan sistem.</td>
+</tr>
+<tr>
+<td><strong>Preview</strong></td>
+<td>Jadual guru ganti dalam format yang sama seperti dokumen rasmi yang akan dicetak, <strong>termasuk draf yang belum diterbitkan</strong>, supaya keseluruhan lembaran boleh disemak sebelum diterbitkan.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Perbezaan penting:</strong> Preview memaparkan <strong>draf + relief diterbitkan</strong> untuk semakan. <strong>Cetak</strong> dan <strong>Eksport PDF</strong> (Bahagian 6) hanya memaparkan relief yang <strong>telah diterbitkan</strong>. Draf yang belum diterbitkan <strong>tidak</strong> akan muncul pada cetakan atau PDF.</p>
+</blockquote>
+<p>Pada telefon, jadual Preview lebih lebar daripada skrin — <strong>skrol mendatar</strong> diperlukan untuk melihat kesemua lajur waktu. Pada desktop ia kelihatan penuh.</p>
+<h3>5.3 Menetapkan atau menukar guru ganti</h3>
+<p>Pada setiap kad draf dalam <strong>Senarai relief</strong>, pilih guru ganti daripada dropdown. Jika tiada calon tersenarai, pesanan seperti "Pilih atau ubah kelayakan guru" dipaparkan — semak semula kelayakan relief guru di tab <strong>Guru</strong> (Bahagian 10.2).</p>
+<p>Yang perlu diperiksa sebelum menerbitkan:</p>
+<ul>
+<li>Setiap slot sudah ada guru ganti (bar bawah memaparkan "X/Y relief ditetapkan").</li>
+<li>Tiada guru ganti dipilih pada dua kelas yang berbeza pada waktu yang sama.</li>
+<li>Tiada guru yang turut tidak hadir dipilih.</li>
+</ul>
+<h3>5.4 Menerbitkan relief</h3>
+<ol>
+<li>Semak semua slot.</li>
+<li>Tekan <strong>"Terbitkan"</strong> pada bar tindakan bawah.</li>
+<li>Sistem mengesahkan semula tiada percanggahan, kemudian menyimpan relief sebagai rekod <strong>diterbitkan</strong> ke Google Sheets.</li>
+</ol>
+<p>Selepas diterbitkan:</p>
+<ul>
+<li>relief itu kelihatan kepada <strong>paparan awam</strong> (tanpa sebab ketiadaan);</li>
+<li>ia tersedia untuk <strong>Cetak</strong> dan <strong>Eksport PDF</strong>;</li>
+<li>ia mula dikira dalam <strong>had relief harian</strong> setiap guru ganti.</li>
+</ul>
+<hr>
+<h2>6. Cetak dan eksport PDF jadual guru ganti</h2>
+<p>Dua butang berasingan disediakan pada bar alat skrin Relief:</p>
+<table>
+<thead>
+<tr>
+<th>Butang</th>
+<th>Fungsi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Eksport PDF</strong></td>
+<td>Menjana fail <strong>PDF A4</strong> jadual guru ganti bagi tarikh yang dipilih, untuk disimpan atau dikongsi.</td>
+</tr>
+<tr>
+<td><strong>Cetak</strong></td>
+<td>Membuka dialog cetak pelayar terus pada lembaran guru ganti tarikh yang dipilih.</td>
+</tr>
+</tbody>
+</table>
+<p>Kedua-duanya bergantung pada medan <strong>Tarikh</strong> di bar alat, dan <strong>hanya</strong> memaparkan relief yang <strong>telah diterbitkan</strong>. Jika tiada relief diterbitkan pada tarikh itu, sistem memaparkan makluman ralat dan <strong>tidak</strong> menjana dokumen.</p>
+<p>Lembaran yang dihasilkan mengandungi:</p>
+<ul>
+<li>tajuk sekolah, tarikh dan hari;</li>
+<li>jadual mengikut waktu (bermula waktu 1, ditambah jika ada relief pada waktu lebih tinggi);</li>
+<li>kelompok mengikut <strong>nama guru yang tidak hadir</strong>;</li>
+<li>baris kelas/subjek, nama guru ganti dan ruang tandatangan.</li>
+</ul>
+<p><strong>Amalan terbaik:</strong> semak paparan <strong>Preview</strong> dahulu, terbitkan, kemudian baru cetak atau eksport. Jika sesuatu relief perlu dibatalkan, ia mesti diperbetulkan pada draf/diterbitkan sebelum mencetak, kerana cetakan sentiasa mengikut keadaan yang tersimpan di Google Sheets.</p>
+<hr>
+<h2>7. Skrin Jadual — membaca jadual <strong>seminggu penuh</strong></h2>
+<p>Skrin <strong>Jadual</strong> memaparkan jadual rasmi yang sedang berkuat kuasa dalam <strong>satu grid minggu penuh</strong>: <strong>hari persekolahan ke bawah</strong> (Isnin–Jumaat), <strong>waktu melintang ke kanan</strong> (waktu 0 hingga 12 dengan jam mula di bawah setiap nombor), dan <strong>lajur REHAT menegak</strong> pada jurang jam sekolah. Bentuk ini sama seperti skrin <strong>Lihat &amp; edit</strong> dalam Pembina, jadi sekolah hanya perlu belajar satu bentuk jadual. Tiada pemilih hari — pilih guru (atau kelas), dan seluruh minggu terus kelihatan.</p>
+<h3>7.1 Cara membaca jadual minggu</h3>
+<ol>
+<li>Buka tab <strong>Jadual</strong>.</li>
+<li>Pada medan pertama (<strong>Paparan</strong>, admin sahaja), pilih <strong>Guru</strong> atau <strong>Kelas</strong>.</li>
+<li>Pada medan kedua (<strong>Guru</strong> / <strong>Kelas</strong>), pilih nama yang hendak dilihat.</li>
+<li>Jadual minggu dipaparkan serta-merta.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Bahagian paparan</th>
+<th>Maksud</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lajur paling kiri</td>
+<td><strong>Hari</strong> — Isnin hingga Jumaat. Baris <strong>hari ini</strong> berlatar hijau (jika hari ini hari persekolahan).</td>
+</tr>
+<tr>
+<td>Baris paling atas</td>
+<td><strong>Waktu</strong> — nombor waktu 0 hingga 12 dan jam mula rasmi setiap waktu (contoh <code>1</code> di atas <code>07:30</code>).</td>
+</tr>
+<tr>
+<td>Lajur <code>REHAT</code> menegak</td>
+<td>Jurang jam sekolah (contoh 10:00–10:20 selepas waktu 5). Ia dikira daripada jam setiap waktu, bukan ditaip.</td>
+</tr>
+<tr>
+<td>Blok berwarna: kod subjek + kelas</td>
+<td>Waktu mengajar sebenar — kod subjek kecil di atas (contoh <code>BM</code>), nama kelas tebal di tengah (contoh <code>3 BIJAK</code>).</td>
+</tr>
+<tr>
+<td>Blok kuning <code>Pemulihan</code> + <code>Aktiviti</code></td>
+<td><strong>Masa tetapan guru pemulihan</strong> — waktu bukan subjek yang menyekat relief (Bahagian 11).</td>
+</tr>
+<tr>
+<td>Sel kosong</td>
+<td>Waktu lapang pada hari itu — guru <strong>boleh</strong> dipanggil mengganti pada waktu tersebut.</td>
+</tr>
+<tr>
+<td>Legenda warna di bawah grid</td>
+<td>Senarai kod subjek yang muncul pada jadual ini beserta warnanya.</td>
+</tr>
+</tbody>
+</table>
+<p>Tag di atas jadual (contoh "Jadual 14.09.2026 · 14 Sep 2026") memaparkan <strong>nama versi</strong> dan <strong>tarikh kuat kuasa</strong> jadual yang sedang aktif. Jika tiada jadual aktif, paparan memaklumkan "Belum ada jadual aktif".</p>
+<h3>7.2 Jadual ini yang digunakan oleh enjin relief</h3>
+<p>Jadual yang dipaparkan di sini ialah <strong>jadual yang sebenarnya digunakan</strong> sistem untuk mencadangkan guru ganti bagi sesuatu tarikh — mengikut versi yang berkuat kuasa <strong>pada tarikh itu</strong>, bukan mengikut draf pembina.</p>
+<ul>
+<li>Sel kosong bermakna guru itu <strong>boleh</strong> dipilih sebagai guru ganti pada waktu tersebut.</li>
+<li>Sel yang berisi subjek atau <code>PEMULIHAN</code> bermakna guru itu <strong>sibuk</strong> dan tidak akan dicadangkan pada waktu tersebut.</li>
+<li>Menukar paparan <strong>Guru/Kelas</strong> hanya menukar sudut pandang; ia tidak mengubah data.</li>
+</ul>
+<h3>7.3 Membaca jadual kelas</h3>
+<p>Pilih <strong>Paparan: Kelas</strong> (admin) untuk melihat jadual minggu bagi satu kelas. Ini berguna untuk:</p>
+<ul>
+<li>menyemak sama ada sesuatu kelas benar-benar memerlukan relief apabila gurunya tiada;</li>
+<li>memastikan tiada dua subjek pada waktu yang sama dalam satu kelas;</li>
+<li>mencetak/menyalin jadual kelas untuk kegunaan bilik darjah.</li>
+</ul>
+<h3>7.4 Pada telefon</h3>
+<p>Pada telefon grid ini <strong>lebih lebar daripada skrin</strong> — ini disengajakan supaya setiap waktu kekal boleh dibaca. <strong>Leret ke kiri/kanan</strong> untuk melihat semua waktu; petunjuk <em>"↔ Leret ke kiri/kanan untuk melihat semua waktu."</em> dipaparkan betul-betul di bawah grid. Teks dalam blok akan berbalut, jadi tiada nama kelas terpotong.</p>
+<hr>
+<h2>8. Skrin Jadual — membina dan mengurus jadual (mod Pembina)</h2>
+<p>Selain membaca jadual, admin boleh <strong>membina</strong> jadual dari kosong atau mengimportnya. Modul <strong>Pembina jadual</strong> mengandungi bahagian berikut:</p>
+<table>
+<thead>
+<tr>
+<th>Bahagian</th>
+<th>Fungsi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ruang bina jadual (Papan Utama)</td>
+<td>Ringkasan bilangan kelas, guru, subjek, waktu seminggu dan status persediaan.</td>
+</tr>
+<tr>
+<td>Sekolah &amp; masa (Tetapan)</td>
+<td>Nama sekolah, tahun, hari persekolahan, masa mula, tempoh waktu, waktu rehat.</td>
+</tr>
+<tr>
+<td>Subjek</td>
+<td>Kod, nama, warna, subjek teras / waktu pagi.</td>
+</tr>
+<tr>
+<td>Kelas</td>
+<td>Nama kelas dan tahap tahun (1–6).</td>
+</tr>
+<tr>
+<td>Guru &amp; ketersediaan</td>
+<td>Nama, kod, had waktu sehari, waktu guru tidak boleh mengajar.</td>
+</tr>
+<tr>
+<td>Peruntukan waktu</td>
+<td>Bilangan waktu setiap subjek mengikut tahun/tahap.</td>
+</tr>
+<tr>
+<td>Agihan guru</td>
+<td>Guru yang mengajar subjek tertentu di kelas tertentu.</td>
+</tr>
+<tr>
+<td>Slot tetap</td>
+<td>Perhimpunan, kokurikulum dan aktiviti berjadual tetap (<strong>juga asas kepada masa tetapan guru pemulihan</strong> — lihat Bahagian 11.5).</td>
+</tr>
+<tr>
+<td>Kekangan</td>
+<td>Had waktu berturut-turut, keutamaan waktu pagi untuk subjek teras, kemudahan terhad.</td>
+</tr>
+<tr>
+<td>Jana jadual</td>
+<td>Menjana jadual secara automatik berdasarkan data di atas.</td>
+</tr>
+<tr>
+<td>Lihat &amp; edit</td>
+<td>Menyemak dan mengubah jadual yang dijana, termasuk menyemak isu/pertembungan.</td>
+</tr>
+<tr>
+<td>Cetak / PDF</td>
+<td>Mencetak jadual guru/kelas dalam format A4 landskap.</td>
+</tr>
+<tr>
+<td>Data &amp; sandaran</td>
+<td>Muat turun sandaran JSON atau import sandaran lama; data utama tetap di Google Sheets.</td>
+</tr>
+</tbody>
+</table>
+<h3>8.1 Tindakan penting pada bar atas pembina</h3>
+<table>
+<thead>
+<tr>
+<th>Butang</th>
+<th>Apa yang dilakukannya</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Simpan draf ke Sheets</strong></td>
+<td>Menyimpan keseluruhan draf pembina (sekolah, masa, subjek, kelas, guru, agihan, kekangan, jadual) ke Google Sheets sebagai <strong>satu rekod berasingan</strong> bernama BuilderState.</td>
+</tr>
+<tr>
+<td><strong>Muat draf Sheets</strong></td>
+<td>Memuat semula draf tersimpan daripada Sheets (menggantikan draf pada peranti, dengan pengesahan jika ada perubahan belum disimpan).</td>
+</tr>
+<tr>
+<td><strong>Ambil senarai guru</strong></td>
+<td>Menyelaraskan senarai guru pembina dengan senarai guru rasmi dalam tab <strong>Guru</strong>, termasuk pautan guru gantian (Personel MySTEP / Guru Praktikal).</td>
+</tr>
+<tr>
+<td><strong>Gunakan untuk relief →</strong></td>
+<td>Menyemak jadual yang dijana (mesti sudah dijana dan tiada isu belum selesai), kemudian membuka dialog <strong>"Gunakan untuk relief"</strong> untuk mengesahkan nama versi dan <strong>tarikh kuat kuasa</strong> sebelum diaktifkan.</td>
+</tr>
+</tbody>
+</table>
+<h3>8.2 Draf pembina lawan jadual aktif — PERBEZAAN PALING PENTING</h3>
+<p><strong>Draf pembina</strong> dan <strong>jadual aktif untuk relief</strong> ialah <strong>dua rekod yang berasingan</strong>:</p>
+<ul>
+<li>Apa jua perubahan dalam pembina (menambah kelas, mengubah agihan guru, menjana semula) <strong>hanya mengubah draf</strong>. Ia <strong>tidak</strong> mengubah jadual yang digunakan relief harian, walaupun draf itu telah <strong>Simpan draf ke Sheets</strong>.</li>
+<li>Jadual relief hanya berubah apabila admin menekan <strong>"Gunakan untuk relief →"</strong>, mengesahkan nama versi dan tarikh kuat kuasa, kemudian menekan <strong>"Aktifkan jadual"</strong>.</li>
+<li>Selepas diaktifkan, jadual itu menjadi versi <strong>aktif</strong>, dan versi aktif sebelumnya ditukar kepada status <strong>superseded</strong> (digantikan) tetapi kekal dalam sejarah.</li>
+<li>Draf yang terus diubah selepas pengaktifan <strong>tidak</strong> menjejaskan jadual relief yang sedang berkuat kuasa sehingga ia diaktifkan semula secara eksplisit.</li>
+</ul>
+<blockquote>
+<p><strong>Amalan selamat:</strong> sebelum menekan <strong>Aktifkan jadual</strong>, pastikan tarikh kuat kuasa betul. Semua cadangan relief selepas itu — dan semua <strong>masa tetapan guru pemulihan</strong> — akan dikira daripada versi baharu ini.</p>
+</blockquote>
+<hr>
+<h2>9. Import PDF "Jadual Waktu Persendirian Guru" (aSc)</h2>
+<h3>9.1 Format yang disokong</h3>
+<p>Hanya PDF <strong>teks</strong> yang dijana terus oleh perisian aSc — khususnya laporan <strong>"Jadual Waktu Persendirian Guru"</strong>, waktu <strong>0–12</strong>. PDF hasil imbasan/gambar (OCR) <strong>tidak</strong> disokong dan akan ditolak dengan mesej "Susun atur PDF tidak dikenali".</p>
+<h3>9.2 Langkah import</h3>
+<ol>
+<li>Pergi ke <strong>Jadual</strong>, tekan <strong>"Import PDF aSc"</strong>.</li>
+<li><strong>LANGKAH 1:</strong> pilih fail PDF (maksimum 25 MB). Sistem cuba mengesan tarikh daripada nama fail untuk mengisi <strong>Tarikh mula berkuat kuasa</strong> dan <strong>Nama versi</strong> secara automatik; kedua-duanya masih boleh diubah.</li>
+<li>Tekan <strong>"Baca dan semak PDF"</strong>. PDF diproses <strong>sepenuhnya pada peranti</strong> sebelum apa-apa data dihantar ke Sheets.</li>
+<li><strong>LANGKAH 2:</strong> semak ringkasan import (halaman guru, slot digunakan, halaman diabaikan, makluman) dan jadual padanan bagi setiap halaman.</li>
+</ol>
+<h3>9.3 Padanan nama guru</h3>
+<p>Sistem memadankan nama pada setiap halaman PDF dengan nama dalam tab <strong>Guru</strong>, selepas menormalkan gelaran (TN HJ / EN / PN / CIK) dan ejaan yang diketahui berbeza.</p>
+<table>
+<thead>
+<tr>
+<th>Keadaan</th>
+<th>Kelakuan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nama sepadan</td>
+<td>Halaman ditandakan dengan nama guru itu dan slotnya disertakan dalam import.</td>
+</tr>
+<tr>
+<td>Nama tidak sepadan</td>
+<td>Halaman <strong>diabaikan secara automatik</strong> (bukan ralat). Admin boleh <strong>memilih padanan secara manual</strong> melalui dropdown pada baris berkenaan, atau memilih <strong>"Abaikan halaman ini"</strong>.</td>
+</tr>
+<tr>
+<td>Guru sudah dipadankan</td>
+<td>Satu guru tidak boleh dipadankan dengan dua halaman — mesej "Guru itu sudah dipadankan dengan halaman lain".</td>
+</tr>
+<tr>
+<td>Guru tiada halaman PDF</td>
+<td>Disenaraikan sebagai makluman ("Tiada halaman jadual untuk [nama guru]") supaya admin boleh menyemak semula.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Jika <strong>tiada profil guru langsung</strong> dalam sistem (contohnya selepas reset data), import tidak dapat dipadankan. Pergi ke tab <strong>Guru</strong> dan tekan <strong>"Pulihkan senarai guru asal"</strong> (Bahagian 10.5) sebelum membaca semula PDF.</p>
+</blockquote>
+<h3>9.4 Menyimpan hasil import</h3>
+<table>
+<thead>
+<tr>
+<th>Pilihan</th>
+<th>Kesan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Simpan jadual</strong></td>
+<td>Menyimpan slot yang telah dipadankan sebagai <strong>versi jadual baharu</strong>. Jika kotak <strong>"Jadikan versi ini jadual aktif"</strong> bertanda (lalai bertanda), versi ini terus menjadi jadual aktif untuk relief; versi sebelumnya menjadi superseded.</td>
+</tr>
+<tr>
+<td><strong>Buka sebagai draf pembina</strong></td>
+<td>Memindahkan hasil import ke <strong>draf pembina</strong> pada peranti untuk disemak dan disunting lanjut. Ia menggantikan draf pembina semasa selepas pengesahan, dan <strong>tidak</strong> menyimpan apa-apa ke Google Sheets sehingga anda menekan <strong>Simpan draf ke Sheets</strong>. Jadual aktif sedia ada tidak berubah.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Jika masa tetapan guru pemulihan pernah ditanda pada versi lama, ia <strong>tidak</strong> berpindah ke versi baharu secara automatik. Selepas mengaktifkan versi baharu, buka semula <strong>Tetapan Jadual</strong> guru pemulihan berkenaan dan tandakan kembali waktunya (Bahagian 11).</p>
+</blockquote>
+<hr>
+<h2>10. Tab Guru dan jawatan</h2>
+<p>Tab <strong>Guru</strong> (admin sahaja) menyenaraikan semua profil guru aktif. Pada setiap kad dipaparkan nama, avatar, jawatan, status kelayakan relief, dan (jika berkaitan) nota "Menggantikan [nama guru]".</p>
+<h3>10.1 Menambah atau mengubah profil guru</h3>
+<p>Tekan <strong>"+ Tambah guru"</strong>, atau ikon <strong>✎</strong> pada kad guru untuk mengubah profil. Dialog <strong>Profil guru</strong> mengandungi:</p>
+<table>
+<thead>
+<tr>
+<th>Medan</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Nama penuh</strong></td>
+<td>Nama rasmi guru (digunakan untuk padanan import PDF dan cetakan relief).</td>
+</tr>
+<tr>
+<td><strong>Nama ringkas</strong></td>
+<td>Nama pendek untuk paparan sempit (maksimum 24 aksara).</td>
+</tr>
+<tr>
+<td><strong>Jawatan</strong></td>
+<td>Guru Besar, Guru Penolong Kanan 1 / HEM / Kokurikulum, Guru Akademik Biasa, Guru Prasekolah, <strong>Guru Pemulihan</strong>, Guru Praktikal, Personel MySTEP, atau <strong>"Jawatan lain…"</strong> untuk jawatan tersuai.</td>
+</tr>
+<tr>
+<td><strong>Boleh menerima relief mulai</strong> (Guru Prasekolah sahaja)</td>
+<td>Waktu mula guru prasekolah boleh menerima relief. Guru prasekolah yang <strong>belum</strong> menetapkan waktu ini dianggap <strong>dikecualikan</strong> daripada relief secara automatik.</td>
+</tr>
+<tr>
+<td><strong>Menggantikan guru</strong> (Personel MySTEP / Guru Praktikal)</td>
+<td>Memautkan guru ini kepada guru sedia ada. <strong>MySTEP</strong> mengambil alih <strong>keseluruhan</strong> jadual (guru asal tidak lagi dipaparkan); <strong>Guru Praktikal</strong> berkongsi kelas dengan guru asal (guru asal tetap dipaparkan) dan boleh dipautkan kepada lebih daripada seorang guru serta subjek tertentu sahaja.</td>
+</tr>
+<tr>
+<td><strong>Layak menerima tugasan relief</strong></td>
+<td>Kotak semak kelayakan relief.</td>
+</tr>
+</tbody>
+</table>
+<p>Sistem mengutamakan guru dengan jumlah <strong>waktu mengajar + relief</strong> hari tersebut <strong>paling sedikit</strong> semasa mencadangkan guru ganti automatik.</p>
+<h3>10.2 Menukar kelayakan relief dengan pantas</h3>
+<p>Tekan terus pada bahagian nama/status kad guru untuk menogol kelayakan relief antara <strong>layak</strong> (hijau) dan <strong>dikecualikan</strong> (merah) tanpa membuka dialog penuh. Gunakan ini apabila seseorang guru sedang bercuti panjang, menjalankan tugas luar, atau memang tidak boleh menerima relief pada sesuatu tempoh.</p>
+<h3>10.3 Memadam atau menyahaktifkan guru</h3>
+<p><strong>Memadam guru</strong> (ikon <strong>×</strong>) hanya dibenarkan jika guru itu <strong>tiada</strong> rekod jadual, ketiadaan atau relief yang bergantung kepadanya. Jika ada, sistem secara automatik <strong>menyahaktifkan</strong> (bukan memadam) profil itu supaya sejarah rekod tidak rosak, dan memberitahu sebabnya.</p>
+<h3>10.4 Muat turun / muat naik senarai guru</h3>
+<ul>
+<li><strong>Muat turun senarai</strong> — mengeksport senarai guru sebagai fail JSON Sistem Jadual (berguna sebagai sandaran).</li>
+<li><strong>Muat naik senarai</strong> — mengimport senarai guru. Import <strong>hanya menambah guru baharu</strong>; nama yang sudah wujud <strong>diabaikan</strong> dan tidak ditindih.</li>
+</ul>
+<h3>10.5 Memulihkan senarai guru asal</h3>
+<p>Jika tab Guru kosong (contohnya selepas reset data), sistem memaparkan makluman <strong>"Tiada profil guru dalam sistem"</strong> dengan butang <strong>"Pulihkan senarai guru asal"</strong>. Butang ini menambah semula senarai guru asal sekolah yang dibina bersama sistem; guru yang <strong>masih ada</strong> dalam sistem <strong>tidak diubah</strong>, dan ID guru asal dikekalkan supaya rekod lama masih sepadan.</p>
+<hr>
+<h2>11. Guru pemulihan dan <strong>masa tetapan</strong> mereka</h2>
+<h3>11.1 Apa itu guru pemulihan</h3>
+<p>Di sesetengah sekolah, guru pemulihan <strong>tidak mempunyai subjek</strong> dalam jadual rasmi. Subjek bagi kelas pemulihan diisi oleh guru itu sendiri, jadi jadualnya hanya perlu menunjukkan <strong>waktu (masa) yang dikhaskan untuk kerja pemulihan</strong> — contohnya waktu 1 dan 2 setiap hari. Waktu-waktu itu dalam sistem ini dipanggil <strong>masa tetapan</strong>.</p>
+<h3>11.2 Apa yang berlaku apabila masa tetapan ditanda</h3>
+<table>
+<thead>
+<tr>
+<th>Kesan</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pada jadual guru itu</td>
+<td>Sel dipaparkan sebagai <code>PEMULIHAN</code> / <code>Aktiviti</code> (kuning) pada minggu guru tersebut (Bahagian 7.1).</td>
+</tr>
+<tr>
+<td>Pada enjin relief</td>
+<td>Guru itu <strong>tidak</strong> akan dicadangkan sebagai guru ganti pada waktu tersebut — dia dianggap <strong>sibuk</strong>.</td>
+</tr>
+<tr>
+<td>Pada waktu lapangnya</td>
+<td>Dia <strong>boleh</strong> dipanggil mengganti seperti guru lain. Sistem tidak mengunci seluruh harinya.</td>
+</tr>
+<tr>
+<td>Pada kelas</td>
+<td>Tiada kelas diambil kira: masa tetapan bukan pengajaran dan tidak menyentuh jadual kelas.</td>
+</tr>
+</tbody>
+</table>
+<h3>11.3 Langkah menanda masa tetapan (di telefon atau desktop)</h3>
+<ol>
+<li>Buka tab <strong>Guru</strong>.</li>
+<li>Cari kad guru pemulihan, tekan ikon <strong>✎</strong> untuk membuka <strong>Profil guru</strong>.</li>
+<li>Pastikan <strong>Jawatan</strong> ialah <strong>Guru Pemulihan</strong>. Jika baru ditukar, tekan <strong>Simpan guru</strong> dahulu dan buka semula profil — butang di langkah 4 hanya muncul untuk guru yang sudah disimpan.</li>
+<li>Tekan butang <strong>Tetapan Jadual</strong> (di baris butang dialog, di sebelah <strong>Batal</strong>).</li>
+<li>
+<p><strong>Jadual minggu</strong> guru itu terbuka — <strong>hari ke bawah (5 baris), waktu melintang (13 lajur, waktu 0–12)</strong> — supaya lajur waktu mudah dibaca pada telefon:</p>
+<ul>
+<li>Sel kosong bertulis <strong>"kosong"</strong> boleh ditekan untuk menanda masa tetapan.</li>
+<li>Sel yang sudah ditanda menunjukkan <strong>"Pemulihan"</strong> dengan nota <em>tekan untuk buang</em> — tekan sekali lagi untuk membuang tanda.</li>
+<li>Sel yang sudah ada kelas sebenar (contoh <code>BM</code> + <code>3 BIJAK</code>) <strong>tidak boleh ditekan</strong> — masa tetapan tidak boleh menindih pengajaran sebenar.
+6. Tekan setiap ruang kosong yang sepatutnya menjadi masa pemulihan. Setiap ketukan menghasilkan tanda, dan kiraan di bawah jadual berubah (contoh: "3 waktu pemulihan ditanda.").
+7. Tekan <strong>Simpan tetapan</strong>.</li>
+</ul>
+</li>
+</ol>
+<p>Selepas disimpan, dialog ditutup dan butang kembali kepada keadaan asal. Jadual minggu guru itu kini menunjukkan masa tetapan, dan enjin relief menghormatinya.</p>
+<h3>11.4 Mengubah, menambah atau membuang masa tetapan</h3>
+<ul>
+<li>Buka semula <strong>Tetapan Jadual</strong> pada kad guru yang sama; tanda sedia ada dipaparkan.</li>
+<li>Tekan sel yang sudah ditanda untuk <strong>membuang</strong> tanda itu.</li>
+<li>Tekan <strong>Kosongkan tanda</strong> untuk membuang <strong>semua</strong> tanda sebelum menyimpan.</li>
+<li>Tekan <strong>Simpan tetapan</strong> untuk menyimpan keadaan terakhir.</li>
+</ul>
+<p>Bilangan waktu tetapan boleh berubah bila-bila masa tanpa menjejaskan relief yang sudah diterbitkan bagi tarikh lampau.</p>
+<h3>11.5 Cara lain yang menghasilkan masa tetapan</h3>
+<p>Sebelum ciri di atas diperkenalkan, masa tetapan dihasilkan dengan:</p>
+<ol>
+<li><strong>Slot tetap</strong> dalam modul Pembina (bahagian "Slot tetap") — sesuai jika waktu yang sama diulang setiap hari; atau</li>
+<li><strong>Import PDF aSc</strong> — sel tanpa nama kelas dalam PDF ditafsirkan sebagai <strong>tugas (duty)</strong>, iaitu bukan pengajaran, sama seperti masa tetapan;</li>
+</ol>
+<p>Kedua-duanya masih dihormati oleh enjin relief: apa-apa baris jadual yang bertanda tugas menyekat guru itu daripada dicadangkan pada waktu tersebut.</p>
+<h3>11.6 Amaran penting: "Jadual ini sudah berubah pada pentadbir atau peranti lain"</h3>
+<p>Apabila anda menekan <strong>Simpan tetapan</strong>, sistem menyemak semula jadual di pelayan sekolah terlebih dahulu. Ini kerana menyimpan menulis semula <strong>seluruh</strong> versi jadual tersebut, jadi simpanan yang menggunakan data lama boleh memadam perubahan orang lain secara senyap.</p>
+<table>
+<thead>
+<tr>
+<th>Mesej yang muncul</th>
+<th>Maksudnya</th>
+<th>Apa yang perlu dibuat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Jadual ini sudah berubah pada pentadbir atau peranti lain. Data terkini sudah dimuatkan — semak N tanda anda, kemudian tekan Simpan sekali lagi."</td>
+<td>Jadual versi itu telah berubah (contohnya pentadbir lain menambah kelas) sementara dialog anda terbuka. <strong>Tiada apa-apa disimpan.</strong></td>
+<td>Jadual minggu telah dimuat semula dengan data terkini dan tanda anda yang masih sah dikekalkan. Semak sekali lagi, kemudian tekan <strong>Simpan tetapan</strong> semula.</td>
+</tr>
+<tr>
+<td>"Tidak dapat mengesahkan jadual terkini (…). Simpanan tidak dibuat supaya perubahan pentadbir lain tidak hilang."</td>
+<td>Sambungan ke pelayan sekolah terputus semasa menyemak.</td>
+<td>Periksa sambungan internet dan cuba simpan semula. Sistem <strong>sengaja tidak menyimpan</strong> supaya kerja pentadbir lain tidak hilang.</td>
+</tr>
+</tbody>
+</table>
+<p>Tanda yang berada pada waktu yang kini sudah ada kelas akan dibuang secara automatik semasa jadual dimuat semula — supaya anda tidak menuntut waktu mengajar.</p>
+<blockquote>
+<p>Nasihat praktikal: jadual biasanya disunting sebelum sesi baharu bermula. Semasa tempoh itu, elakkan dua orang membuka <strong>Tetapan Jadual</strong> (atau import PDF) pada masa yang sama. Amaran di atas akan melindungi anda, tetapi kerja menjadi lebih mudah jika seorang sahaja menyunting pada satu-satu masa.</p>
+</blockquote>
+<hr>
+<h2>12. Tetapan</h2>
+<p>Tab <strong>Tetapan</strong> (admin sahaja) mengandungi:</p>
+<h3>12.1 Had dan aturan relief</h3>
+<table>
+<thead>
+<tr>
+<th>Tetapan</th>
+<th>Maksud dan kesannya</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Abaikan relief pairing jika guru lain masih hadir dalam kelas dan waktu yang sama</strong></td>
+<td>Untuk kelas yang benar-benar <strong>dikongsi (team teaching / pairing)</strong>, relief tidak dijana jika salah seorang guru masih hadir. Hidupkan <strong>hanya jika</strong> perkongsian itu memang pairing — bukan kumpulan berasingan yang kebetulan berkongsi label kelas. Jika <strong>semua</strong> guru pasangan tidak hadir, relief tetap dijana.</td>
+</tr>
+<tr>
+<td><strong>Maksimum waktu relief sehari bagi setiap guru</strong></td>
+<td>Lalai <strong>2 waktu</strong>. Tidak termasuk waktu mengajar asal guru itu. Nilai <strong>0</strong> bermakna sistem tidak mencadangkan relief langsung. Menukar had ini <strong>tidak</strong> membatalkan relief yang sudah diterbitkan.</td>
+</tr>
+</tbody>
+</table>
+<p>Tekan <strong>"Simpan had relief"</strong> untuk menyimpan kedua-duanya.</p>
+<h3>12.2 Akaun admin</h3>
+<p><strong>Tukar kata laluan</strong> — isi kata laluan semasa dan kata laluan baharu (sekurang-kurangnya 12 aksara), tekan <strong>Simpan kata laluan</strong>. Penukaran kata laluan <strong>membatalkan semua sesi lama pada semua peranti</strong>, dan admin akan log keluar secara automatik lalu perlu log masuk semula.</p>
+<h3>12.3 Aplikasi (PWA)</h3>
+<p>Memaparkan <strong>versi aplikasi semasa</strong>, <strong>semakan data (nombor revisi)</strong> dan masa kemas kini terakhir. Tekan <strong>"Semak versi baharu"</strong> untuk memaksa service worker menyemak kemas kini aplikasi.</p>
+<blockquote>
+<p>Data Google Sheets disegerakkan secara berasingan dan <strong>tidak</strong> memerlukan pemasangan semula aplikasi. Menyemak versi baharu tidak menyegerakkan data.</p>
+</blockquote>
+<h3>12.4 Arkib dan reset data</h3>
+<table>
+<thead>
+<tr>
+<th>Tindakan</th>
+<th>Kesan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Arkibkan jadual lama</strong></td>
+<td>Menukar status versi jadual bukan aktif kepada <strong>archived</strong> — tidak lagi digunakan untuk relief tetapi kekal boleh dilihat dalam Google Sheets.</td>
+</tr>
+<tr>
+<td><strong>Padam jadual yang diarkib</strong></td>
+<td>Memadam <strong>kekal</strong> versi yang telah diarkibkan berserta semua baris jadualnya daripada Google Sheets. Tidak boleh dibatalkan, dan tidak boleh digunakan pada jadual aktif.</td>
+</tr>
+<tr>
+<td><strong>Reset data terpilih</strong></td>
+<td>Memadam data terpilih (Profil guru / Rekod ketiadaan / Rekod relief / Jadual waktu / Draf pembina jadual) daripada <strong>Google Sheets dan aplikasi</strong>. Mesti menandakan sekurang-kurangnya satu jenis data dan menaip <strong>PADAM</strong> dalam kotak pengesahan. <strong>Tidak boleh dibatalkan.</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Biarkan kotak <strong>"Rekod relief"</strong> tidak ditanda jika anda mahu sejarah relief kekal. Jika anda mereset <strong>Jadual waktu</strong>, masa tetapan guru pemulihan turut hilang kerana ia disimpan sebagai sebahagian daripada jadual.</p>
+</blockquote>
+<hr>
+<h2>13. Paparan awam (tanpa log masuk)</h2>
+<p>Pelawat yang tidak log masuk hanya melihat:</p>
+<ul>
+<li>jadual guru/kelas bagi <strong>versi rasmi (aktif)</strong> yang berkuat kuasa <strong>pada hari ini</strong> sahaja — jadual/versi lama tidak dihantar kepada pelawat;</li>
+<li>senarai ketiadaan guru, <strong>tanpa sebab ketiadaan</strong>;</li>
+<li>relief yang <strong>telah diterbitkan</strong> sahaja bagi hari yang dipilih — draf yang belum diterbitkan tidak kelihatan.</li>
+</ul>
+<p>Maklumat berikut <strong>tidak pernah</strong> dihantar kepada paparan awam: sebab ketiadaan, catatan dalaman, draf relief, kelayakan/profil penuh guru, draf pembina jadual, atau masa tetapan guru pemulihan.</p>
+<p>Di telefon, paparan awam ini ialah rujukan pantas untuk guru menyemak: <strong>siapa tiada hari ini, siapa mengganti, dan apa yang perlu dia ajar</strong>.</p>
+<p>Apabila seseorang guru membuka pautan awam, dia boleh:</p>
+<ol>
+<li>Memilih tarikh pada medan tarikh (hari ini dipilih secara lalai).</li>
+<li>Melihat senarai ketiadaan dan guru ganti bagi tarikh itu.</li>
+<li>Membuka tab <strong>Jadual</strong> untuk melihat jadual minggu guru atau kelas.</li>
+</ol>
+<p>Peranti pelawat menyimpan salinan jadual terakhir supaya paparan berikutnya lebih pantas. Jika data di pelayan tidak berubah, pelayan hanya menjawab ringkas ("tiada perubahan") berbanding menghantar semula keseluruhan data — ini menjimatkan kuota internet sekolah.</p>
+<hr>
+<h2>14. Penunjuk status segerak dan keadaan luar talian</h2>
+<p>Di bar atas aplikasi terdapat penunjuk segerak (teks kecil di sebelah butang <strong>?</strong>). <strong>Tiada butang segerak manual</strong>: aplikasi menyegerak sendiri setiap kira-kira 8 saat, apabila tab kembali aktif, dan apabila peranti kembali dalam talian. Bacalah penunjuk itu seperti ini:</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Maksud</th>
+<th>Apa yang perlu dibuat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Google Sheets · masa nyata</strong></td>
+<td>Semua perubahan telah sampai ke Google Sheets.</td>
+<td>Selamat log keluar atau menutup aplikasi.</td>
+</tr>
+<tr>
+<td><strong>Disimpan di peranti · segerak N</strong></td>
+<td>N perubahan sudah disimpan pada peranti dan sedang dihantar ke Sheets.</td>
+<td>Tunggu sebentar. Jangan ulang tindakan yang sama pada peranti lain.</td>
+</tr>
+<tr>
+<td><strong>Tersimpan di peranti · menunggu Sheets</strong></td>
+<td>Penghantaran gagal (biasanya sambungan terputus). Data <strong>tidak hilang</strong> — ia ada pada peranti.</td>
+<td>Sila sambung semula internet dan biarkan aplikasi mencuba semula. <strong>Jangan</strong> log keluar, <strong>jangan</strong> kosongkan data pelayar, dan <strong>jangan</strong> buat perubahan yang sama pada peranti lain sehingga status kembali <strong>masa nyata</strong>.</td>
+</tr>
+<tr>
+<td><strong>Luar talian</strong></td>
+<td>Peranti tiada sambungan.</td>
+<td>Sambungkan semula. Paparan kekal daripada salinan terakhir.</td>
+</tr>
+<tr>
+<td><strong>Belum disambungkan</strong></td>
+<td>URL Apps Script sekolah belum ditetapkan pada peranti ini.</td>
+<td>Log masuk dengan memasukkan URL <code>/exec</code> yang dibekalkan pentadbir sekolah.</td>
+</tr>
+</tbody>
+</table>
+<p>Sistem mengesan kembali sambungan secara automatik dan menyegerak apabila peranti kembali dalam talian. Jika ada perubahan yang masih tertunda, biarkan aplikasi terbuka dan bersambung sehingga penunjuk kembali <strong>Google Sheets · masa nyata</strong>.</p>
+<h3>14.1 Mengapa sistem boleh enggan menyimpan</h3>
+<p>Sesetengah simpanan — terutamanya menyimpan <strong>masa tetapan guru pemulihan</strong> — disemak terlebih dahulu dengan pelayan sekolah. Jika jadual telah berubah, sistem memuatkan data terkini dan meminta anda menyemak semula, sebaliknya menulis data lama di atas kerja orang lain. Jika sambungan tiada, simpanan itu <strong>tidak dibuat langsung</strong> dan anda akan dimaklumkan. Ini perlakuan yang <strong>disengajakan</strong> untuk melindungi data sekolah.</p>
+<hr>
+<h2>15. Aliran kerja dan senarai semak</h2>
+<h3>15.1 Setiap hari persekolahan (5–10 minit)</h3>
+<ol>
+<li><strong>Log masuk</strong> (jika sesi 7 hari belum tamat, ia dipulihkan secara automatik).</li>
+<li>Buka <strong>Hari ini</strong> → sub-tab <strong>Ketiadaan guru</strong>.</li>
+<li>Rekod setiap guru yang tidak hadir: <strong>+ Tambah</strong> → guru → tarikh → sepanjang hari atau waktu tertentu → sebab ringkas.</li>
+<li>Beralih ke sub-tab <strong>Relief</strong>. Draf biasanya terjana sendiri; jika belum, tekan <strong>Jana</strong>.</li>
+<li>Semak <strong>Senarai relief</strong> — pastikan setiap slot ada guru ganti yang sesuai dan <strong>tiada percanggahan</strong>.</li>
+<li>Buka <strong>Preview</strong> untuk melihat lembaran seperti yang akan dicetak.</li>
+<li>Tekan <strong>Terbitkan</strong>.</li>
+<li><strong>Eksport PDF</strong> untuk simpanan/kongsi, dan/atau <strong>Cetak</strong> untuk salinan kertas.</li>
+<li>Tampal/cetak lembaran itu di bilik guru supaya guru ganti boleh terus merujuk.</li>
+</ol>
+<p><strong>Aliran ringkas:</strong></p>
+<blockquote>
+<p>Rekod guru tiada → Jana cadangan relief → Semak (Senarai relief / Preview) → Terbitkan → Cetak / Eksport PDF</p>
+</blockquote>
+<h3>15.2 Setiap minggu</h3>
+<ul>
+<li>Semak penunjuk segerak — pastikan ia menunjukkan <strong>masa nyata</strong> sekurang-kurangnya sekali.</li>
+<li>Semak semula kelayakan relief guru yang bercuti panjang atau bertugas luar.</li>
+<li>Semak tab <strong>Jadual</strong> bagi guru yang mempunyai masa tetapan — pastikan tandanya masih betul.</li>
+</ul>
+<h3>15.3 Sekali sekala (awal sesi atau bila jadual berubah)</h3>
+<ol>
+<li>Terima/sediakan jadual baharu (Pembina atau Import PDF).</li>
+<li><strong>Semak</strong> draf — pastikan kelas, subjek dan guru betul.</li>
+<li><strong>Gunakan untuk relief →</strong> dan sahkan <strong>tarikh kuat kuasa</strong>.</li>
+<li><strong>Tandakan semula masa tetapan</strong> guru pemulihan pada versi baharu (Bahagian 11).</li>
+<li>Semak <strong>Paparan awam</strong> — pastikan jadual yang keluar pada hari ini ialah jadual yang betul.</li>
+<li>Tukar <strong>kata laluan admin</strong> jika ia masih <code>admin/admin</code>.</li>
+<li>Muat turun <strong>sandaran JSON</strong> (Pembina → Data &amp; Sandaran) dan <strong>senarai guru</strong> sebagai salinan tambahan.</li>
+</ol>
+<hr>
+<h2>16. Telefon berbanding desktop</h2>
+<table>
+<thead>
+<tr>
+<th>Aspek</th>
+<th>Desktop</th>
+<th>Telefon / tablet sempit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Navigasi utama</td>
+<td>Bar sisi (sidebar) di kiri</td>
+<td>Bar navigasi <strong>bawah</strong> (Relief, Jadual, Guru, Tetapan)</td>
+</tr>
+<tr>
+<td>Susun atur</td>
+<td>Kandungan penuh dalam satu paparan lebar</td>
+<td>Kandungan menegak; kad dan borang memenuhi lebar skrin</td>
+</tr>
+<tr>
+<td><strong>Jadual minggu guru</strong></td>
+<td>Kelihatan penuh, selesa</td>
+<td><strong>Dipadatkan supaya muat satu skrin tanpa skrol mendatar</strong></td>
+</tr>
+<tr>
+<td>Preview relief &amp; jadual cetak</td>
+<td>Kelihatan penuh</td>
+<td>Jadual lebih lebar daripada skrin — <strong>skrol mendatar</strong> diperlukan</td>
+</tr>
+<tr>
+<td>Butang penting (contoh Tetapan Jadual, Simpan)</td>
+<td>Saiz biasa</td>
+<td>Dinaikkan kepada sekurang-kurangnya <strong>40 piksel</strong> tinggi supaya selesa ditekan dengan ibu jari</td>
+</tr>
+<tr>
+<td>Menanda masa tetapan</td>
+<td>Klik sel</td>
+<td>Ketuk sel; sel yang ada kelas dikunci</td>
+</tr>
+<tr>
+<td>Pemasangan aplikasi</td>
+<td>Butang <strong>Pasang aplikasi</strong> di bar atas</td>
+<td>Sama; atau menu pelayar "Tambah ke skrin utama"</td>
+</tr>
+<tr>
+<td>Luar talian</td>
+<td>Fail aplikasi dari cache peranti</td>
+<td>Sama</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>17. Glosari</h2>
+<table>
+<thead>
+<tr>
+<th>Istilah</th>
+<th>Maksud dalam sistem ini</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Relief</strong></td>
+<td>Tugasan menggantikan guru yang tidak hadir pada waktu tertentu.</td>
+</tr>
+<tr>
+<td><strong>Guru ganti</strong></td>
+<td>Guru yang ditugaskan mengisi waktu guru yang tidak hadir.</td>
+</tr>
+<tr>
+<td><strong>Draf relief</strong></td>
+<td>Cadangan relief yang <strong>belum diterbitkan</strong>. Tidak kelihatan kepada awam dan tidak muncul pada cetakan/PDF.</td>
+</tr>
+<tr>
+<td><strong>Terbit (published)</strong></td>
+<td>Relief yang telah disahkan dan disimpan sebagai rekod rasmi; kelihatan kepada awam dan boleh dicetak.</td>
+</tr>
+<tr>
+<td><strong>Versi jadual</strong></td>
+<td>Satu set jadual lengkap dengan nama dan <strong>tarikh kuat kuasa</strong>. Hanya satu versi <strong>aktif</strong> pada satu-satu masa.</td>
+</tr>
+<tr>
+<td><strong>Aktif / superseded / archived</strong></td>
+<td>Aktif = sedang digunakan untuk relief. Superseded = digantikan versi baharu. Archived = disimpan sebagai sejarah sahaja.</td>
+</tr>
+<tr>
+<td><strong>Tarikh kuat kuasa</strong></td>
+<td>Tarikh mulai sesuatu versi jadual digunakan.</td>
+</tr>
+<tr>
+<td><strong>Draf pembina</strong></td>
+<td>Jadual yang sedang dibina dalam modul Pembina; <strong>bukan</strong> jadual rasmi sehingga diaktifkan.</td>
+</tr>
+<tr>
+<td><strong>Masa tetapan (PEMULIHAN)</strong></td>
+<td>Waktu bukan subjek yang ditanda pada jadual guru pemulihan; menyekat guru itu daripada dipilih sebagai guru ganti pada waktu tersebut.</td>
+</tr>
+<tr>
+<td><strong>Duty / tugas</strong></td>
+<td>Baris jadual yang bukan pengajaran (perhimpunan, aktiviti, masa tetapan).</td>
+</tr>
+<tr>
+<td><strong>Pairing (team teaching)</strong></td>
+<td>Dua guru berkongsi satu kelas dan waktu yang sama. Dengan tetapan pairing dihidupkan, relief tidak dijana jika salah seorang masih hadir.</td>
+</tr>
+<tr>
+<td><strong>Personel MySTEP</strong></td>
+<td>Personel yang mengambil alih <strong>keseluruhan</strong> jadual seorang guru.</td>
+</tr>
+<tr>
+<td><strong>Guru Praktikal</strong></td>
+<td>Guru pelatih yang berkongsi kelas/beberapa subjek dengan guru asal.</td>
+</tr>
+<tr>
+<td><strong>Had relief harian</strong></td>
+<td>Maksimum bilangan waktu relief sehari bagi setiap guru (lalai 2).</td>
+</tr>
+<tr>
+<td><strong>PWA</strong></td>
+<td>Aplikasi web yang boleh dipasang pada peranti seperti aplikasi biasa.</td>
+</tr>
+<tr>
+<td><strong>Revisi (revision)</strong></td>
+<td>Nombor semakan data di pelayan. Ia berubah setiap kali data sekolah berubah, dan digunakan untuk mengesan perubahan yang berlaku di peranti lain.</td>
+</tr>
+<tr>
+<td><strong>Outbox / tertunda</strong></td>
+<td>Perubahan yang disimpan pada peranti dan menunggu dihantar ke Google Sheets.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>18. Masalah biasa dan penyelesaian</h2>
+<table>
+<thead>
+<tr>
+<th>Masalah</th>
+<th>Sebab lazim</th>
+<th>Penyelesaian</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tidak boleh log masuk / kata laluan ditolak</td>
+<td>Kata laluan salah, atau lima percubaan gagal (disekat 15 minit)</td>
+<td>Semak ejaan. Jika baru dipasang, cuba <code>admin</code> / <code>admin</code>. Selepas lima kegagalan, tunggu 15 minit.</td>
+</tr>
+<tr>
+<td>Sesi tiba-tiba tamat / diminta log masuk semula</td>
+<td>Sesi 7 hari tamat, atau kata laluan ditukar pada peranti lain</td>
+<td>Log masuk semula. Jika ia berlaku serta-merta selepas seseorang menukar kata laluan, ini normal.</td>
+</tr>
+<tr>
+<td>Butang <strong>Tetapan Jadual</strong> tidak muncul dalam profil guru</td>
+<td>Guru itu belum disimpan, atau jawatannya bukan <strong>Guru Pemulihan</strong></td>
+<td>Simpan profil dahulu, kemudian buka semula. Pastikan medan <strong>Jawatan</strong> = Guru Pemulihan.</td>
+</tr>
+<tr>
+<td>Tekan <strong>Simpan tetapan</strong> tetapi dialog tidak tertutup, dan mesej menyatakan jadual telah berubah</td>
+<td>Pentadbir atau peranti lain mengubah jadual versi itu, atau sambungan terputus</td>
+<td>Baca mesejnya: jika jadual dimuat semula, semak tanda anda dan tekan <strong>Simpan tetapan</strong> sekali lagi. Jika sambungan terputus, pulihkan internet dahulu. Tiada data dibuang.</td>
+</tr>
+<tr>
+<td>Sel dalam Tetapan Jadual tidak boleh ditekan</td>
+<td>Waktu itu sudah ada kelas sebenar</td>
+<td>Betulkan jadualnya dahulu (Pembina / import). Masa tetapan <strong>tidak</strong> menindih pengajaran.</td>
+</tr>
+<tr>
+<td>Guru pemulihan masih dipanggil mengganti pada waktu tetapan</td>
+<td>Masa tetapan disimpan pada versi jadual lama, bukan versi yang berkuat kuasa sekarang</td>
+<td>Buka semula <strong>Tetapan Jadual</strong> pada jadual aktif sekarang dan tandakan kembali waktunya.</td>
+</tr>
+<tr>
+<td>Draf relief kosong walaupun ada rekod ketiadaan</td>
+<td>Guru itu tiada waktu mengajar pada tarikh itu, had relief calon penuh, atau slot dilindungi pairing</td>
+<td>Baca sebab yang dipaparkan sistem; semak tab Jadual untuk guru tersebut, tab Tetapan untuk had relief, dan tetapan pairing.</td>
+</tr>
+<tr>
+<td>Relief tidak muncul pada cetakan/PDF</td>
+<td>Relief itu masih <strong>draf</strong> (belum diterbitkan)</td>
+<td>Tekan <strong>Terbitkan</strong> dahulu, semak <strong>Preview</strong>, kemudian cetak/eksport.</td>
+</tr>
+<tr>
+<td>Muat naik PDF aSc gagal / "Susun atur PDF tidak dikenali"</td>
+<td>Bukan PDF teks aSc "Jadual Waktu Persendirian Guru" waktu 0–12</td>
+<td>Eksport semula daripada aSc menggunakan laporan yang betul dan dalam bentuk teks (bukan imbasan).</td>
+</tr>
+<tr>
+<td>Sesetengah guru diabaikan semasa import PDF</td>
+<td>Nama pada PDF tidak sepadan dengan tab Guru</td>
+<td>Padankan secara manual pada dropdown baris berkenaan. Jika tab Guru kosong, tekan <strong>Pulihkan senarai guru asal</strong> dahulu.</td>
+</tr>
+<tr>
+<td>Perubahan tidak sampai ke Google Sheets</td>
+<td>Tiada sambungan semasa menyimpan</td>
+<td>Status penunjuk segerak akan menyatakan <strong>menunggu Sheets</strong>; data selamat pada peranti. Jangan log keluar atau mengosongkan data pelayar sehingga ia dihantar.</td>
+</tr>
+<tr>
+<td>Jadual bertukar tidak seperti yang dijangkakan</td>
+<td>Versi jadual lama masih aktif, atau tarikh kuat kuasa salah</td>
+<td>Tab <strong>Jadual</strong> menunjukkan versi dan tarikh kuat kuasa yang aktif. Aktifkan versi yang betul melalui <strong>Gunakan untuk relief →</strong>.</td>
+</tr>
+<tr>
+<td>Jadual/hari ini kosong untuk sesuatu tarikh</td>
+<td>Tiada versi jadual yang berkuat kuasa pada tarikh itu</td>
+<td>Semak tarikh kuat kuasa versi jadual dan aktifkan versi yang sesuai.</td>
+</tr>
+<tr>
+<td>Log masuk/simpan langsung tidak berfungsi walaupun internet baik</td>
+<td>URL Apps Script (<code>site-config.js</code> / <code>/exec</code>) salah atau belum disediakan</td>
+<td>Hubungi pentadbir sekolah untuk mengesahkan URL deployment Apps Script.</td>
+</tr>
+<tr>
+<td>Paparan kelihatan lama selepas kemas kini</td>
+<td>Service worker masih memegang versi lama</td>
+<td>Tetapan → <strong>Semak versi baharu</strong>, kemudian tutup dan buka semula aplikasi. Data Sheets tidak terjejas.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>19. Keselamatan data dan amalan terbaik</h2>
+<ol>
+<li><strong>Tukar kata laluan <code>admin/admin</code> secepat mungkin</strong> selepas pemasangan; gunakan sekurang-kurangnya 12 aksara.</li>
+<li><strong>Jangan kongsi fail Google Sheets data sekolah</strong> secara awam. Hadkan capaian kepada akaun sekolah sahaja.</li>
+<li><strong>Log keluar</strong> selepas menggunakan peranti yang dikongsi.</li>
+<li>Sebelum <strong>Reset data</strong> atau <strong>Padam jadual yang diarkib</strong>, faham bahawa tindakan itu <strong>tidak boleh dibatalkan</strong> dan ia memadam rekod daripada Google Sheets, bukan sekadar daripada paparan.</li>
+<li>Gunakan <strong>Muat turun senarai guru</strong> dan <strong>Muat turun sandaran JSON</strong> dari semasa ke semasa sebagai salinan tambahan.</li>
+<li>Semak draf pembina dan tarikh kuat kuasa sebelum <strong>Aktifkan jadual</strong> — pengaktifan menggantikan jadual rasmi yang digunakan relief harian.</li>
+<li>Paparan awam <strong>tidak</strong> memaparkan sebab ketiadaan, jadi apabila menulis sebab, anggap ia dibaca oleh admin lain — <strong>jangan</strong> masukkan maklumat sensitif murid atau perubatan di situ.</li>
+<li>Jangan bina dua versi jadual "serentak" tanpa menyelesaikan yang lama (arkibkan), supaya tidak timbul kekeliruan tentang versi yang berkuat kuasa.</li>
+<li>Pada telefon yang dikongsi bersama guru lain, paparan awam sahaja yang sepatutnya dibuka.</li>
+</ol>
+<hr>
+<h2>20. Lampiran</h2>
+<h3>20.1 Kad rujukan pantas</h3>
+<p><strong>Rekod guru tidak hadir</strong></p>
+<blockquote>
+<p>Hari ini → <strong>Ketiadaan guru</strong> → <strong>+ Tambah</strong> → guru, tarikh, sepanjang hari / waktu → <strong>Simpan dan jana relief</strong></p>
+</blockquote>
+<p><strong>Terbitkan relief</strong></p>
+<blockquote>
+<p>Hari ini → <strong>Relief</strong> → <strong>Jana</strong> (jika perlu) → semak <strong>Senarai relief</strong> → <strong>Preview</strong> → <strong>Terbitkan</strong> → <strong>Eksport PDF</strong> / <strong>Cetak</strong></p>
+</blockquote>
+<p><strong>Tandakan masa tetapan guru pemulihan</strong></p>
+<blockquote>
+<p><strong>Guru</strong> → ikon ✎ pada kad guru pemulihan → butang <strong>Tetapan Jadual</strong> → ketuk ruang kosong → <strong>Simpan tetapan</strong></p>
+</blockquote>
+<p><strong>Lihat jadual minggu</strong></p>
+<blockquote>
+<p><strong>Jadual</strong> → pilih <strong>Guru/Kelas</strong> → pilih nama → minggu penuh dipaparkan (hari ini ditanda hijau)</p>
+</blockquote>
+<p><strong>Aktifkan jadual baharu</strong></p>
+<blockquote>
+<p><strong>Jadual</strong> → Pembina → jana → <strong>Gunakan untuk relief →</strong> → sahkan tarikh kuat kuasa → <strong>Aktifkan jadual</strong> → tandakan semula masa tetapan guru pemulihan</p>
+</blockquote>
+<p><strong>Jika perubahan belum sampai ke Sheets</strong></p>
+<blockquote>
+<p>Lihat penunjuk segerak. <strong>Menunggu Sheets</strong> = sambung internet dan tunggu. Jangan log keluar.</p>
+</blockquote>
+<h3>20.2 Apa yang baharu dalam versi terkini</h3>
+<table>
+<thead>
+<tr>
+<th>Versi</th>
+<th>Perubahan penting untuk pengguna</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>3.1.40</strong></td>
+<td>Butang bulat <strong><code>?</code></strong> di bar atas membuka <strong>panduan PDF</strong> ini; butang segerak manual dibuang kerana penyegerakan sudah automatik; item <strong>Panduan</strong> dibuang daripada menu Pembina.</td>
+</tr>
+<tr>
+<td><strong>3.1.39</strong></td>
+<td>Semua jadual guru memakai bentuk grid Pembina: <strong>hari ke bawah, waktu melintang, lajur REHAT</strong>, blok berwarna mengikut subjek dan legenda warna — pada tab Jadual, paparan Kelas dan dialog Tetapan Jadual guru pemulihan.</td>
+</tr>
+<tr>
+<td><strong>3.1.38</strong></td>
+<td>Jadual guru dipaparkan sebagai <strong>minggu penuh</strong> (waktu di tepi, Isnin–Jumaat di atas; hari ini ditanda hijau; masa tetapan berwarna kuning) dan muat satu skrin telefon tanpa skrol mendatar.</td>
+</tr>
+<tr>
+<td><strong>3.1.36–3.1.37</strong></td>
+<td><strong>Butang Tetapan Jadual berpindah ke dalam dialog profil guru</strong> (bukan lagi pada muka kad). Simpanan masa tetapan kini <strong>menyemak jadual terkini</strong> dahulu — jika jadual telah berubah, ia meminta semak semula dan <strong>tidak</strong> menindih kerja pentadbir lain.</td>
+</tr>
+<tr>
+<td><strong>3.1.34–3.1.35</strong></td>
+<td>Ciri <strong>Guru Pemulihan</strong>: jawatan baharu, butang Tetapan Jadual, jadual minggu untuk menanda masa tetapan.</td>
+</tr>
+<tr>
+<td><strong>3.1.32–3.1.33</strong></td>
+<td>Pariti paparan telefon dan desktop (preview relief di telefon), sasaran sentuh 40 piksel, susunan bar alat yang tidak bertindih.</td>
+</tr>
+</tbody>
+</table>
+<h3>20.3 Rujukan teknikal untuk pentadbir IT</h3>
+<p>Panduan ini disemak berdasarkan kod sumber versi <strong>3.1.40</strong> dalam repositori tempatan <code>C:/Users/seman/work/Jadual-audit</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Perkara</th>
+<th>Fail berkaitan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Papan pemuka, dialog, paparan jadual minggu</td>
+<td><code>index.html</code>, <code>app.js</code></td>
+</tr>
+<tr>
+<td>Model jadual minggu (fungsi tulen)</td>
+<td><code>week-view.js</code>, <code>tests/week-view.test.mjs</code></td>
+</tr>
+<tr>
+<td>Masa tetapan guru pemulihan</td>
+<td><code>setting-slots.js</code>, <code>tests/setting-slots.test.mjs</code>, <code>tests/setting-relief-block.test.mjs</code></td>
+</tr>
+<tr>
+<td>Enjin cadangan relief</td>
+<td><code>relief-engine.js</code></td>
+</tr>
+<tr>
+<td>Cetakan &amp; PDF relief</td>
+<td><code>relief-print.js</code>, <code>relief-pdf.js</code></td>
+</tr>
+<tr>
+<td>Import PDF aSc</td>
+<td><code>pdf-import.js</code>, <code>pdf-builder.js</code></td>
+</tr>
+<tr>
+<td>Pelayan sekolah</td>
+<td><code>apps-script/Code.gs</code>, <code>apps-script/Auth.gs</code></td>
+</tr>
+<tr>
+<td>Cache luar talian</td>
+<td><code>sw.js</code></td>
+</tr>
+<tr>
+<td>Pemasangan sekolah baharu</td>
+<td><code>SETUP-SEKOLAH.md</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>Perlu pengesahan pengguna</h2>
+<p>Perkara berikut tidak dapat disahkan sepenuhnya daripada kod sumber sahaja dan sebaiknya disemak oleh sekolah sebelum dijadikan panduan muktamad:</p>
+<ol>
+<li><strong>Pautan aplikasi sebenar sekolah anda</strong> — panduan ini hanya boleh mengesahkan pautan contoh (<code>https://sepadan.github.io/Jadual/</code>) yang tercatat dalam <code>README.md</code>. Sekolah yang menyediakan sistem sendiri mengikut <code>SETUP-SEKOLAH.md</code> mungkin menerbitkan pautan yang berbeza — dapatkan pautan sebenar daripada pentadbir/IT sekolah.</li>
+<li><strong>Kelakuan sebenar butang "Pasang aplikasi"</strong> bergantung pada jenis dan versi pelayar (Chrome, Edge, Safari). Kod hanya mengesan sokongan asas (<code>beforeinstallprompt</code>) dan tidak dapat mengesahkan rupa sebenar pada setiap peranti.</li>
+<li><strong>Gambar skrin</strong> dalam edisi ini tidak disertakan; langkah ditulis mengikut label sebenar pada skrin. Jika sekolah menggunakan versi yang lebih baharu, nama butang mungkin berbeza sedikit — semak nombor versi di <strong>Tetapan → Aplikasi (PWA)</strong>.</li>
+<li><strong>Bilangan waktu harian</strong> yang dipaparkan (0–12) mengikut <code>data.js</code> dalam kod sumber; jika jadual sekolah anda menggunakan bilangan waktu atau waktu rehat yang berlainan, paparan akan mengikut tetapan dalam modul Pembina.</li>
+</ol>
+<p class="footer-note">Dokumen ini dijana untuk kegunaan dalaman SK Paya Redan. Semua nama guru, kelas dan jadual dalam tangkapan contoh adalah data ujian. Jangan kongsi kata laluan pentadbir melalui saluran awam.</p>
+</body></html>
