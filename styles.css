@@ -303,8 +303,11 @@ dialog form { padding: 25px; }
   /* A 30px control is below the 40px touch target a school phone needs; both phone switchers
      carry the compact .segmented padding, so give the pair the same floor. */
   .relief-switch button, .schedule-switch button { min-height: 40px; }
-  /* The remedial teacher's card button is used with a thumb on a phone, so it gets the same floor. */
+  /* The remedial teacher's card button is used with a thumb on a phone, so it gets the same floor.
+     That labelled button also needs its own line, or it squeezes the teacher's name to a column. */
   .mini-button.setting { min-height: 40px; }
+  .teacher-card:has(.mini-button.setting) { grid-template-columns: minmax(0, 1fr); }
+  .teacher-card:has(.mini-button.setting) .teacher-actions { justify-content: flex-end; }
   .relief-switch button { flex: 1; }
   /* On a phone the tab row and the Eksport/Cetak row were fighting for one line and overlapped.
      Stack them: the buttons keep the desktop top-right position, the tabs keep the underline. */

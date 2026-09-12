@@ -1,14 +1,14 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.34";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.34";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.34";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.34";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.34";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.34";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.34';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.34';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.34';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.34';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows } from './setting-slots.js?v=3.1.34';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.35";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.35";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.35";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.35";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.35";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.35";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.35';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.35';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.35';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.35';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows } from './setting-slots.js?v=3.1.35';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
