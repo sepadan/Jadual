@@ -34,10 +34,12 @@ function builderCacheWrite_(revision,value) {
 function readBuilder_() {
   var revision=Number(configValue_('BUILDER_REVISION')||0);
   var cached=builderCacheRead_(revision);
-  if(cached) return cached;
+  if(cached) {cached.fromCache=true;return cached;}
   var rows=readObjects_('BuilderState').filter(function(row){return Number(row.revision)===revision;}).sort(function(a,b){return Number(a.index)-Number(b.index);});
   var result={revision:revision,state:rows.length?parseJson_(rows.map(function(row){return String(row.chunk).replace(/^json:/,'');}).join(''),null):null};
-  builderCacheWrite_(revision,result);
+  // Simpan tanpa penanda diagnostik supaya salinan cache kekal bersih.
+  builderCacheWrite_(revision,{revision:revision,state:result.state});
+  result.fromCache=false;
   return result;
 }
 function saveBuilder_(data) {

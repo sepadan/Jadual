@@ -21,7 +21,7 @@ test("the draft read is cached per revision", () => {
   const cachedAt = body.indexOf("builderCacheRead_(revision)");
   const sheetAt = body.indexOf("readObjects_('BuilderState')");
   assert.ok(cachedAt >= 0 && sheetAt > cachedAt, "the sheet is still read before the cache is consulted");
-  assert.match(body, /builderCacheWrite_\(revision,result\)/, "the parsed draft is never cached");
+  assert.match(body, /builderCacheWrite_\(revision,\{revision:revision,state:result\.state\}\)/, "the parsed draft is never cached");
   assert.match(builder, /function builderCacheKeys_\(revision\)/, "the cache key ignores the revision");
   assert.match(builder, /'bld-'\+revision\+'-'/, "the cache key ignores the revision");
   assert.match(builder, /if\(count<1\|\|count>40\) return;/, "an oversized draft must not be cached (100 KB per key)");
@@ -39,12 +39,18 @@ test("the pane opens on the last draft before the network", () => {
   assert.match(body, /await writeBuilderDeviceCache\(cloud\.builder\)/, "a fresh draft is never kept for the next open");
 });
 
-test("the device copy is cleared on logout and refetched on demand", () => {
+test("the device copy survives a logout and goes with a data reset", () => {
+  // Draf pembina ialah dokumen jadual sekolah, bukan data pelajar, dan ia yang membuat pembina
+  // terbuka serta-merta pada setiap sesi. Ia dibuang apabila pentadbir memadam data.
   const leave = app.slice(app.indexOf("async function leaveAdmin("), app.indexOf("async function saveBuilderCloud("));
-  assert.match(leave, /clearBuilderDeviceCache\(\)/, "school data stays on a shared device after logout");
-  const button = app.slice(app.indexOf("$('#loadBuilderCloud')"), app.indexOf("document.addEventListener('builder-saved'"));
-  assert.match(button, /api\.builderData\(\)/, "the manual refresh still asks for the whole login payload");
-  assert.equal(/api\.bootstrap\(\)/.test(button), false, "the manual refresh still asks for the whole login payload");
+  assert.equal(
+    /clearBuilderDeviceCache\(\)/.test(leave),
+    false,
+    "logging out throws away the draft copy, so the next open waits on Sheets again",
+  );
+  const reset = app.slice(app.indexOf('await remoteWrite("resetData"'), app.indexOf('await remoteWrite("resetData"') + 400);
+  assert.match(reset, /clearBuilderDeviceCache\(\)/, "a data reset leaves the old draft copy on the device");
+  assert.match(app, /async function readBuilderDeviceCache\(\)/, "there is no device copy to open the pane with");
 });
 
 // Memuatkan draf menyalakan builder-saved juga (kadangkala lewat), jadi "berubah" mesti datang

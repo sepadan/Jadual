@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.47";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.47";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.47";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.47";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.47";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.47";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.47';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.47';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.47';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.47';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.47';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.47';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.48";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.48";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.48";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.48";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.48";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.48";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.48';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.48';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.48';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.48';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.48';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.48';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -996,6 +996,7 @@ function wireDataTools() {
     if (!confirm(`Reset ${chosen.map((key) => label[key]).join(", ")}?\n\nData ini dibuang dari Google Sheets dan dari aplikasi ini. Tidak boleh dibatalkan.`)) return;
     $("#resetNotice").textContent = "Mereset…";
     const ok = await remoteWrite("resetData", { targets, confirm: "PADAM" }, "Data terpilih telah dibuang dari Sheets.");
+    if (ok) clearBuilderDeviceCache();
     if (ok) { $("#resetConfirm").value = ""; $$(".reset-target").forEach((box) => { box.checked = false; }); await syncData(false); $("#resetNotice").textContent = "Selesai. Susunan data dikemas kini."; }
     else $("#resetNotice").textContent = "Reset gagal — data tidak berubah.";
   });
@@ -1452,8 +1453,9 @@ async function writeBuilderDeviceCache(builder) {
     await cache.put(BUILDER_CACHE_URL, new Response(JSON.stringify({ builder, savedAt: new Date().toISOString() }), { headers: { "Content-Type": "application/json" } }));
   } catch (error) {}
 }
-// Log keluar membuang salinan sekolah dari peranti (cache DB admin dan draf), jadi draf pembina yang
-// cache juga dibuang pada ketika itu.
+// Draf pembina kekal di peranti selepas log keluar (ia dokumen jadual sekolah, bukan data pelajar)
+// supaya pembina dibuka serta-merta pada sesi berikutnya; ia hanya dipaparkan kepada pentadbir, dan
+// dibuang apabila pentadbir memadam data.
 function clearBuilderDeviceCache() {
   try { if (window.caches) caches.delete(BUILDER_CACHE_NAME); } catch (error) {}
 }
@@ -1556,7 +1558,7 @@ async function enterAdmin(result) {
   if(writeOutbox.length) retryStoredWrites().then((saved) => { if (saved) syncData(false); });
 }
 async function leaveAdmin(remoteLogout=true) {
-  const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');localStorage.removeItem(ADMIN_DB_KEY);localStorage.removeItem(DRAFT_KEY);clearBuilderDeviceCache();currentDrafts=[];generatedReliefKey='';
+  const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');localStorage.removeItem(ADMIN_DB_KEY);localStorage.removeItem(DRAFT_KEY);currentDrafts=[];generatedReliefKey='';
   document.body.classList.add('public-mode');$('#loginButton').classList.remove('hidden');
   restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;builderCloudLoaded=false;
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';
