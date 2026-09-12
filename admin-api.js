@@ -1,4 +1,4 @@
-import { SITE_CONFIG } from './site-config.js?v=3.1.45';
+import { SITE_CONFIG } from './site-config.js?v=3.1.46';
 const CONFIG_KEY='relief-skpr-config-v1';
 export function loadConfig() {
   let saved={};try {saved=JSON.parse(localStorage.getItem(CONFIG_KEY)||'{}');} catch {}

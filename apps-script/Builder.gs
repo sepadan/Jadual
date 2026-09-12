@@ -1,7 +1,44 @@
+// Reading the draft means pulling every chunk row out of the sheet and parsing ~1 MB of JSON, which
+// measured ~3.4 s per call. The result only changes when BUILDER_REVISION changes, so it is cached
+// per revision — and a save bumps the revision, so a stale draft can never be served from the cache.
+var BUILDER_CACHE_TTL_=21600;
+var BUILDER_CHUNK_SIZE_=90000;
+function builderCacheKeys_(revision) {
+  return {count:'bld-'+revision+'-n',chunk:function(index){return 'bld-'+revision+'-'+index;}};
+}
+function builderCacheRead_(revision) {
+  try {
+    var keys=builderCacheKeys_(revision),cache=CacheService.getScriptCache(),stored=cache.get(keys.count);
+    if(!stored) return null;
+    var count=Number(stored)||0;
+    if(count<1||count>40) return null;
+    var wanted=[];
+    for(var index=0;index<count;index+=1) wanted.push(keys.chunk(index));
+    var found=cache.getAll(wanted),text='';
+    for(var index=0;index<count;index+=1) {var part=found[keys.chunk(index)];if(part==null) return null;text+=part;}
+    var parsed=JSON.parse(text);
+    return parsed&&typeof parsed==='object'?parsed:null;
+  } catch(error) {return null;}
+}
+function builderCacheWrite_(revision,value) {
+  try {
+    var text=JSON.stringify(value),keys=builderCacheKeys_(revision);
+    var count=Math.ceil(text.length/BUILDER_CHUNK_SIZE_);
+    if(count<1||count>40) return;
+    var map={};
+    for(var index=0;index<count;index+=1) map[keys.chunk(index)]=text.substr(index*BUILDER_CHUNK_SIZE_,BUILDER_CHUNK_SIZE_);
+    map[keys.count]=String(count);
+    CacheService.getScriptCache().putAll(map,BUILDER_CACHE_TTL_);
+  } catch(error) {}
+}
 function readBuilder_() {
   var revision=Number(configValue_('BUILDER_REVISION')||0);
+  var cached=builderCacheRead_(revision);
+  if(cached) return cached;
   var rows=readObjects_('BuilderState').filter(function(row){return Number(row.revision)===revision;}).sort(function(a,b){return Number(a.index)-Number(b.index);});
-  return {revision:revision,state:rows.length?parseJson_(rows.map(function(row){return String(row.chunk).replace(/^json:/,'');}).join(''),null):null};
+  var result={revision:revision,state:rows.length?parseJson_(rows.map(function(row){return String(row.chunk).replace(/^json:/,'');}).join(''),null):null};
+  builderCacheWrite_(revision,result);
+  return result;
 }
 function saveBuilder_(data) {
   var current=Number(configValue_('BUILDER_REVISION')||0);

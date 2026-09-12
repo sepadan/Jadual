@@ -92,7 +92,9 @@ test("app.js loads the Sheets draft at login and keeps the device copy aside", (
   assert.match(app, /updateDeviceDraftButton\(\)/, "the device copy is never offered back to the admin");
   // Sheets is the source of truth, so it must be applied on every login — the device copy is put
   // aside first, never used instead.
-  const body = app.slice(app.indexOf("async function loadBuilder()"), app.indexOf("async function enterAdmin("));
+  // The stash-and-replace step lives in applyBuilderCloud(), which loadBuilder() calls once the live
+  // draft has arrived (the device copy is applied first now, but Sheets still replaces it).
+  const body = app.slice(app.indexOf("function applyBuilderCloud("), app.indexOf("async function loadBuilder("));
   assert.ok(
     body.indexOf("stashDeviceDraft(") < body.indexOf("setState(cloud.builder.state)"),
     "app.js replaces the live draft with the Sheets copy before putting the device copy aside",

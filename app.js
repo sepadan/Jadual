@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.45";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.45";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.45";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.45";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.45";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.45";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.45';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.45';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.45';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.45';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.45';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.45';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.46";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.46";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.46";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.46";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.46";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.46";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.46';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.46';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.46';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.46';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.46';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.46';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -21,6 +21,10 @@ let db = loadDb();
 if (!db.revision) db.teachers = [];
 let confirmedDb = structuredClone(db);
 let admin = false, builderRevision = 0, builderDirty = false, restoringBuilder = false, builderSaving = false, builderCloudLoaded = false;
+// Draf pembina yang terakhir dilihat disimpan dalam Cache Storage (async, muatan besar) supaya pane
+// boleh dibuka serta-merta; bakul yang sama juga membolehkan pembina dibuka di luar talian.
+const BUILDER_CACHE_NAME = "jadual-pembina-draf";
+const BUILDER_CACHE_URL = "./pembina-draf.json";
 let pendingWrites = 0, failedWrites = 0, writeQueue = Promise.resolve(), syncPromise = null;
 let writeOutbox = loadWriteOutbox();
 failedWrites = writeOutbox.length;
@@ -1262,6 +1266,8 @@ function wireEvents() {
   wireAdminEvents();wireDataTools();
   $("#reliefDate").addEventListener("change",()=>{renderDashboard();renderAbsences();});
   $("#scheduleType").addEventListener("change",()=>{renderTeacherLists();renderSchedule();});
+  // Sentuhan sebenar pada pembina: penunjuk atau papan kekunci di dalam pane pembina.
+  for (const eventName of ["pointerdown", "keydown"]) $("#schedule-generator-pane").addEventListener(eventName, () => { builderUserTouched = true; }, true);
   $("#builderSection").addEventListener("change", event => window.jadualBuilder.go(event.target.value));
   document.addEventListener("builder-view", event => { $("#builderSection").value = event.detail; });
   $$('[data-builder-open]').forEach(button => button.addEventListener("click", async () => {
@@ -1419,40 +1425,104 @@ function updateDeviceDraftButton() {
   const available = typeof window.jadualBuilder?.hasStashedDraft === "function" && window.jadualBuilder.hasStashedDraft();
   button.classList.toggle("hidden", !available);
 }
+// Draf terakhir yang dilihat peranti ini ialah draf rasmi yang sama, cuma lebih lama: membukanya
+// serta-merta memindahkan bacaan Sheets (~3.4 s) keluar dari tekanan butang, dan jika bacaan itu
+// gagal skrin yang sedia ada masih boleh digunakan.
+// Memuatkan draf juga menyalakan builder-saved (kadangkala lewat), jadi peristiwa itu tidak boleh
+// dipercayai sebagai tanda kerja pengguna. Sentuhan sebenar pada pembina — penunjuk atau papan
+// kekunci — itulah tandanya; ia juga menghalang draf Sheets yang tiba kemudian daripada menimpa
+// kerja yang sedang dibuat.
+let builderUserTouched = false;
+let builderStatusText = '';
+function setBuilderStatus(text) { builderStatusText = text; $('#builderCloudStatus').textContent = text; }
+function markBuilderBaseline() { builderDirty = false; builderUserTouched = false; }
+async function readBuilderDeviceCache() {
+  try {
+    if (!window.caches) return null;
+    const response = await caches.match(BUILDER_CACHE_URL);
+    if (!response) return null;
+    const payload = await response.json();
+    return payload && payload.builder && payload.builder.state ? payload : null;
+  } catch (error) { return null; }
+}
+async function writeBuilderDeviceCache(builder) {
+  try {
+    if (!window.caches || !builder || !builder.state) return;
+    const cache = await caches.open(BUILDER_CACHE_NAME);
+    await cache.put(BUILDER_CACHE_URL, new Response(JSON.stringify({ builder, savedAt: new Date().toISOString() }), { headers: { "Content-Type": "application/json" } }));
+  } catch (error) {}
+}
+// Log keluar membuang salinan sekolah dari peranti (cache DB admin dan draf), jadi draf pembina yang
+// cache juga dibuang pada ketika itu.
+function clearBuilderDeviceCache() {
+  try { if (window.caches) caches.delete(BUILDER_CACHE_NAME); } catch (error) {}
+}
+// Draf Sheets kekal sumber rasmi: kerja peranti yang bercanggah disimpan di tepi, bukan dibuang.
+function applyBuilderCloud(cloud, openedWith) {
+  restoringBuilder = true;
+  const deviceDraft = typeof window.jadualBuilder.hasDeviceDraft === "function" && window.jadualBuilder.hasDeviceDraft();
+  let status;
+  if (cloud.builder?.state) {
+    const different = deviceDraft && JSON.stringify(openedWith) !== JSON.stringify(cloud.builder.state);
+    if (different) window.jadualBuilder.stashDeviceDraft(openedWith);
+    window.jadualBuilder.setState(cloud.builder.state);
+    builderDirty = false;
+    status = different ? 'Draf Sheets dimuatkan · kerja lama pada peranti disimpan ("Guna draf peranti")' : 'Draf Sheets telah dimuatkan';
+    if (different) toast('Draf Sheets dimuatkan. Kerja yang belum naik ke Sheets dari peranti ini disimpan — tekan "Guna draf peranti" pada kad Draf jika mahu memakainya.', 'info');
+  } else {
+    builderDirty = false;
+    status = 'Draf baharu — simpan ke Sheets apabila siap';
+  }
+  builderRevision = cloud.builder?.revision || 0;
+  // Nama dan jawatan guru sentiasa mengikut tab Guru, supaya padanan guru dalam jadual tidak terpesong.
+  window.jadualBuilder.mergeTeachers(db.teachers);
+  restoringBuilder = false;
+  setBuilderStatus(status);
+  markBuilderBaseline();
+  updateDeviceDraftButton();
+  return status;
+}
 async function loadBuilder() {
   if (!window.jadualBuilder&&!builderLoadPromise) builderLoadPromise = new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=`./builder.js?v=${APP_VERSION}`;script.onload=resolve;script.onerror=()=>{script.remove();builderLoadPromise=null;reject(new Error('Pembina gagal dimuatkan. Cuba lagi.'));};document.body.appendChild(script);});
   await builderLoadPromise;
   if(!admin||builderCloudLoaded) return;
-  let cloud;
-  try {cloud=await api.builderData();}
-  catch(error) {
-    if(error.code==='AUTH_REQUIRED') throw error;
-    const snapshot=await api.bootstrap();cloud={builder:snapshot.builder};
+  const openedWith = window.jadualBuilder.getState();
+  const cached = await readBuilderDeviceCache();
+  if (cached && !builderDirty) {
+    restoringBuilder = true;
+    window.jadualBuilder.setState(cached.builder.state);
+    builderRevision = cached.builder.revision || 0;
+    window.jadualBuilder.mergeTeachers(db.teachers);
+    restoringBuilder = false;
+    setBuilderStatus('Draf peranti dibuka · menyemak draf terbaharu di Sheets…');
+    updateDeviceDraftButton();
+    markBuilderBaseline();
   }
-  restoringBuilder=true;
-  // Draf Sheets ialah sumber rasmi, jadi ia dimuatkan sendiri setiap kali log masuk. Kerja yang hanya
-  // ada pada peranti ini disimpan di tepi dahulu (bukan dibuang senyap) dan boleh dipilih semula
-  // melalui butang "Guna draf peranti" pada kad Draf.
-  const deviceDraft = typeof window.jadualBuilder.hasDeviceDraft === "function" && window.jadualBuilder.hasDeviceDraft();
-  let status;
-  if(cloud.builder?.state){
-    const different = deviceDraft && JSON.stringify(window.jadualBuilder.getState()) !== JSON.stringify(cloud.builder.state);
-    if(different) window.jadualBuilder.stashDeviceDraft(window.jadualBuilder.getState());
-    window.jadualBuilder.setState(cloud.builder.state);
-    builderDirty = false;
-    status = different ? 'Draf Sheets dimuatkan · kerja lama pada peranti disimpan ("Guna draf peranti")' : 'Draf Sheets telah dimuatkan';
-    if(different) toast('Draf Sheets dimuatkan. Kerja yang belum naik ke Sheets dari peranti ini disimpan — tekan "Guna draf peranti" pada kad Draf jika mahu memakainya.', 'info');
+  let cloud = null;
+  try { cloud = await api.builderData(); }
+  catch (error) {
+    if (error.code === 'AUTH_REQUIRED') throw error;
   }
-  else {
-    builderDirty=false;
-    status = 'Draf baharu — simpan ke Sheets apabila siap';
+  if (cached && builderDirty) {
+    // Pengguna sudah menyentuh pembina semasa bacaan berjalan: jangan gantikan kerja mereka. Draf
+    // Sheets yang lebih baharu disimpan untuk butang "Muat draf Sheets".
+    if (cloud?.builder) await writeBuilderDeviceCache(cloud.builder);
+    setBuilderStatus('Draf Sheets terbaharu ada di latar — tekan "Muat draf Sheets" untuk memuatkannya');
+    builderCloudLoaded = true;
+    return;
   }
-  builderRevision=cloud.builder?.revision||0;
-  // Nama dan jawatan guru sentiasa mengikut tab Guru, supaya padanan guru dalam jadual tidak terpesong.
-  window.jadualBuilder.mergeTeachers(db.teachers);
-  restoringBuilder=false;builderCloudLoaded=true;
-  $('#builderCloudStatus').textContent=status;
-  updateDeviceDraftButton();
+  if (!cloud?.builder) {
+    if (cached) {
+      setBuilderStatus('Draf peranti · Sheets belum disemak (tekan "Muat draf Sheets")');
+      builderCloudLoaded = true;
+      return;
+    }
+    try { const snapshot = await api.bootstrap(); cloud = { builder: snapshot.builder }; }
+    catch (error) { cloud = { builder: null }; }
+  }
+  if (cloud.builder) await writeBuilderDeviceCache(cloud.builder);
+  applyBuilderCloud(cloud, openedWith);
+  builderCloudLoaded = true;
 }
 async function enterAdmin(result) {
   const stored = cachedAdminDb();
@@ -1486,7 +1556,7 @@ async function enterAdmin(result) {
   if(writeOutbox.length) retryStoredWrites().then((saved) => { if (saved) syncData(false); });
 }
 async function leaveAdmin(remoteLogout=true) {
-  const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');localStorage.removeItem(ADMIN_DB_KEY);localStorage.removeItem(DRAFT_KEY);currentDrafts=[];generatedReliefKey='';
+  const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');localStorage.removeItem(ADMIN_DB_KEY);localStorage.removeItem(DRAFT_KEY);clearBuilderDeviceCache();currentDrafts=[];generatedReliefKey='';
   document.body.classList.add('public-mode');$('#loginButton').classList.remove('hidden');
   restoringBuilder=true;window.jadualBuilder?.clear();restoringBuilder=false;builderDirty=false;builderCloudLoaded=false;
   importResult=null;$('#importReview').classList.add('hidden');$('#importRows').innerHTML='';$('#pdfFile').value='';
@@ -1502,7 +1572,7 @@ async function saveBuilderCloud() {
   try {
     const result=await api.write('saveBuilder',{baseRevision:builderRevision,state});
     if(!admin) return;
-    builderRevision=result.result.builderRevision;builderDirty=JSON.stringify(window.jadualBuilder.getState())!==fingerprint;
+    builderRevision=result.result.builderRevision;builderUserTouched=false;builderDirty=JSON.stringify(window.jadualBuilder.getState())!==fingerprint;
     $('#builderCloudStatus').textContent=builderDirty?'Ada perubahan baharu — tekan Simpan draf':'Semua perubahan draf disimpan di Sheets';
   } catch(error) {builderDirty=true;$('#builderCloudStatus').textContent=`Belum disimpan: ${error.message}`;if(error.code==='AUTH_REQUIRED') await leaveAdmin();}
   finally {builderSaving=false;}
@@ -1565,10 +1635,10 @@ function wireAdminEvents() {
   });
   $('#loadBuilderCloud').addEventListener('click',async()=>{
     if(!requireAdmin()||(builderDirty&&!confirm('Gantikan draf belum disimpan dengan draf Sheets?'))) return;
-    try {const result=await api.bootstrap();if(!result.builder?.state) return toast('Belum ada draf di Sheets.');restoringBuilder=true;window.jadualBuilder.setState(result.builder.state);builderRevision=result.builder.revision;builderDirty=false;$('#builderCloudStatus').textContent='Draf Sheets dimuatkan';}
+    try {const cloud=await api.builderData();if(!cloud.builder?.state) return toast('Belum ada draf di Sheets.');restoringBuilder=true;window.jadualBuilder.setState(cloud.builder.state);builderRevision=cloud.builder.revision;builderDirty=false;builderUserTouched=false;await writeBuilderDeviceCache(cloud.builder);$('#builderCloudStatus').textContent='Draf Sheets dimuatkan';}
     catch(error){toast(error.message,'error');}finally{restoringBuilder=false;}
   });
-  document.addEventListener('builder-saved',()=>{if(admin&&!restoringBuilder){builderDirty=true;$('#builderCloudStatus').textContent='Draf berubah — tekan Simpan draf ke Sheets';}});
+  document.addEventListener('builder-saved',()=>{if(admin&&!restoringBuilder){if(builderUserTouched||builderDirty){builderDirty=true;setBuilderStatus('Draf berubah — tekan Simpan draf ke Sheets');}else if($('#builderCloudStatus').textContent==='Draf berubah — tekan Simpan draf ke Sheets')setBuilderStatus(builderStatusText||'Draf Sheets telah dimuatkan');}});
   $('#changePassword').addEventListener('click',async()=>{
     if(!requireAdmin()) return;
     try {await api.write('changePassword',{currentPassword:$('#currentPassword').value,newPassword:$('#newPassword').value});$('#currentPassword').value='';$('#newPassword').value='';await leaveAdmin();toast('Kata laluan ditukar. Login semula.','success');}catch(error){toast(error.message,'error');}

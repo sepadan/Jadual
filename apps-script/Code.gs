@@ -91,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.45", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.46", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -119,7 +119,9 @@ function doPost(e) {
     var lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
-      if(request.action==='bootstrap') {var snapshot=bootstrap_(-1);snapshot.builder=readBuilder_();return output_(snapshot);}
+      // The draft is ~1 MB, so it is no longer part of the login payload: it is fetched only when the
+      // timetable screen asks for it (action=builder), where the builder cache makes it cheap.
+      if(request.action==='bootstrap') {var snapshot=bootstrap_(-1);return output_(snapshot);}
       if(request.action==='builder') return output_({ok:true,builder:readBuilder_()});
       var result = routeWrite_(request.action, request.data || {});
       var revision = bumpRevision_();
