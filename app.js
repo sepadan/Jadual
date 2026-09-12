@@ -1,13 +1,13 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.27";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.27";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.27";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.27";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.27";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.27";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.27';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.27';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.27';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.27';
+import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.28";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.28";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.28";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.28";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.28";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.28";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.28';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.28';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.28';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.28';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -226,6 +226,7 @@ function renderAll() {
   renderAbsences();
   renderTeacherLists();
   renderTeachers();
+  renderTeacherRestoreNotices();
   renderSchedule();
   if (importResult) renderImportReview();
   updateConnectionUi();
@@ -424,6 +425,22 @@ function renderTeachers() {
   $$('[data-toggle-relief]').forEach((button) => button.addEventListener("click", () => toggleTeacherReliefEligibility(button.dataset.toggleRelief)));
   $$('[data-edit-teacher]').forEach((button) => button.addEventListener("click", () => openTeacherDialog(button.dataset.editTeacher)));
   $$('[data-delete-teacher]').forEach((button) => button.addEventListener("click", () => removeTeacherRecord(button.dataset.deleteTeacher)));
+}
+
+// A reset can empty the directory while the timetable survives, and then nothing can be matched:
+// the notice carries the way out, so an empty list never looks like a broken import.
+function renderTeacherRestoreNotices() {
+  const empty = admin && !db.teachers.length;
+  $$('.teacher-restore-notice').forEach((notice) => notice.classList.toggle('hidden', !empty));
+}
+
+async function restoreTeacherProfiles() {
+  if (!requireAdmin()) return;
+  if (!confirm('Pulihkan senarai guru asal sekolah? Guru yang masih ada tidak akan diubah dan jadual sedia ada tidak disentuh.')) return;
+  const saved = await remoteWrite("restoreTeachers", { confirm: "PULIH" }, "");
+  if (!saved) return;
+  await syncData(false);
+  toast(`Senarai guru dipulihkan: ${db.teachers.length} guru. Import PDF kini boleh memadankan nama.`, "success");
 }
 
 function validClockTime(value) {
@@ -886,7 +903,9 @@ async function saveImportedSchedule() {
   const effectiveDate = $("#effectiveDate").value;
   const label = $("#versionLabel").value.trim();
   if (!effectiveDate || !label) return toast("Isi tarikh kuat kuasa dan nama versi.", "error");
-  if (!importResult.rows.length) return toast("Tiada halaman guru yang dipadankan. Pilih sekurang-kurangnya seorang guru secara manual.", "error");
+  if (!importResult.rows.length) return toast(db.teachers.length
+    ? "Tiada halaman guru yang dipadankan. Pilih sekurang-kurangnya seorang guru secara manual."
+    : "Tiada profil guru dalam sistem. Buka menu Guru, tekan “Pulihkan senarai guru asal”, kemudian baca PDF ini semula.", "error");
   const version = { id: uuid("v"), label, effectiveDate, sourceName: $("#pdfFile").files[0]?.name || "PDF", status: $("#activateVersion").checked ? "active" : "draft", createdAt: new Date().toISOString() };
   if (version.status === "active") db.scheduleVersions.forEach((item) => { if (item.status === "active") item.status = "superseded"; });
   const rows = importResult.rows.map((row) => ({ ...row, versionId: version.id }));
@@ -1036,6 +1055,7 @@ function wireEvents() {
   });
   $('#uploadTeachers').addEventListener('click',()=>{if(requireAdmin()) $('#teacherFile').click();});
   $('#teacherFile').addEventListener('change',uploadTeacherDirectory);
+  $$('[data-restore-teachers]').forEach((button) => button.addEventListener('click', restoreTeacherProfiles));
   $("#teacherSearch").addEventListener("input", renderTeachers);
   $("#scheduleTeacher").addEventListener("change", renderSchedule);
   $("#scheduleDay").addEventListener("change", renderSchedule);
@@ -1248,7 +1268,9 @@ function checkedBuilderSchedule() {
   const issues = builder.validate();
   if (issues.length) throw new Error(`Selesaikan ${issues.length} isu dalam Lihat & Edit sebelum mengaktifkan jadual. ${issues[0].m}`.replace(/<[^>]+>/g, ""));
   const result = convertBuilderSchedule(state, db.teachers, builder.times());
-  if (!result.rows.some(row => !row.isDuty)) throw new Error("Tiada slot mengajar dengan guru yang dipadankan. Semak nama dalam tab Guru.");
+  if (!result.rows.some(row => !row.isDuty)) throw new Error(db.teachers.length
+    ? "Tiada slot mengajar dengan guru yang dipadankan. Semak nama dalam tab Guru."
+    : "Tiada profil guru dalam sistem. Buka menu Guru dan pulihkan senarai guru asal dahulu.");
   return result;
 }
 

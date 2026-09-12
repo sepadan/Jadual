@@ -91,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.27", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.28", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -152,6 +152,7 @@ function routeWrite_(action, data) {
   if (action === "deleteTeacher") return deleteTeacher_(data);
   if (action === "archiveVersions") return archiveVersions_(data);
   if (action === "resetData") return resetData_(data);
+  if (action === "restoreTeachers") return restoreTeachers_(data);
   if (action === "saveReliefs") {
     if (!Array.isArray(data)) throw new Error("Format relief tidak sah.");
     var activeAbsences=readObjects_("Absences").filter(function(item){return item.status!=="cancelled";});
@@ -295,6 +296,30 @@ function resetData_(data) {
   bumpRevision_();
   audit_("resetData", chosen.join(","), JSON.stringify(cleared));
   return { ok: true, cleared: cleared };
+}
+
+// A reset can empty the Teachers sheet while the timetable survives, and then the timetable points
+// at ids nothing can name: PDF import matches no page and the builder has no one to place. The
+// built-in roster is the school's own list, so it is the only safe source — and an id that still
+// has a profile is never touched, because the school may have edited it by hand.
+function restoreTeachers_(data) {
+  if (text_(data && data.confirm) !== "PULIH") throw new Error("Taip PULIH untuk mengesahkan pemulihan senarai guru.");
+  var sheet = database_().getSheetByName("Teachers");
+  if (!sheet) throw new Error("Helaian Teachers tidak ditemui.");
+  // A sheet that lost its header row would take the roster as its header, so the header comes first.
+  if (sheet.getLastRow() === 0) sheet.getRange(1, 1, 1, SHEETS.Teachers.length).setValues([SHEETS.Teachers]);
+  var existing = {};
+  readObjects_("Teachers").forEach(function(teacher) { existing[String(teacher.id)] = true; });
+  var now = new Date().toISOString();
+  var missing = INITIAL_TEACHERS.filter(function(row) { return !existing[String(row[0])]; });
+  if (!missing.length) return { ok: true, added: [], skipped: INITIAL_TEACHERS.length };
+  var values = missing.map(function(row) { return row.concat([true, now, now, "", "", "", ""]); });
+  sheet.getRange(sheet.getLastRow() + 1, 1, values.length, SHEETS.Teachers.length).setValues(values);
+  audit_("restoreTeachers", String(missing.length), "Profil guru asal dipulihkan");
+  return { ok: true, skipped: INITIAL_TEACHERS.length - missing.length, added: missing.map(function(row) {
+    return { id: row[0], name: row[1], shortName: row[2], position: row[3], reliefEligible: row[4], priority: row[5],
+      active: true, createdAt: now, updatedAt: now, coversTeacherId: "", coversSubjects: "", coversJson: "", preschoolEndTime: "" };
+  }) };
 }
 
 function absenceCoversPeriod_(absence, period) {
