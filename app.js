@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.49";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.49";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.49";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.49";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.49";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.49";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.49';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.49';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.49';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.49';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.49';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.49';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.50";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.50";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.50";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.50";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.50";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.50";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.50';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.50';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.50';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.50';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.50';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.50';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -1451,7 +1451,8 @@ async function writeBuilderDeviceCache(builder) {
     if (!window.caches || !builder || !builder.state) return;
     const cache = await caches.open(BUILDER_CACHE_NAME);
     await cache.put(BUILDER_CACHE_URL, new Response(JSON.stringify({ builder, savedAt: new Date().toISOString() }), { headers: { "Content-Type": "application/json" } }));
-  } catch (error) {}
+    window.__builderCacheError = "";
+  } catch (error) { window.__builderCacheError = String((error && error.message) || error); }
 }
 // Draf pembina kekal di peranti selepas log keluar (ia dokumen jadual sekolah, bukan data pelajar)
 // supaya pembina dibuka serta-merta pada sesi berikutnya; ia hanya dipaparkan kepada pentadbir, dan
@@ -1535,7 +1536,7 @@ async function loadBuilder() {
       builderCloudLoaded = true;
       return;
     }
-    try { const snapshot = await api.bootstrap(); cloud = { builder: snapshot.builder }; }
+    try { cloud = await api.builderData(); }
     catch (error) { cloud = { builder: null }; }
   }
   if (cloud.builder) await writeBuilderDeviceCache(cloud.builder);
