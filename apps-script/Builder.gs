@@ -6,6 +6,18 @@ var BUILDER_CHUNK_SIZE_=90000;
 function builderCacheKeys_(revision) {
   return {count:'bld-'+revision+'-n',chunk:function(index){return 'bld-'+revision+'-'+index;}};
 }
+// Cache draf dikunci pada BUILDER_REVISION. Membuang atau menulis semula baris draf tanpa menaikkan
+// revisi akan meninggalkan draf lama dilayan daripada cache sehingga TTL (6 jam) habis.
+function builderCacheClear_(revision) {
+  try {
+    var keys=builderCacheKeys_(Number(revision)||0);
+    var cache=CacheService.getScriptCache();
+    var count=Number(cache.get(keys.count))||0;
+    var all=[keys.count];
+    for(var index=0;index<Math.min(count,40);index+=1) all.push(keys.chunk(index));
+    cache.removeAll(all);
+  } catch(error) {}
+}
 function builderCacheRead_(revision) {
   try {
     var keys=builderCacheKeys_(revision),cache=CacheService.getScriptCache(),stored=cache.get(keys.count);
