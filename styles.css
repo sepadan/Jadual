@@ -277,6 +277,17 @@ dialog form { padding: 25px; }
   .filters.two, .form-grid { grid-template-columns: 1fr; }
   .schedule-switch { display: flex; width: 100%; }
   .schedule-switch button { flex: 1; }
+  /* Parity with desktop: the relief view switcher carries .segmented too, so the blanket
+     .segmented{display:none} rule above used to delete it — and with it every route to the
+     Preview panel — on phones. Restore it exactly like the schedule switcher. */
+  .relief-switch { display: flex; width: 100%; }
+  .relief-switch button { flex: 1; }
+  /* On a phone the tab row and the Eksport/Cetak row were fighting for one line and overlapped.
+     Stack them: the buttons keep the desktop top-right position, the tabs keep the underline. */
+  .relief-toolbar { flex-direction: column-reverse; align-items: stretch; gap: 0; }
+  .relief-toolbar .button-row { justify-content: flex-end; }
+  .relief-preview { padding: 12px; -webkit-overflow-scrolling: touch; }
+  .relief-preview .relief-print-heading { flex-direction: column; gap: 8px; }
   .module-head { align-items: stretch; flex-direction: column; }
   .module-head .button { text-align: center; }
   .module-frame { height: 72vh; min-height: 560px; border-radius: 12px; }
