@@ -73,6 +73,31 @@ function tulisStoran(){
   }
 }
 function flushStoran(){ if(tulisTimer){ clearTimeout(tulisTimer); tulisTimer=null; tulisStoran(); } }
+/* Kerja yang hanya ada pada peranti ini disimpan di tepi sebelum draf Sheets menggantikannya, supaya
+   pentadbir boleh memilih semula tanpa ada apa-apa hilang. Ia dipadam sebaik sahaja digunakan atau
+   sebaik sahaja draf hidup berjaya naik ke Sheets. */
+const STASH_KEY=KEY+'.sampingan';
+function simpanSampingan(state){
+  try{ localStorage.setItem(STASH_KEY, JSON.stringify(state)); return true; }
+  catch(e){ return false; }
+}
+function adaSampingan(){ try{ return !!localStorage.getItem(STASH_KEY); }catch(e){ return false; } }
+function pulihSampingan(){
+  let raw=null;
+  try{ raw=localStorage.getItem(STASH_KEY); }catch(e){ return false; }
+  if(!raw) return false;
+  // Parsing and rendering are separated on purpose: the draft is restored once the state is back,
+  // and a drawing failure must not be reported as "the work could not be recovered".
+  try{
+    const o=JSON.parse(raw);
+    S=Object.assign(kosong(),o); S.masa=Object.assign(kosong().masa,o.masa||{});
+    S.kekangan=Object.assign(kosong().kekangan,o.kekangan||{}); S.sekolah=Object.assign(kosong().sekolah,o.sekolah||{});
+  }catch(e){ return false; }
+  try{ localStorage.removeItem(STASH_KEY); }catch(e){}
+  simpan(); try{ ulang(); }catch(e){}
+  return true;
+}
+function buangSampingan(){ try{ localStorage.removeItem(STASH_KEY); }catch(e){} }
 try{
   if(typeof window!=='undefined'&&window.addEventListener) window.addEventListener('pagehide',flushStoran);
   if(typeof document!=='undefined'&&document.addEventListener) document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flushStoran(); });
@@ -2076,9 +2101,14 @@ window.jadualBuilder = {
   setState(state) {S=Object.assign(kosong(),clone(state));S.masa=Object.assign(kosong().masa,state.masa||{});ulang();},
   clear() {S=kosong();$('#content').innerHTML='';},
   getState: () => clone(S),
-  // Benar apabila draf pada peranti ini dipulihkan semasa mula. app.js menggunakannya supaya draf
-  // Sheets tidak menimpa kerja terakhir pentadbir tanpa sebarang amaran.
+  // Benar apabila draf pada peranti ini dipulihkan semasa mula.
   hasDeviceDraft: () => drafPeranti,
+  // Kerja yang belum naik ke Sheets disimpan di tepi semasa log masuk memuatkan draf Sheets, jadi ia
+  // tidak hilang senyap dan pentadbir boleh memilihnya semula bila-bila masa.
+  stashDeviceDraft: (state) => simpanSampingan(state),
+  hasStashedDraft: () => adaSampingan(),
+  restoreStashedDraft: () => pulihSampingan(),
+  clearStashedDraft: () => buangSampingan(),
   flush: () => flushStoran(),
   validate: () => semakJadual(),
   times: () => jalurMasa(),

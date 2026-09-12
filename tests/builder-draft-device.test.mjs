@@ -12,7 +12,7 @@ const head = source.slice(0, source.indexOf("/* ---------- Pengiraan masa ------
 
 function sandbox(store = {}, options = {}) {
   const written = [];
-  const node = { textContent: "", className: "", querySelector: () => node };
+  const node = { textContent: "", className: "", querySelector: () => node, querySelectorAll: () => [], innerHTML: "" };
   const localStorage = {
     getItem: (key) => (key in store ? store[key] : null),
     setItem: (key, value) => {
@@ -20,6 +20,7 @@ function sandbox(store = {}, options = {}) {
       written.push([key, value]);
       store[key] = String(value);
     },
+    removeItem: (key) => { delete store[key]; },
   };
   const context = vm.createContext({
     console, setTimeout, clearTimeout, JSON,
@@ -66,12 +67,38 @@ test("a device that refuses to store says so instead of pretending the draft is 
   assert.match(node.textContent, /Storan peranti penuh/, "the admin is never told the device cannot store the draft");
 });
 
-test("app.js prefers the device draft over Sheets, and says which copy is live", () => {
+test("work kept only on the device can be put aside and taken back", async () => {
+  const { context, store } = sandbox({});
+  // The admin edits the builder on a device that is already holding a draft.
+  vm.runInContext("S=kosong(); S.sekolah.nama='SEKOLAH PERANTI'; simpan(); flushStoran();", context);
+  const deviceState = JSON.parse(vm.runInContext("JSON.stringify(S)", context));
+  const put = vm.runInContext("simpanSampingan(S)", context);
+  assert.equal(put, true, "the device copy could not be put aside");
+  assert.ok(vm.runInContext("adaSampingan()", context), "the aside copy is not reported");
+  // Something else becomes the live state (here: the Sheets draft arriving at login).
+  vm.runInContext("S=kosong(); S.sekolah.nama='SEKOLAH SHEETS';", context);
+  assert.equal(vm.runInContext("pulihSampingan()", context), true, "the aside copy could not be taken back");
+  assert.equal(vm.runInContext("S.sekolah.nama", context), "SEKOLAH PERANTI", "the aside copy came back wrong");
+  assert.equal(vm.runInContext("adaSampingan()", context), false, "the aside copy is still pending after being taken back");
+  assert.ok(store["janajadual.v3"].includes("SEKOLAH PERANTI"), "the restored draft was not written to the device");
+  assert.equal(deviceState.sekolah.nama, "SEKOLAH PERANTI");
+});
+
+test("app.js loads the Sheets draft at login and keeps the device copy aside", () => {
   const app = readFileSync(new URL("../app.js", import.meta.url), "utf8");
   assert.match(app, /hasDeviceDraft\(\)/, "app.js no longer asks whether a device draft was restored");
-  assert.match(app, /Draf peranti ini digunakan/, "app.js does not tell the admin which draft is live");
+  assert.match(app, /stashDeviceDraft\(/, "app.js discards device-only work when Sheets arrives");
+  assert.match(app, /Draf Sheets telah dimuatkan/, "app.js does not report that the Sheets draft is live");
+  assert.match(app, /updateDeviceDraftButton\(\)/, "the device copy is never offered back to the admin");
+  // Sheets is the source of truth, so it must be applied on every login — the device copy is put
+  // aside first, never used instead.
+  const body = app.slice(app.indexOf("async function loadBuilder()"), app.indexOf("async function enterAdmin("));
   assert.ok(
-    app.indexOf("hasDeviceDraft()") < app.indexOf("window.jadualBuilder.setState(cloud.builder.state)"),
-    "app.js still overwrites the device draft with the Sheets copy before checking it",
+    body.indexOf("stashDeviceDraft(") < body.indexOf("setState(cloud.builder.state)"),
+    "app.js replaces the live draft with the Sheets copy before putting the device copy aside",
+  );
+  assert.ok(
+    !/if\(cloud\.builder\?\.state && deviceDraft\)/.test(body),
+    "the device draft still wins over Sheets at login",
   );
 });

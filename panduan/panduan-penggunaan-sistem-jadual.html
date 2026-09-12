@@ -46,7 +46,7 @@ a { color: #0b6b5b; text-decoration: none; }
   <div class="meta">
     <div><strong>Dokumen:</strong> Panduan penggunaan untuk pentadbir dan pengunjung</div>
     <div><strong>Aplikasi:</strong> https://sepadan.github.io/Jadual/</div>
-    <div><strong>Versi sistem:</strong> 3.1.44</div>
+    <div><strong>Versi sistem:</strong> 3.1.45</div>
     <div><strong>Tarikh dokumen:</strong> 12/09/2026</div>
   </div>
 </section>
@@ -530,7 +530,11 @@ a { color: #0b6b5b; text-decoration: none; }
 </tr>
 <tr>
 <td><strong>Ambil senarai guru</strong></td>
-<td>Menyelaraskan senarai guru pembina dengan senarai guru rasmi dalam tab <strong>Guru</strong>, termasuk pautan guru gantian (Personel MySTEP / Guru Praktikal).</td>
+<td>Menyelaraskan senarai guru pembina dengan senarai guru rasmi dalam tab <strong>Guru</strong>, termasuk pautan guru gantian (Personel MySTEP / Guru Praktikal). Penyelarasan ini juga berlaku <strong>secara automatik setiap kali log masuk</strong>, jadi butang ini jarang diperlukan.</td>
+</tr>
+<tr>
+<td><strong>Guna draf peranti</strong></td>
+<td>Muncul <strong>hanya apabila</strong> peranti ini menyimpan kerja yang belum naik ke Sheets semasa log masuk. Menekannya mengembalikan kerja itu sebagai draf hidup (draf Sheets pada skrin digantikan) supaya tuan boleh <strong>Simpan draf ke Sheets</strong>.</td>
 </tr>
 <tr>
 <td><strong>Gunakan untuk relief →</strong></td>
@@ -538,8 +542,8 @@ a { color: #0b6b5b; text-decoration: none; }
 </tr>
 </tbody>
 </table>
-<p>Cara membaca kad ini: draf pembina disimpan <strong>pada peranti</strong> semasa tuan bekerja, jadi menutup pelayar tidak menghilangkannya. <strong>Simpan draf ke Sheets</strong> ialah satu-satunya cara draf itu selamat melepasi peranti itu (telefon hilang, tukar komputer, atau dibuka oleh pentadbir lain) — ia <strong>tidak</strong> berlaku secara automatik. <strong>Muat draf Sheets</strong> jarang diperlukan kerana draf Sheets sudah dimuatkan sendiri semasa log masuk; gunakannya jika pentadbir lain mengubah draf di tempat lain. <strong>Ambil senarai guru</strong> perlu selepas tuan menambah atau menukar nama guru di tab <strong>Guru</strong> (penyelarasan automatik hanya berlaku apabila pembina masih belum ada guru). <strong>Gunakan untuk relief</strong> wajib dan tidak boleh dibuang — tanpanya jadual yang dibina tidak menjadi jadual rasmi yang digunakan oleh relief.</p>
-<p>Jika peranti ini masih menyimpan draf yang belum dinaikkan ke Sheets, aplikasi <strong>menggunakan draf peranti itu dahulu</strong> dan baris status kad menulis <strong>"Draf peranti ini digunakan — tekan Simpan draf ke Sheets untuk naik ke awan"</strong>. Ini memang sengaja: menimpanya dengan draf Sheets akan membuang kerja terakhir tuan. Tekan <strong>Muat draf Sheets</strong> jika tuan mahu salinan awan sebaliknya. Apabila storan peranti penuh (atau pelayar berada dalam mod peribadi), pil draf bertukar <strong>"Storan peranti penuh"</strong> — eksport JSON sebelum menutup aplikasi, kerana perubahan seterusnya hanya kekal selagi tab dibuka.</p>
+<p>Cara membaca kad ini: draf pembina disimpan <strong>pada peranti</strong> semasa tuan bekerja, jadi menutup pelayar tidak menghilangkannya. Setiap kali tuan <strong>log masuk</strong> dan membuka <strong>Bina dan urus jadual</strong>, aplikasi memuatkan <strong>draf Sheets sendiri</strong> — tuan tidak perlu menekan apa-apa. <strong>Simpan draf ke Sheets</strong> ialah satu-satunya cara draf itu selamat melepasi peranti itu (telefon hilang, tukar komputer, atau dibuka oleh pentadbir lain) — ia <strong>tidak</strong> berlaku secara automatik. <strong>Muat draf Sheets</strong> jarang diperlukan kerana draf Sheets sudah dimuatkan sendiri semasa log masuk; gunakannya jika pentadbir lain mengubah draf di tempat lain. <strong>Ambil senarai guru</strong> perlu selepas tuan menambah atau menukar nama guru di tab <strong>Guru</strong> (penyelarasan automatik hanya berlaku apabila pembina masih belum ada guru). <strong>Gunakan untuk relief</strong> wajib dan tidak boleh dibuang — tanpanya jadual yang dibina tidak menjadi jadual rasmi yang digunakan oleh relief.</p>
+<p>Jika peranti ini masih menyimpan kerja yang belum dinaikkan ke Sheets, <strong>draf Sheets tetap dimuatkan</strong> (ia sumber rasmi) dan kerja peranti itu <strong>disimpan di sebelah, bukan dibuang</strong>: baris status menulis <strong>"Draf Sheets dimuatkan · kerja lama pada peranti disimpan"</strong> dan butang <strong>Guna draf peranti</strong> muncul. Tekan butang itu untuk memakai kerja peranti tersebut, kemudian <strong>Simpan draf ke Sheets</strong>. <strong>Muat draf Sheets</strong> jarang diperlukan sekarang — ia hanya untuk menarik semula salinan awan dalam sesi yang sedang berjalan. Apabila storan peranti penuh (atau pelayar berada dalam mod peribadi), pil draf bertukar <strong>"Storan peranti penuh"</strong> — eksport JSON sebelum menutup aplikasi, kerana perubahan seterusnya hanya kekal selagi tab dibuka.</p>
 <h3>8.2 Draf pembina lawan jadual aktif — PERBEZAAN PALING PENTING</h3>
 <p><strong>Draf pembina</strong> dan <strong>jadual aktif untuk relief</strong> ialah <strong>dua rekod yang berasingan</strong>:</p>
 <ul>
@@ -903,7 +907,7 @@ a { color: #0b6b5b; text-decoration: none; }
 <ol>
 <li>Sebelum menutup aplikasi atau menerbitkan, pastikan penunjuk segerak menunjukkan <strong>Google Sheets · masa nyata</strong>. Jika ia berkata <strong>menunggu Sheets</strong>, ada tulisan tertunda yang akan mendarat lewat.</li>
 <li><strong>Muat semula</strong> tab atau peranti yang sudah lama terbuka sebelum menekan <strong>Gunakan untuk relief →</strong> — halaman yang dimuat semula sentiasa menarik jadual terkini.</li>
-<li>Jika baris status kad <strong>Draf</strong> berkata <strong>"Draf peranti ini digunakan"</strong>, putuskan dahulu: <strong>Simpan draf ke Sheets</strong> (naikkan kerja peranti ini) atau <strong>Muat draf Sheets</strong> (ambil salinan awan). Jangan terus terbitkan.</li>
+<li>Jika butang <strong>Guna draf peranti</strong> muncul pada kad Draf, bermakna peranti ini masih menyimpan kerja yang belum naik ke Sheets — putuskan dahulu sama ada mahu memakainya (tekan butang itu → <strong>Simpan draf ke Sheets</strong>) atau mengabaikannya. Jangan terus terbitkan tanpa memutuskan.</li>
 </ol>
 <h3>15.4 Sekali sekala (awal sesi atau bila jadual berubah)</h3>
 <ol>
@@ -1204,6 +1208,10 @@ a { color: #0b6b5b; text-decoration: none; }
 <tr>
 <td><strong>3.1.44</strong></td>
 <td>Butang <strong>Eksport PDF</strong> dan <strong>Cetak</strong> pada skrin Relief hanya kelihatan kepada pentadbir — paparan awam tidak lagi memaparkannya.</td>
+</tr>
+<tr>
+<td><strong>3.1.45</strong></td>
+<td><strong>Draf Sheets dimuatkan sendiri setiap kali log masuk</strong> (tidak perlu tekan "Muat draf Sheets" lagi); senarai guru diselaraskan automatik; kerja peranti yang belum naik ke Sheets disimpan dan boleh diambil semula dengan butang <strong>Guna draf peranti</strong>.</td>
 </tr>
 <tr>
 <td><strong>3.1.39</strong></td>
