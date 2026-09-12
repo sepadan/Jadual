@@ -11,10 +11,18 @@ const versionBlock = source.slice(source.indexOf("function archiveVersions_("), 
 
 function makeWorld(rows) {
   const tables = JSON.parse(JSON.stringify(rows));
+  const maxRows = Object.fromEntries(Object.entries(tables).map(([name, items]) => [name, items.length + 1]));
   const sheetOf = (name) => ({
     getLastRow: () => (tables[name] || []).length + 1,
     getLastColumn: () => 3,
-    deleteRow: (index) => { tables[name].splice(index - 2, 1); },
+    getMaxRows: () => maxRows[name],
+    getFrozenRows: () => 1,
+    insertRowsAfter: (_index, count) => { maxRows[name] += count; },
+    deleteRow: (index) => {
+      if (maxRows[name] - 1 <= 1) throw new Error("Sorry, it is not possible to delete all non-frozen rows.");
+      tables[name].splice(index - 2, 1);
+      maxRows[name] -= 1;
+    },
     getRange: () => ({ setValue: () => {}, getValues: () => [["", "", "", "", ""]] }),
   });
   const context = vm.createContext({
@@ -95,6 +103,16 @@ test("reset needs the confirmation word and only clears what was chosen", () => 
   assert.equal(world.__tables.Reliefs.length, 0);
   assert.equal(world.__tables.Teachers.length, 2, "a table that was not chosen must survive");
   assert.equal(world.__tables.ScheduleVersions.length, 3);
+});
+
+test("schedule and builder replacement use the same guarded row deletion", () => {
+  const importBlock = source.slice(source.indexOf("function importSchedule_("), source.indexOf("function ensureSheet_("));
+  const builder = readFileSync(new URL("../apps-script/Builder.gs", import.meta.url), "utf8");
+  const saveBlock = builder.slice(builder.indexOf("function saveBuilder_("), builder.indexOf("function pruneBuilderRevisions_("));
+  assert.match(importBlock, /deleteRows_\("Schedule"/);
+  assert.doesNotMatch(importBlock, /scheduleSheet\.deleteRow/);
+  assert.match(saveBlock, /deleteRows_\('BuilderState'/);
+  assert.doesNotMatch(saveBlock, /sheet\.deleteRow/);
 });
 
 test("the device copy round-trips as data, not as a nested string", () => {

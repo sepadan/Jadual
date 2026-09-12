@@ -91,7 +91,7 @@ function doGet(e) {
   resetRequestCache_();
   try {
     var action = (e && e.parameter && e.parameter.action) || "health";
-    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.26", auth: "session" });
+    if (action === "health") return output_({ ok: true, school: configValue_("SCHOOL_NAME") || "SK Paya Redan, Muar", version: "3.1.27", auth: "session" });
     if (action === "status") return output_({ok:true,revision:Number(configValue_("DATA_REVISION")||0),updatedAt:configValue_("UPDATED_AT")||""});
     // Read-only, and the payload is cached per revision, so anonymous readers must never
     // queue on the exclusive script lock (it blocked admin writes during peak hours).
@@ -185,15 +185,26 @@ function routeWrite_(action, data) {
 // What the admin deletes in the app must be gone from Sheets too. A deleted absence takes its relief
 // rows with it: a relief that points at a record that no longer exists is worse than no record.
 
+function ensureSpareRowsForDelete_(sheet, count) {
+  if (!sheet || !count) return;
+  var frozen = sheet.getFrozenRows();
+  var maxRows = sheet.getMaxRows();
+  var available = Math.max(0, maxRows - frozen);
+  var needed = count - available + 1;
+  if (needed > 0) sheet.insertRowsAfter(maxRows, needed);
+}
+
 function deleteRows_(sheetName, match) {
   var sheet = database_().getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() < 2) return 0;
   var rows = readObjects_(sheetName);
-  var removed = 0;
+  var targets = [];
   for (var index = rows.length - 1; index >= 0; index -= 1) {
-    if (match(rows[index])) { sheet.deleteRow(index + 2); removed += 1; }
+    if (match(rows[index])) targets.push(index + 2);
   }
-  return removed;
+  ensureSpareRowsForDelete_(sheet, targets.length);
+  targets.forEach(function(row) { sheet.deleteRow(row); });
+  return targets.length;
 }
 
 function deleteAbsence_(data) {
@@ -410,10 +421,7 @@ function importSchedule_(payload) {
   }
   upsert_("ScheduleVersions", "id", encodeVersion_(payload.version));
   var scheduleSheet = ss.getSheetByName("Schedule");
-  var existing = readObjects_("Schedule");
-  for (var index = existing.length - 1; index >= 0; index -= 1) {
-    if (existing[index].versionId === payload.version.id) scheduleSheet.deleteRow(index + 2);
-  }
+  deleteRows_("Schedule", function(row) { return row.versionId === payload.version.id; });
   if (payload.rows.length) {
     var values = payload.rows.map(encodeSchedule_);
     scheduleSheet.getRange(scheduleSheet.getLastRow() + 1, 1, values.length, SHEETS.Schedule.length).setValues(values);

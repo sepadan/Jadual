@@ -1,4 +1,4 @@
-import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.1.26";
+import { reliefHasActiveAbsence } from "./relief-engine.js?v=3.1.27";
 
 function clean(value) {
   return String(value || "").trim();

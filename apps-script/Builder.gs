@@ -12,8 +12,7 @@ function saveBuilder_(data) {
   var chunks=[];for(var i=0;i<json.length;i+=30000) chunks.push([current+1,chunks.length,'json:'+json.slice(i,i+30000)]);
   var sheet=database_().getSheetByName('BuilderState');
   // Append before switching the committed revision. A failed write cannot erase the previous draft.
-  var previous=readObjects_('BuilderState');
-  for(var n=previous.length-1;n>=0;n--) if(Number(previous[n].revision)===current+1) sheet.deleteRow(n+2);
+  deleteRows_('BuilderState',function(row){return Number(row.revision)===current+1;});
   if(chunks.length) sheet.getRange(sheet.getLastRow()+1,1,chunks.length,3).setValues(chunks);
   setConfig_('BUILDER_REVISION',String(current+1));
   // The new draft is committed, so every older revision is now dead weight. Deleting them keeps
