@@ -74,3 +74,13 @@ test("the preview stays readable and scrollable on a phone", () => {
   assert.ok(preview, ".relief-preview has no phone rule");
   assert.match(ruleFor(mobile, ".relief-preview .relief-print-heading") || "", /flex-direction:\s*column/, "the preview heading does not stack on a phone");
 });
+
+// Printing is driven by body.print-relief, which hides every screen element and shows only the
+// print sheet. The stacked phone toolbar must never leak into a print rule, or the sheet would
+// inherit screen layout when a narrow window prints the day.
+test("the phone toolbar layout stays out of the print stylesheets", () => {
+  for (const block of css.matchAll(/@media print\s*\{([\s\S]*?)\n\}/g)) {
+    assert.doesNotMatch(block[1], /relief-toolbar/, "@media print must not lay out the screen toolbar");
+  }
+});
+
