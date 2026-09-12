@@ -46,13 +46,13 @@ a { color: #0b6b5b; text-decoration: none; }
   <div class="meta">
     <div><strong>Dokumen:</strong> Panduan penggunaan untuk pentadbir dan pengunjung</div>
     <div><strong>Aplikasi:</strong> https://sepadan.github.io/Jadual/</div>
-    <div><strong>Versi sistem:</strong> 3.1.42</div>
+    <div><strong>Versi sistem:</strong> 3.1.43</div>
     <div><strong>Tarikh dokumen:</strong> 12/09/2026</div>
   </div>
 </section>
 <h1>PANDUAN PENGGUNAAN SISTEM JADUAL</h1>
 <p><strong>Sistem Jadual — SePadan</strong>
-<strong>Edisi terperinci · berdasarkan versi aplikasi 3.1.42</strong></p>
+<strong>Edisi terperinci · berdasarkan versi aplikasi 3.1.43</strong></p>
 <p>Panduan ini ditulis untuk guru dan kakitangan sekolah yang tidak semestinya mahir teknikal. Ia menerangkan langkah demi langkah cara memasang aplikasi, log masuk, mengurus ketiadaan guru, menjana dan menerbitkan relief, membaca jadual minggu guru, menyediakan <strong>masa tetapan guru pemulihan</strong>, membina atau mengimport jadual waktu, dan menyelenggara data sekolah.</p>
 <blockquote>
 <p><strong>Cara menggunakan panduan ini.</strong> Bahagian 1–3 untuk semua pengguna (pengenalan, pemasangan, log masuk). Bahagian 4–7 ialah kerja <strong>harian</strong> pentadbir (ketiadaan → relief → cetak). Bahagian 7–12 ialah kerja <strong>sekali sekala atau bila jadual berubah</strong> (baca jadual minggu, bina/import jadual, urus guru, masa tetapan guru pemulihan, tetapan). Bahagian 13–16 menerangkan paparan awam, penunjuk segerak, senarai semak dan telefon. Bahagian 17–20 ialah glosari, penyelesaian masalah, keselamatan dan kad rujukan pantas.</p>
@@ -889,6 +889,7 @@ a { color: #0b6b5b; text-decoration: none; }
 <p><strong>Aliran ringkas:</strong></p>
 <blockquote>
 <p>Rekod guru tiada → Jana cadangan relief → Semak (Senarai relief / Preview) → Terbitkan → Cetak / Eksport PDF</p>
+<p><strong>Draf relief disimpan pada peranti.</strong> Jika storan peranti penuh atau dibatalkan (contohnya mod peribadi), aplikasi memaparkan amaran <strong>"Storan peranti penuh atau tidak dibenarkan — draf ini hanya kekal selagi aplikasi terbuka"</strong>. Jangan tutup aplikasi sebelum menekan <strong>Terbitkan</strong>, kerana draf itu belum sampai ke Sheets.</p>
 </blockquote>
 <h3>15.2 Setiap minggu</h3>
 <ul>
@@ -1189,6 +1190,10 @@ a { color: #0b6b5b; text-decoration: none; }
 <td>Draf Pembina kini benar-benar <strong>disimpan pada peranti</strong> — memuat semula halaman tidak lagi membuang kerja yang belum dinaikkan ke Sheets; draf peranti diutamakan berbanding draf Sheets dan statusnya dinyatakan pada kad Draf.</td>
 </tr>
 <tr>
+<td><strong>3.1.43</strong></td>
+<td>Amaran jelas apabila peranti enggan menyimpan <strong>draf relief</strong> (storan penuh / mod peribadi) — sebelum ini kegagalan itu senyap.</td>
+</tr>
+<tr>
 <td><strong>3.1.39</strong></td>
 <td>Semua jadual guru memakai bentuk grid Pembina: <strong>hari ke bawah, waktu melintang, lajur REHAT</strong>, blok berwarna mengikut subjek dan legenda warna — pada tab Jadual, paparan Kelas dan dialog Tetapan Jadual guru pemulihan.</td>
 </tr>
@@ -1211,7 +1216,7 @@ a { color: #0b6b5b; text-decoration: none; }
 </tbody>
 </table>
 <h3>20.3 Rujukan teknikal untuk pentadbir IT</h3>
-<p>Panduan ini disemak berdasarkan kod sumber versi <strong>3.1.42</strong> dalam repositori tempatan <code>C:/Users/seman/work/Jadual-audit</code>:</p>
+<p>Panduan ini disemak berdasarkan kod sumber versi <strong>3.1.43</strong> dalam repositori tempatan <code>C:/Users/seman/work/Jadual-audit</code>:</p>
 <table>
 <thead>
 <tr>

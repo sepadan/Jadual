@@ -44,6 +44,15 @@ test("pilihan relief sah lulus semakan", () => {
   assert.deepEqual(validateReliefs(db, drafts), []);
 });
 
+test("draf yang disalin (id sama) tidak dikira sebagai relief kedua", () => {
+  // app.js menyimpan/memuat draf melalui JSON dan kadangkala menyalinnya; pengecualian "diri sendiri"
+  // mesti ikut id, bukan rujukan objek, jika tidak pilihan guru ganti sendiri dilaporkan tidak tersedia.
+  const db = fixture();
+  const drafts = buildReliefDrafts(db, "2026-09-09");
+  const copies = drafts.map((draft) => ({ ...draft }));
+  assert.deepEqual(validateReliefs(db, copies), []);
+});
+
 test('daily load outranks manual priority and weekly relief',()=>{
   const db=fixture();db.schedule=db.schedule.filter(r=>r.teacherId!=='busy');
   db.teachers.find(t=>t.id==='free').priority=9;

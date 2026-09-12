@@ -5,7 +5,7 @@ title: "PANDUAN PENGGUNAAN — Sistem Jadual (SePadan) — Edisi Terperinci"
 # PANDUAN PENGGUNAAN SISTEM JADUAL
 
 **Sistem Jadual — SePadan**
-**Edisi terperinci · berdasarkan versi aplikasi 3.1.42**
+**Edisi terperinci · berdasarkan versi aplikasi 3.1.43**
 
 Panduan ini ditulis untuk guru dan kakitangan sekolah yang tidak semestinya mahir teknikal. Ia menerangkan langkah demi langkah cara memasang aplikasi, log masuk, mengurus ketiadaan guru, menjana dan menerbitkan relief, membaca jadual minggu guru, menyediakan **masa tetapan guru pemulihan**, membina atau mengimport jadual waktu, dan menyelenggara data sekolah.
 
@@ -573,6 +573,8 @@ Sesetengah simpanan — terutamanya menyimpan **masa tetapan guru pemulihan** �
 **Aliran ringkas:**
 > Rekod guru tiada → Jana cadangan relief → Semak (Senarai relief / Preview) → Terbitkan → Cetak / Eksport PDF
 
+> **Draf relief disimpan pada peranti.** Jika storan peranti penuh atau dibatalkan (contohnya mod peribadi), aplikasi memaparkan amaran **"Storan peranti penuh atau tidak dibenarkan — draf ini hanya kekal selagi aplikasi terbuka"**. Jangan tutup aplikasi sebelum menekan **Terbitkan**, kerana draf itu belum sampai ke Sheets.
+
 ### 15.2 Setiap minggu
 
 - Semak penunjuk segerak — pastikan ia menunjukkan **masa nyata** sekurang-kurangnya sekali.
@@ -695,6 +697,7 @@ Sesetengah simpanan — terutamanya menyimpan **masa tetapan guru pemulihan** �
 | **3.1.40** | Butang bulat **`?`** di bar atas membuka **panduan PDF** ini; butang segerak manual dibuang kerana penyegerakan sudah automatik; item **Panduan** dibuang daripada menu Pembina. |
 | **3.1.41** | Butang buka panduan `?` dipaparkan **hanya kepada pentadbir** (paparan awam tidak melihatnya). |
 | **3.1.42** | Draf Pembina kini benar-benar **disimpan pada peranti** — memuat semula halaman tidak lagi membuang kerja yang belum dinaikkan ke Sheets; draf peranti diutamakan berbanding draf Sheets dan statusnya dinyatakan pada kad Draf. |
+| **3.1.43** | Amaran jelas apabila peranti enggan menyimpan **draf relief** (storan penuh / mod peribadi) — sebelum ini kegagalan itu senyap. |
 | **3.1.39** | Semua jadual guru memakai bentuk grid Pembina: **hari ke bawah, waktu melintang, lajur REHAT**, blok berwarna mengikut subjek dan legenda warna — pada tab Jadual, paparan Kelas dan dialog Tetapan Jadual guru pemulihan. |
 | **3.1.38** | Jadual guru dipaparkan sebagai **minggu penuh** (waktu di tepi, Isnin–Jumaat di atas; hari ini ditanda hijau; masa tetapan berwarna kuning) dan muat satu skrin telefon tanpa skrol mendatar. |
 | **3.1.36–3.1.37** | **Butang Tetapan Jadual berpindah ke dalam dialog profil guru** (bukan lagi pada muka kad). Simpanan masa tetapan kini **menyemak jadual terkini** dahulu — jika jadual telah berubah, ia meminta semak semula dan **tidak** menindih kerja pentadbir lain. |
@@ -703,7 +706,7 @@ Sesetengah simpanan — terutamanya menyimpan **masa tetapan guru pemulihan** �
 
 ### 20.3 Rujukan teknikal untuk pentadbir IT
 
-Panduan ini disemak berdasarkan kod sumber versi **3.1.42** dalam repositori tempatan `C:/Users/seman/work/Jadual-audit`:
+Panduan ini disemak berdasarkan kod sumber versi **3.1.43** dalam repositori tempatan `C:/Users/seman/work/Jadual-audit`:
 
 | Perkara | Fail berkaitan |
 |---|---|

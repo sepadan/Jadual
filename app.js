@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.42";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.42";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.42";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.42";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.42";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.42";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.42';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.42';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.42';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.42';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.42';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.42';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.43";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.43";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.43";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.43";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.43";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.43";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.43';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.43';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.43';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.43';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.43';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.43';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -110,8 +110,16 @@ function cachedPublicRevision() {
 // Generated relief drafts are kept on the device: losing a whole day's relief work because the
 // page was reloaded (or the tablet slept) is the one thing an admin cannot be asked to redo.
 const DRAFT_KEY = "sistem-jadual-draf-relief-v1";
+// A draft that cannot be stored is worse than one that was never stored: the admin believes the work
+// is safe. Say it out loud the first time the device refuses, instead of swallowing the error.
+let storageWarned = false;
+function warnStorageFull() {
+  if (storageWarned) return;
+  storageWarned = true;
+  toast("Storan peranti penuh atau tidak dibenarkan — draf ini hanya kekal selagi aplikasi terbuka. Jangan tutup aplikasi sebelum menerbitkan.", "error");
+}
 function saveDrafts() {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ date: $("#reliefDate").value, key: generatedReliefKey, drafts: currentDrafts })); } catch {}
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ date: $("#reliefDate").value, key: generatedReliefKey, drafts: currentDrafts })); } catch { warnStorageFull(); }
 }
 // Drafts belong to one date: restoring them also puts the date picker back, otherwise the reload
 // lands on today and the stored drafts look like they belong to the wrong data.
