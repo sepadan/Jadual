@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.48";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.48";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.48";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.48";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.48";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.48";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.48';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.48';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.48';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.48';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.48';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.48';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.49";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.49";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.49";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.49";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.49";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.49";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.49';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.49';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.49';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.49';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.49';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.49';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -1459,8 +1459,21 @@ async function writeBuilderDeviceCache(builder) {
 function clearBuilderDeviceCache() {
   try { if (window.caches) caches.delete(BUILDER_CACHE_NAME); } catch (error) {}
 }
+// Logo beresolusi kamera dalam draf lama menjadikan setiap bacaan draf ~1 MB (satu logo 886 KB
+// pernah mengambil 93% muatan). Logo dikecilkan apabila draf dimuatkan: paparan sama, tetapi
+// simpanan seterusnya menyimpan versi kecil.
+async function shrinkLoadedLogos() {
+  const sebelum = window.jadualBuilder.getState();
+  const kecil = await window.jadualBuilder.shrinkLogos(structuredClone(sebelum));
+  if (!kecil || JSON.stringify(kecil.sekolah) === JSON.stringify(sebelum.sekolah)) return false;
+  restoringBuilder = true;
+  window.jadualBuilder.setState(kecil);
+  restoringBuilder = false;
+  return true;
+}
+
 // Draf Sheets kekal sumber rasmi: kerja peranti yang bercanggah disimpan di tepi, bukan dibuang.
-function applyBuilderCloud(cloud, openedWith) {
+async function applyBuilderCloud(cloud, openedWith) {
   restoringBuilder = true;
   const deviceDraft = typeof window.jadualBuilder.hasDeviceDraft === "function" && window.jadualBuilder.hasDeviceDraft();
   let status;
@@ -1479,8 +1492,11 @@ function applyBuilderCloud(cloud, openedWith) {
   // Nama dan jawatan guru sentiasa mengikut tab Guru, supaya padanan guru dalam jadual tidak terpesong.
   window.jadualBuilder.mergeTeachers(db.teachers);
   restoringBuilder = false;
-  setBuilderStatus(status);
+  const logoKecil = await shrinkLoadedLogos();
+  setBuilderStatus(logoKecil ? 'Logo dikecilkan untuk muatan pantas — tekan "Simpan draf ke Sheets"' : status);
   markBuilderBaseline();
+  // Logo yang dikecilkan ialah perubahan sebenar pada draf, jadi ia menunggu simpanan.
+  if (logoKecil) builderDirty = true;
   updateDeviceDraftButton();
   return status;
 }
@@ -1523,7 +1539,7 @@ async function loadBuilder() {
     catch (error) { cloud = { builder: null }; }
   }
   if (cloud.builder) await writeBuilderDeviceCache(cloud.builder);
-  applyBuilderCloud(cloud, openedWith);
+  await applyBuilderCloud(cloud, openedWith);
   builderCloudLoaded = true;
 }
 async function enterAdmin(result) {
@@ -1569,7 +1585,11 @@ async function leaveAdmin(remoteLogout=true) {
 async function saveBuilderCloud() {
   if(!admin||restoringBuilder) return;
   if(builderSaving) {$('#builderCloudStatus').textContent='Simpanan sedang berjalan · perubahan baharu boleh diteruskan';return;}
-  builderSaving=true;const state=window.jadualBuilder.getState();const fingerprint=JSON.stringify(state);
+  builderSaving=true;
+  const sebelum=window.jadualBuilder.getState();
+  const state=await window.jadualBuilder.shrinkLogos(structuredClone(sebelum));
+  if(JSON.stringify(state.sekolah)!==JSON.stringify(sebelum.sekolah)) {restoringBuilder=true;window.jadualBuilder.setState(state);restoringBuilder=false;$('#builderCloudStatus').textContent='Logo dikecilkan sebelum disimpan…';}
+  const fingerprint=JSON.stringify(state);
   $('#builderCloudStatus').textContent='Menyimpan draf ke Sheets…';
   try {
     const result=await api.write('saveBuilder',{baseRevision:builderRevision,state});

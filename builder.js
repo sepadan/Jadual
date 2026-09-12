@@ -466,10 +466,33 @@ function simpanTetapan(){
 }
 let logoSlot=1;
 function pilihLogo(n){ logoSlot=n; $('#logoIn').click(); }
+
+// Had saiz semasa cetak: 480 px cukup tajam untuk kepala surat A4, dan hasilnya di bawah ~150 KB.
+const LOGO_MAX_SIDE_=480;
+const LOGO_MAX_BYTES_=150*1024;
+async function kecilkanLogo_(src){
+  if(!src||String(src).length<=LOGO_MAX_BYTES_) return src;
+  try {
+    const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=src;});
+    const lebar=img.naturalWidth||img.width||LOGO_MAX_SIDE_, tinggi=img.naturalHeight||img.height||LOGO_MAX_SIDE_;
+    const skala=Math.min(1,LOGO_MAX_SIDE_/Math.max(lebar,tinggi));
+    const kanvas=document.createElement('canvas');
+    kanvas.width=Math.max(1,Math.round(lebar*skala)); kanvas.height=Math.max(1,Math.round(tinggi*skala));
+    const ctx=kanvas.getContext('2d');
+    ctx.drawImage(img,0,0,kanvas.width,kanvas.height);
+    const png=kanvas.toDataURL('image/png');
+    const jpg=kanvas.toDataURL('image/jpeg',0.85);
+    const kecil=(png.length<=jpg.length?png:jpg);
+    return kecil.length<String(src).length?kecil:src;
+  } catch(error) { return src; }
+}
 $('#logoIn').onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=()=>{ ubah(()=>{ S.sekolah['logo'+logoSlot]=r.result; }); toast('Logo dimuat naik'); ulang(); };
+  // Logo dicetak pada kepala surat A4 (~30 mm tinggi), jadi fail kamera 2 MB tidak berguna: ia
+  // dikecilkan di sini. Sebelum ini satu logo 886 KB masuk ke dalam draf, dan setiap bacaan draf
+  // menghantar hampir 1 MB ke setiap peranti sekolah.
+  r.onload=async()=>{ const kecil=await kecilkanLogo_(r.result); ubah(()=>{ S.sekolah['logo'+logoSlot]=kecil; }); toast('Logo dimuat naik'); ulang(); };
   r.readAsDataURL(f); e.target.value='';
 };
 
@@ -2106,6 +2129,13 @@ window.jadualBuilder = {
   // Kerja yang belum naik ke Sheets disimpan di tepi semasa log masuk memuatkan draf Sheets, jadi ia
   // tidak hilang senyap dan pentadbir boleh memilihnya semula bila-bila masa.
   stashDeviceDraft: (state) => simpanSampingan(state),
+  // Draf lama membawa logo beresolusi kamera; app.js mengecilkannya bila memuat atau menyimpan.
+  shrinkLogos: async (state) => {
+    if (!state || !state.sekolah) return state;
+    state.sekolah.logo1 = await kecilkanLogo_(state.sekolah.logo1);
+    state.sekolah.logo2 = await kecilkanLogo_(state.sekolah.logo2);
+    return state;
+  },
   hasStashedDraft: () => adaSampingan(),
   restoreStashedDraft: () => pulihSampingan(),
   clearStashedDraft: () => buangSampingan(),
