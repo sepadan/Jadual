@@ -1,14 +1,15 @@
-import { APP_VERSION, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.37";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.37";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.37";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.37";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.37";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.37";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.37';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.37';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.37';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.37';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.37';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.38";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.38";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.38";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.38";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.38";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.38";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.38';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.38';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.38';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.38';
+import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingGridModel, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.38';
+import { weekTableModel } from './week-view.js?v=3.1.38';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -660,29 +661,31 @@ function coverLine(teacher) {
   return label ? `<span class="cover-line">Menggantikan ${esc(label)}</span>` : "";
 }
 
+// The timetable pane is a week on one page: periods down the side, days across the top. A teacher
+// asked for their whole week, not one day at a time, and the whole week fits without horizontal
+// scrolling on the phones the school uses (five day columns instead of thirteen period columns).
 function renderSchedule() {
   // The grid shows the official timetable being prepared; relief for a date always follows
   // selectedScheduleVersion(), which respects the effective date.
   const version = officialScheduleVersion(db) || selectedScheduleVersion(db, todayIso());
   $("#activeVersion").textContent = version ? `${version.label} · ${formatDate(version.effectiveDate)}` : "Belum ada jadual";
   $("#activeVersion").className = `badge ${version ? "good" : "neutral"}`;
-  const teacherId = $("#scheduleTeacher").value;
-  const day = $("#scheduleDay").value;
+  const entity = $("#scheduleTeacher").value;
   const byClass = admin && $("#scheduleType").value === "class";
-  const matches = row => byClass ? row.className === teacherId : row.teacherId === teacherId;
+  const matches = (row) => (byClass ? row.className === entity : row.teacherId === entity);
   // Lessons taken over by a Personel MySTEP/practical teacher are shown under that teacher.
-  const versionRows = version ? effectiveScheduleRows(db).filter(row => row.versionId === version.id) : [];
-  const rows = versionRows.filter(row => matches(row) && row.day === day);
-  if (!version || !teacherId || !versionRows.some(row => matches(row))) {
-    $("#scheduleGrid").innerHTML = `<div class="empty-state"><strong>${!version ? "Belum ada jadual aktif" : !teacherId ? "Pilih guru atau kelas untuk melihat jadual" : "Tiada rekod jadual untuk pilihan ini"}</strong>${admin ? 'Bina jadual atau import PDF aSc untuk bermula.' : 'Jadual akan tersedia selepas diterbitkan oleh admin.'}</div>`;
+  const versionRows = version ? effectiveScheduleRows(db).filter((row) => row.versionId === version.id) : [];
+  const rows = versionRows.filter(matches);
+  if (!version || !entity || !rows.length) {
+    $("#scheduleGrid").innerHTML = `<div class="empty-state"><strong>${!version ? "Belum ada jadual aktif" : !entity ? "Pilih guru atau kelas untuk melihat jadual" : "Tiada rekod jadual untuk pilihan ini"}</strong>${admin ? 'Bina jadual atau import PDF aSc untuk bermula.' : 'Jadual akan tersedia selepas diterbitkan oleh admin.'}</div>`;
     return;
   }
-  $("#scheduleGrid").innerHTML = PERIODS.map((period) => {
-    const row = rows.find((item) => Number(item.period) === period.period);
-    const storedTime = row?.startTime || versionRows.find(r => r.day === day && Number(r.period) === period.period)?.startTime;
-    const time = clockValue(storedTime,period.period,'startTime');
-    return `<div class="schedule-cell ${row ? "" : "free"}"><span class="period">${period.period} · ${esc(time)}</span>${row ? `<strong>${esc(row.subject)}</strong><span>${esc(row.className || "Aktiviti")}</span>` : `<span style="margin-top:28px;color:#91a09c">Lapangan</span>`}</div>`;
-  }).join("");
+  const todayCode = dayCodeFromDate(todayIso());
+  const timeFor = (number) => clockValue(versionRows.find((row) => Number(row.period) === number)?.startTime, number, "startTime");
+  const model = weekTableModel({ rows, days: DAY_CODES, periods: PERIODS, timeFor, todayCode });
+  const head = `<tr><th scope="col">Waktu</th>${model.columns.map((column) => `<th scope="col" class="${column.today ? "today" : ""}">${esc(DAY_NAMES[column.code] || column.code)}</th>`).join("")}</tr>`;
+  const body = model.rows.map((line) => `<tr><th scope="row"><span class="period">${line.period}</span><span class="clock">${esc(line.time)}</span></th>${line.cells.map((cell) => `<td class="${cell.state}" data-schedule-cell="${cell.day}-${cell.period}">${cell.state === "free" ? `<span class="lapse">${esc(cell.label)}</span>` : `<strong>${esc(cell.subject)}</strong><span>${esc(cell.label)}</span>`}</td>`).join("")}</tr>`).join("");
+  $("#scheduleGrid").innerHTML = `<table class="week-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
 function openAbsenceDialog() {
@@ -1268,7 +1271,6 @@ function wireEvents() {
   $$('[data-restore-teachers]').forEach((button) => button.addEventListener('click', restoreTeacherProfiles));
   $("#teacherSearch").addEventListener("input", renderTeachers);
   $("#scheduleTeacher").addEventListener("change", renderSchedule);
-  $("#scheduleDay").addEventListener("change", renderSchedule);
   $("#publishRelief").addEventListener("click", publishReliefs);
   $("#printRelief").addEventListener("click", printReliefSheet);
   $("#exportReliefPdf").addEventListener("click", exportReliefPdf);

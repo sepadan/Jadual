@@ -184,14 +184,27 @@ input:focus, select:focus { border-color: var(--green-700); box-shadow: 0 0 0 3p
 .teacher-actions { display: flex; gap: 4px; }
 .mini-button { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: #fff; }
 .mini-button.delete:hover { color: var(--danger); border-color: #e8b9bd; }
-.schedule-grid { overflow-x: auto; display: grid; grid-template-columns: repeat(13, minmax(95px, 1fr)); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-.schedule-cell { min-height: 105px; padding: 11px; border-right: 1px solid var(--line); }
-.schedule-cell:last-child { border-right: 0; }
-.schedule-cell .period { color: var(--muted); font-size: 10px; font-weight: 800; }
-.schedule-cell strong, .schedule-cell span { display: block; }
-.schedule-cell strong { margin-top: 15px; color: var(--green-800); }
-.schedule-cell span { margin-top: 5px; font-size: 12px; }
-.schedule-cell.free { background: #fafcfb; }
+.schedule-grid { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+/* A teacher's whole week: periods down the side, the five school days across the top. Fixed layout,
+   because the day columns must share the width evenly at 390px instead of following their content. */
+.week-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 11px; }
+.week-table th, .week-table td { padding: 6px 5px; border: 1px solid var(--line); text-align: center; vertical-align: middle; }
+.week-table thead th { background: #eef6f3; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.week-table thead th.today { color: #fff; background: var(--green-800); }
+/* The first column is the day label; with table-layout: fixed the browser reads the widths off the
+   first row, so the width has to sit on the header cell as well as the row heading. */
+.week-table thead th:first-child, .week-table tbody th { width: 62px; background: #f7faf9; font-weight: 700; }
+.week-table tbody th .period { display: block; font-size: 12px; font-weight: 800; }
+.week-table tbody th .clock { display: block; color: var(--muted); font-size: 9px; font-weight: 600; }
+.week-table td strong, .week-table td span { display: block; }
+.week-table td strong { color: var(--green-800); font-size: 12px; }
+.week-table td span { margin-top: 3px; font-size: 10px; color: var(--muted); }
+.week-table td.free { background: #fafcfb; }
+.week-table td.free .lapse { margin-top: 0; color: #91a09c; font-size: 10px; }
+/* A period claimed as setting time (Guru Pemulihan) is not a lesson: it carries no class, and it
+   blocks relief, so it must not read as a free space. */
+.week-table td.setting, .week-table td.setting strong { color: #8a5a11; }
+.week-table td.setting { background: #fdf6e9; }
 
 /* Guru Pemulihan: the profile dialog's "Tetapan Jadual" button opens the teacher's own week and the
    empty spaces are touched to claim setting periods. The table is wide, so it scrolls in the dialog. */
@@ -303,6 +316,15 @@ dialog form { padding: 25px; }
      carry the compact .segmented padding, so give the pair the same floor. */
   .relief-switch button, .schedule-switch button { min-height: 40px; }
   .relief-switch button { flex: 1; }
+  /* The whole week has to fit a 390px phone: five day columns beside the clock column with no
+     sideways scrolling, so the cells and the clock column get tighter instead of the table wider. */
+  .week-table { font-size: 10px; }
+  .week-table th, .week-table td { padding: 5px 2px; overflow-wrap: anywhere; }
+  .week-table thead th:first-child, .week-table tbody th { width: 42px; }
+  .week-table tbody th .period { font-size: 11px; }
+  .week-table tbody th .clock { font-size: 8px; }
+  .week-table td strong { font-size: 10px; }
+  .week-table td span, .week-table td.free .lapse { font-size: 9px; }
   /* The profile dialog carries the remedial teacher's "Tetapan Jadual" now. Its buttons are pressed
      with a thumb, and the base .button padding only just reaches the 40px floor at this width. */
   #teacherDialog .dialog-actions .button { min-height: 40px; }

@@ -32,6 +32,7 @@ const files = [
   "public-ui.css",
   "relief-engine.js",
   "setting-slots.js",
+  "week-view.js",
   "relief-pdf.js",
   "relief-print.js",
   "teacher-transfer.js",
