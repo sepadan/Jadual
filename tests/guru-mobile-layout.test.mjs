@@ -6,40 +6,26 @@ const css = readFileSync(new URL("../builder.css", import.meta.url), "utf8");
 const js = readFileSync(new URL("../builder.js", import.meta.url), "utf8");
 const harness = readFileSync(new URL("../tools/verify-print.html", import.meta.url), "utf8");
 
-// Aduan sebenar: pada telefon, senarai Guru memaksa jadual 980px, jadi pentadbir hanya nampak
-// sebahagian lajur - nama terpotong dan medan Kod di luar skrin.
-const kiraKekhususan = (sel) => ({
-  id: (sel.match(/#/g) || []).length,
-  kelas: (sel.match(/\.[a-zA-Z]/g) || []).length,
-  elemen: (sel.match(/(?:^|[\s>+~])[a-zA-Z][a-zA-Z0-9]*/g) || []).length,
+const blokTelefon = css.slice(css.indexOf("ke atas: lebar minimum dikekalkan") >= 0 ? css.lastIndexOf("@media(max-width:820px)") : 0);
+
+// Keputusan pengguna (pemilik sistem): pada telefon, JANGAN padatkan jadual borang menjadi kad -
+// "saya nak ikut macam browser desktop, lepastu guna scroll je nak lihat dan edit". Jadi susun atur
+// desktop (semua lajur) mesti kekal, dan hanya leretan mendatar disediakan. Percubaan memadatkan
+// menjadi kad pernah dibuat dan DIBATALKAN - ujian ini menghalangnya daripada berulang.
+test("senarai Guru dan Subjek kekalkan susun atur desktop pada telefon", () => {
+  assert.match(css, /@media\(max-width:820px\)\{[^}]*\.tblwrap\{overflow-x:auto/, "pembalut mesti meleret mendatar pada telefon");
+  assert.match(css, /table\.dt\.teacher-table\{min-width:980px\}/, "lebar minimum desktop mesti KEKAL pada telefon");
+  assert.match(css, /table\.dt\.subject-table\{min-width:1050px\}/, "senarai Subjek juga kekal seperti desktop");
+  assert.match(css, /thead th\{position:sticky;top:0\}/, "kepala jadual mesti kekal kelihatan semasa meleret");
 });
 
-test("override telefon untuk senarai Guru mengalahkan peraturan asas 980px", () => {
-  const asas = "#builderRoot .teacher-table";
-  const ganti = "#builderRoot .tblwrap table.teacher-table";
-  assert.ok(css.includes(`${asas}{min-width:980px}`), "peraturan asas min-width:980px mesti wujud dalam CSS");
-  assert.ok(css.includes(`${ganti}{min-width:0`), "override telefon mesti bersarang dalam .tblwrap supaya kekhususannya lebih tinggi");
-
-  const sAsas = kiraKekhususan(asas);
-  const sGanti = kiraKekhususan(ganti);
-  // Peraturan media TIDAK menambah kekhususan, dan peraturan asas datang kemudian dalam fail ini;
-  // tanpa kekhususan lebih tinggi, min-width:980px akan menang dan pembetulan telefon tidak berkesan.
-  assert.ok(
-    sGanti.id > sAsas.id || (sGanti.id === sAsas.id && sGanti.kelas > sAsas.kelas) || (sGanti.id === sAsas.id && sGanti.kelas === sAsas.kelas && sGanti.elemen > sAsas.elemen),
-    `kekhususan override (${JSON.stringify(sGanti)}) mesti lebih tinggi daripada peraturan asas (${JSON.stringify(sAsas)})`,
-  );
+test("tiada susun atur kad yang menyembunyikan lajur pada telefon", () => {
+  assert.doesNotMatch(css, /\.teacher-table thead\{display:none\}/, "kepala jadual tidak boleh disembunyikan");
+  assert.doesNotMatch(css, /nth-child\(2\)::before\{content:"Kod"/, "label ::before hanya perlu untuk susun atur kad yang sudah dibatalkan");
+  assert.doesNotMatch(css, /\.teacher-table tbody td\{display:block;padding:0;border:0/, "sel tidak boleh dijadikan blok (susun atur kad)");
 });
 
-test("pada telefon, kepala jadual disembunyikan dan setiap baris menjadi kad dengan label", () => {
-  const blok = css.slice(css.indexOf("@media(max-width:820px)"));
-  assert.match(blok, /\.teacher-table thead\{display:none\}/, "kepala jadual mesti disembunyikan pada telefon");
-  assert.match(blok, /\.teacher-table tbody tr\{display:flex;flex-wrap:wrap/, "baris mesti membalut supaya medan tidak terkeluar skrin");
-  assert.match(blok, /nth-child\(2\)::before\{content:"Kod"/, "medan kod mesti ada label kerana kepala jadual disembunyikan");
-  assert.match(blok, /nth-child\(3\)::before\{content:"Maks\/hari"/, "medan Maks/hari mesti ada label");
-  assert.match(blok, /nth-child\(1\)\{flex:1 1 100%\}/, "nama guru mesti selebar kad");
-});
-
-test("jadual borang yang masih melimpah memberi petunjuk leret, bukan terpotong senyap", () => {
+test("jadual yang lebih lebar daripada skrin memberi petunjuk leret, bukan terpotong senyap", () => {
   assert.match(js, /function tandaLeretBolehSkrol_\(akar\)/, "fungsi petunjuk mesti wujud");
   assert.match(js, /if\(def\.after\) def\.after\(\);\s*\n\s*tandaLeretBolehSkrol_\(\);/m, "petunjuk mesti dipasang selepas setiap render");
   const fn = js.slice(js.indexOf("function tandaLeretBolehSkrol_("), js.indexOf("function ulang()"));
@@ -48,7 +34,5 @@ test("jadual borang yang masih melimpah memberi petunjuk leret, bukan terpotong 
 });
 
 test("halaman harness pengesahan memakai viewport mudah alih seperti aplikasi sebenar", () => {
-  // Tanpa meta viewport, Chromium memakai lebar susun-atur 980px dan ukuran telefon menjadi palsu -
-  // peraturan @media(max-width:820px) tidak akan diuji langsung.
   assert.match(harness, /<meta name="viewport" content="width=device-width, initial-scale=1">/);
 });

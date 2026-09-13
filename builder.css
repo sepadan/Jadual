@@ -80,32 +80,18 @@
 @media(max-width:820px){#builderRoot .g2,#builderRoot .g3,#builderRoot .g4{grid-template-columns:1fr}
 }
 
-/* Telefon: jadual borang (senarai Guru) tidak boleh dipaksa 980px. Dipaksa begitu, pentadbir yang
-   bekerja dari telefon hanya nampak sebahagian lajur - nama terpotong dan medan Kod terkeluar
-   skrin. Setiap guru menjadi satu kad: nama lebar penuh, medan lain berkembar dengan label kecil
-   daripada ::before supaya maksudnya kekal walaupun baris kepala disembunyikan. */
+/* Telefon: KEKALKAN susun atur desktop (semua lajur seperti pelayar komputer) dan biarkan
+   pentadbir meleret mendatar untuk melihat serta mengedit - sama seperti grid jadual mingguan.
+   Percubaan terdahulu memadatkan senarai Guru menjadi kad; itu menyembunyikan lajur (Kod,
+   Maks/hari, Tidak tersedia) dan bukan yang diminta. Jangan ulangi: lebar minimum dikekalkan,
+   hanya leretan yang disediakan. Petunjuk "leret ke kiri/kanan" dipasang oleh
+   tandaLeretBolehSkrol_() hanya apabila jadual benar-benar lebih lebar daripada skrin. */
 @media(max-width:820px){
-  /* Kekhususan mesti lebih tinggi daripada `#builderRoot .teacher-table{min-width:980px}` yang
-     datang KEMUDIAN dalam fail ini - peraturan media tidak menambah kekhususan, jadi `min-width:0`
-     sahaja akan kalah dan jadual kekal 980px pada telefon. */
-  #builderRoot .tblwrap table.teacher-table{min-width:0;width:100%}
-  #builderRoot .teacher-table thead{display:none}
-  #builderRoot .teacher-table tbody tr{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;
-    padding:12px 12px 14px;border-bottom:1px solid var(--line)}
-  #builderRoot .teacher-table tbody tr:last-child{border-bottom:0}
-  #builderRoot .teacher-table tbody td{display:block;padding:0;border:0;min-width:0}
-  #builderRoot .teacher-table tbody td:nth-child(1){flex:1 1 100%}
-  #builderRoot .teacher-table tbody td:nth-child(2),#builderRoot .teacher-table tbody td:nth-child(3){
-    display:flex;flex-direction:column;gap:4px}
-  #builderRoot .teacher-table tbody td:nth-child(2){flex:1 1 90px}
-  #builderRoot .teacher-table tbody td:nth-child(3){flex:0 1 110px}
-  #builderRoot .teacher-table tbody td:nth-child(4){flex:0 0 auto}
-  #builderRoot .teacher-table tbody td:nth-child(5){flex:1 1 130px}
-  #builderRoot .teacher-table tbody td:nth-child(6){flex:0 0 auto;margin-left:auto}
-  #builderRoot .teacher-table tbody td input{width:100%;box-sizing:border-box}
-  #builderRoot .teacher-table tbody td:nth-child(2)::before{content:"Kod";font-size:11px;color:var(--ink2)}
-  #builderRoot .teacher-table tbody td:nth-child(3)::before{content:"Maks/hari";font-size:11px;color:var(--ink2)}
-  #builderRoot .teacher-table tbody td:nth-child(5)::before{content:"Tidak tersedia";font-size:11px;color:var(--ink2);display:block;margin-bottom:4px}
+  #builderRoot .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  #builderRoot table.dt.teacher-table{min-width:980px}
+  #builderRoot table.dt.subject-table{min-width:1050px}
+  /* Sticky header mesti kekal kelihatan semasa meleret supaya lajur tidak hilang maksudnya. */
+  #builderRoot table.dt.teacher-table thead th,#builderRoot table.dt.subject-table thead th{position:sticky;top:0}
 }
 #builderRoot label.f{display:block;font-size:12px;font-weight:640;color:var(--ink2);margin:0 0 4px}
 #builderRoot input,#builderRoot select,#builderRoot textarea{
