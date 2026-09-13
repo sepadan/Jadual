@@ -45,7 +45,10 @@ test('the heavy PDF toolchain is off the first-visit shell but still precached',
     assert.ok(!shell.includes(file),`${file} is still in the blocking shell`);
     assert.ok(heavy.includes(file),`${file} is no longer precached at all`);
   }
-  assert.match(sw,/cache\.addAll\(HEAVY_SHELL\)/);
+  assert.match(sw,/CACHE_HEAVY[\s\S]*cache\.addAll\(HEAVY_SHELL\)/,'the heavy list is never fetched on request');
+  const install=sw.slice(sw.indexOf('addEventListener("install"'),sw.indexOf('addEventListener("activate"'));
+  assert.ok(!install.includes('HEAVY_SHELL'),'install still blocks on the heavy toolchain');
+  assert.match(read('app.js'),/postMessage\("CACHE_HEAVY"\)/,'nothing ever asks for the offline PDF tools');
 });
 
 // Shell yang sudah ada pada peranti tidak sepatutnya menunggu rangkaian pada lawatan berulang.

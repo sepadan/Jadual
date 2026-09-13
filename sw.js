@@ -1,43 +1,41 @@
-const VERSION = "3.1.62";
+const VERSION = "3.1.63";
 const CACHE = `sistem-jadual-${VERSION}`;
 const APP_SHELL = [
   "./",
   "./index.html",
 
-  "./styles.css?v=3.1.62",
-  "./app.js?v=3.1.62",
-  "./builder.js?v=3.1.62",
-  "./builder.css?v=3.1.62",
-  "./workspace.css?v=3.1.62",
-  "./builder-relief.js?v=3.1.62",
-  "./admin-api.js?v=3.1.62",
-  "./site-config.js?v=3.1.62",
-  "./public-ui.css?v=3.1.62",
-  "./data.js?v=3.1.62",
-  "./relief-engine.js?v=3.1.62",
-  "./setting-slots.js?v=3.1.62",
-  "./week-view.js?v=3.1.62",
-  "./pdf-import.js?v=3.1.62",
-  "./pdf-builder.js?v=3.1.62",
-  "./teacher-transfer.js?v=3.1.62",
-  "./teacher-coverage.js?v=3.1.62",
-  "./relief-print.js?v=3.1.62",
-  "./relief-pdf.js?v=3.1.62",
+  "./styles.css?v=3.1.63",
+  "./app.js?v=3.1.63",
+  "./builder.js?v=3.1.63",
+  "./builder.css?v=3.1.63",
+  "./workspace.css?v=3.1.63",
+  "./builder-relief.js?v=3.1.63",
+  "./admin-api.js?v=3.1.63",
+  "./site-config.js?v=3.1.63",
+  "./public-ui.css?v=3.1.63",
+  "./data.js?v=3.1.63",
+  "./relief-engine.js?v=3.1.63",
+  "./setting-slots.js?v=3.1.63",
+  "./week-view.js?v=3.1.63",
+  "./pdf-import.js?v=3.1.63",
+  "./pdf-builder.js?v=3.1.63",
+  "./teacher-transfer.js?v=3.1.63",
+  "./teacher-coverage.js?v=3.1.63",
+  "./relief-print.js?v=3.1.63",
+  "./relief-pdf.js?v=3.1.63",
   "./manifest.webmanifest",
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png"
 ];
 
-// Pustaka eksport PDF (~2.3 MB) hanya admin perlukan. Ia diisi di latar selepas shell awam siap:
-// memuatkannya semasa lawatan pertama bermakna 2.3 MB bersaing dengan laluan kritikal pelawat; ciri
-// yang benar-benar digunakan tetap mencachenya melalui pengendali fetch di bawah.
+// Pustaka eksport PDF (~2.3 MB) hanya admin perlukan. Ia diisi apabila aplikasi memberitahu SW
+// (selepas log masuk pentadbir); ciri yang digunakan sebelum itu tetap dicache melalui pengendali
+// fetch di bawah. Pelawat awam tidak pernah memuat turunnya.
 const HEAVY_SHELL = ["./vendor/pdf.min.js","./vendor/pdf.worker.min.js","./vendor/html2canvas-1.4.1.min.js","./vendor/jspdf-3.0.4.umd.min.js"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()).then(() => {
-    caches.open(CACHE).then((cache) => cache.addAll(HEAVY_SHELL)).catch(() => {});
-  }));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {
@@ -67,4 +65,9 @@ self.addEventListener("fetch", (event) => {
   })));
 });
 
-self.addEventListener("message", (event) => { if (event.data === "SKIP_WAITING") self.skipWaiting(); });
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
+  // Alat PDF hanya dimuatkan apabila pentadbir benar-benar menggunakan sistem: pelawat awam tidak
+  // sepatutnya memuat turun 2.3 MB untuk setiap siaran baharu.
+  if (event.data === "CACHE_HEAVY") caches.open(CACHE).then((cache) => cache.addAll(HEAVY_SHELL)).catch(() => {});
+});
