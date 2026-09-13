@@ -1,5 +1,6 @@
 // Turn reviewed aSc rows into a complete, editable builder draft.
 // Unknown PDF teachers remain omitted; values not present in aSc are preserved from the current draft.
+import { coverLinks } from './teacher-coverage.js';
 const DAYS={IS:'ISNIN',SEL:'SELASA',RAB:'RABU',KHA:'KHAMIS',JUM:'JUMAAT'};
 const DAY_ORDER=Object.values(DAYS);
 const PALETTE=['#dbeafe','#dcfce7','#fef3c7','#fce7f3','#ede9fe','#cffafe','#ffedd5','#e2e8f0'];
@@ -23,6 +24,36 @@ function uniqueRows(rows) {
     if(seen.has(slot)) throw new Error('PDF mempunyai slot guru berulang. Semak padanan dahulu.');
     seen.add(slot);
   });
+}
+
+// Satu slot kelas+hari+waktu dengan SUBJEK SAMA tetapi guru berbeza ialah SATU slot kongsi
+// (guru asal + guru gantian). Pemilik ditentukan oleh pautan gantian pada kad guru:
+//   - Personel MySTEP menggantikan penuh -> guru MySTEP milik slot, guru asal dikeluarkan.
+//   - Guru Praktikal berkongsi -> kedua-dua kekal (pair), guru asal masih ada.
+//   - Tiada pautan -> guru utama + pasangan (pair).
+// Berlaku AUTOMATIK semasa import, tanpa butang manual.
+function resolveCoverageRows(rows, teachersDirectory) {
+  const replaceLinks = coverLinks(teachersDirectory).filter((link) => link.replace);
+  if (!replaceLinks.length) return rows;
+  const groups = new Map();
+  rows.forEach((row) => {
+    const gk = `${key(row.className)}|${row.day}|${Number(row.period)}|${key(row.subject || '')}`;
+    if (!groups.has(gk)) groups.set(gk, []);
+    groups.get(gk).push(row);
+  });
+  const buang = new Set();
+  groups.forEach((group) => {
+    if (group.length < 2) return;
+    const teacherIds = new Set(group.map((row) => row.teacherId));
+    const subj = String(group[0].subject || '').trim().toUpperCase();
+    replaceLinks.forEach((link) => {
+      if (!teacherIds.has(link.coveringId) || !teacherIds.has(link.coveredId)) return;
+      if (link.subjects.length && !link.subjects.includes(subj)) return;
+      // MySTEP menggantikan: guru asal (covered) dikeluarkan daripada slot ini.
+      group.forEach((row) => { if (row.teacherId === link.coveredId) buang.add(row); });
+    });
+  });
+  return buang.size ? rows.filter((row) => !buang.has(row)) : rows;
 }
 
 function titleFromRawName(rawName) {
@@ -74,8 +105,10 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
   const state=structuredClone(base||{});
   const validRows=(rows||[]).filter(row=>teachers.some(teacher=>teacher.active&&teacher.id===row.teacherId)&&DAYS[row.day]&&Number(row.period)>=1);
   uniqueRows(validRows);
-  const teachingRows=validRows.filter(row=>!row.isDuty&&row.className);
+  let teachingRows=validRows.filter(row=>!row.isDuty&&row.className);
   if(!teachingRows.length) throw new Error('Tiada slot kelas dipadankan untuk membina draf.');
+  // Pautan gantian (Personel MySTEP / Guru Praktikal) disuaikan dengan slot kongsi secara automatik.
+  teachingRows=resolveCoverageRows(teachingRows,teachers);
 
   const baseSchool=state.sekolah||{};
   state.v=3;
@@ -228,7 +261,7 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
     const pairGuruIds=[...allocation.teachers.entries()].filter(([guruId,periods])=>guruId!==primary&&periods.size===allocation.periods.size&&[...periods].every(period=>allocation.periods.has(period))).map(([guruId])=>guruId);
     const ganda=blocks.reduce((total,slot)=>total+Math.floor(slot.panjang/2),0);
     const waktu=allocation.periods.size;
-    state.agihan.push({id:makeId('a',index),kelasId:allocation.kelasId,subjekId:allocation.subjekId,guruId:primary,pairGuruIds,waktu,ganda});
+    state.agihan.push({id:makeId('a',index),kelasId:allocation.kelasId,subjekId:allocation.subjekId,guruId:primary,pairGuruIds,waktu,ganda,periods:[...allocation.periods]});
     const subject=state.subjek.find(item=>item.id===allocation.subjekId);if(subject&&ganda) subject.ganda=true;
   });
 

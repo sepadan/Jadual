@@ -224,6 +224,28 @@ function waktuEfektif(a){
   if(a.waktu!=null && a.waktu!=='' ) return num(a.waktu,0);
   return waktuDiperuntuk(a.kelasId,a.subjekId);
 }
+/** Slot subjek unik bagi satu kelas: union kelas|hari|waktu merentas agihan. Baris bertindih pada
+    slot sama (mengajar bersama / kumpulan selari) dikira SEKALI, bukan ikut bilangan baris agihan.
+    Agihan import membawa medan `periods` (senarai "hari|waktu"); agihan manual hanya ada `waktu`
+    (tiada pertindihan), jadi jumlah terus dipakai. */
+function slotUnikSubjek(kelasId){
+  const agihan=S.agihan.filter(a=>a.kelasId===kelasId);
+  const set=new Set(); let fallback=0;
+  agihan.forEach(a=>{
+    if(Array.isArray(a.periods)&&a.periods.length) a.periods.forEach(p=>set.add(p));
+    else fallback+=waktuEfektif(a);
+  });
+  return set.size+fallback;
+}
+/** Slot tetap (acara) unik bagi satu kelas: union hari|waktu, supaya acara bertindih tidak dikira berganda. */
+function slotUnikAcara(kelasId){
+  const set=new Set();
+  (S.acara||[]).forEach(a=>{
+    if(!kelasTerkenaAcara(a).includes(kelasId)) return;
+    for(let o=0;o<num(a.panjang,1);o++) set.add(`${a.hari}|${num(a.mula,1)+o}`);
+  });
+  return set.size;
+}
 /** Segerakkan agihan dengan senarai kelas × subjek yang ada peruntukan */
 function segerakAgihan(){
   const perlu=new Set();
@@ -366,13 +388,17 @@ function ubah(fn){ fn(); simpan(true); }
 /* ---------- Statistik ---------- */
 function stat(){
   segerakAgihan();
-  let jumWaktu=0, tanpaGuru=0;
   const bebanGuru={}; S.guru.forEach(g=>bebanGuru[g.id]=0);
-  S.agihan.forEach(a=>{ const w=waktuEfektif(a); jumWaktu+=w;
+  let tanpaGuru=0;
+  // Beban guru dikira ikut baris agihan: setiap guru yang terlibat (utama + pasangan) dikira sibuk.
+  S.agihan.forEach(a=>{ const w=waktuEfektif(a);
     if(!a.guruId) tanpaGuru+=w; else [a.guruId,...(a.pairGuruIds||[])].forEach(id=>bebanGuru[id]=(bebanGuru[id]||0)+w); });
+  // Waktu subjek UNIK (union slot), bukan jumlah baris agihan (yang boleh ada pendua kumpulan selari).
+  const jumWaktu=S.kelas.reduce((s,k)=>s+slotUnikSubjek(k.id),0);
+  const barisAgihan=S.agihan.reduce((s,a)=>s+waktuEfektif(a),0);
   const kapasiti=S.kelas.reduce((s,k)=>s+S.hari.reduce((x,h)=>x+waktuHariKelas(k.id,h),0),0);
-  const acaraBlok=(S.acara||[]).reduce((s,a)=>s+num(a.panjang,1)*kelasTerkenaAcara(a).length,0);
-  return {jumWaktu,tanpaGuru,bebanGuru,kapasiti,acaraBlok,baki:kapasiti-acaraBlok-jumWaktu};
+  const acaraBlok=S.kelas.reduce((s,k)=>s+slotUnikAcara(k.id),0);
+  return {jumWaktu,barisAgihan,tanpaGuru,bebanGuru,kapasiti,acaraBlok,baki:kapasiti-acaraBlok-jumWaktu};
 }
 function bilJadual(){ return S.jadual&&S.jadual.slots?S.jadual.slots.length:0; }
 
@@ -403,7 +429,7 @@ VIEWS.dash={t:'Papan Utama', r(){
       <div class="k"><b>${S.kelas.length}</b><span>Kelas</span></div>
       <div class="k"><b>${S.guru.length}</b><span>Guru</span></div>
       <div class="k"><b>${S.subjek.length}</b><span>Subjek</span></div>
-      <div class="k"><b>${st.jumWaktu}</b><span>Waktu / minggu</span></div>
+      <div class="k"><b>${st.jumWaktu}</b><span>Waktu subjek (unik)</span></div>
       <div class="k"><b>${st.baki}</b><span>Slot kosong tinggal</span></div>
       <div class="k"><b>${bilJadual()}</b><span>Blok dijadualkan</span></div>
     </div>
@@ -1454,11 +1480,12 @@ VIEWS.jana={t:'Jana Jadual', r(){
   return `<div class="card"><h3>Jana Jadual Automatik</h3>
     <p class="hint">Sistem akan cuba menyusun semua waktu tanpa pertembungan guru &amp; kelas, sambil mematuhi kekangan yang ditetapkan.</p>
     <div class="kpi" style="margin-bottom:12px">
-      <div class="k"><b>${st.jumWaktu}</b><span>Waktu perlu disusun</span></div>
+      <div class="k"><b>${st.jumWaktu}</b><span>Waktu subjek unik</span></div>
       <div class="k"><b>${st.tanpaGuru}</b><span>Tanpa guru</span></div>
       <div class="k"><b>${S.kelas.length}</b><span>Kelas</span></div>
       <div class="k"><b>${(S.acara||[]).length}</b><span>Slot tetap</span></div>
     </div>
+    ${st.barisAgihan>st.jumWaktu?`<p class="hint" style="margin-top:4px">${st.jumWaktu} waktu subjek unik daripada ${st.barisAgihan} baris agihan — slot bertindih (mengajar bersama / kumpulan selari) dikira sekali.</p>`:''}
     ${amaranAwal()}
     ${st.tanpaGuru?`<div class="alert warn">${st.tanpaGuru} waktu tiada guru dan <b>tidak akan dijadualkan</b>. Lengkapkan di Agihan Guru.</div>`:''}
     ${st.baki<0?`<div class="alert bad">Peruntukan melebihi kapasiti sebanyak ${-st.baki} waktu — penjanaan pasti tidak lengkap.</div>`:''}
@@ -1491,11 +1518,12 @@ function amaranAwal(){
   const bebanG={}; S.agihan.forEach(x=>{ if(x.guruId) bebanG[x.guruId]=(bebanG[x.guruId]||0)+waktuEfektif(x); });
   S.guru.forEach(g=>{ const had=Math.min(num(S.kekangan.maxHariGuru,8),num(g.maxHari,99))*D;
     if((bebanG[g.id]||0)>had) a.push(`<b>${esc(g.nama)}</b>: ${bebanG[g.id]} waktu melebihi had ${had} (maks ${Math.min(num(S.kekangan.maxHariGuru,8),num(g.maxHari,99))} waktu/hari × ${D} hari).`); });
-  // kapasiti kelas
+  // kapasiti kelas: kira SLOT UNIK (union kelas|hari|waktu) bagi agihan dan acara, bukan bilangan
+  // baris agihan — baris bertindih (mengajar bersama / kumpulan selari) dikira sekali sahaja.
   S.kelas.forEach(k=>{
     const kap=S.hari.reduce((s,h)=>s+waktuHariKelas(k.id,h),0);
-    const jum=S.agihan.filter(x=>x.kelasId===k.id).reduce((s,x)=>s+waktuEfektif(x),0);
-    const ac=(S.acara||[]).reduce((s,x)=>s+(kelasTerkenaAcara(x).includes(k.id)?num(x.panjang,1):0),0);
+    const jum=slotUnikSubjek(k.id);
+    const ac=slotUnikAcara(k.id);
     if(jum+ac>kap) a.push(`<b>${esc(k.nama)}</b>: ${jum} waktu + ${ac} slot tetap melebihi kapasiti ${kap} waktu seminggu.`);
   });
   if(!a.length) return '';
@@ -1858,7 +1886,18 @@ function ringkasanKelas(id){
     return {subjek:kodSubjek(sid),kelas:namaGuru(gid,true),jum:peta[k]};
   });
   rows.sort((a,b)=>b.jum-a.jum||a.subjek.localeCompare(b.subjek)||a.kelas.localeCompare(b.kelas));
-  const jum=rows.reduce((s,r)=>s+r.jum,0);
+  const barisAgihan=rows.reduce((s,r)=>s+r.jum,0);
+  // JUMLAH WAKTU SUBJEK mesti dikira daripada SLOT UNIK kelas (union hari|waktu), BUKAN jumlah
+  // baris subjek+guru: satu kelas-waktu yang dikongsi dua/lebih guru (mengajar bersama) dikira
+  // SEKALI sahaja. Baris per pasangan subjek+guru KEKAL (lihat siapa mengajar) — jumlah baris
+  // berbeza daripada jumlah unik hanya apabila ada perkongsian, dan nota kecil menjelaskannya.
+  // (Helpers slotUnikSubjek/slotUnikAcara berada di luar rantau ini, jadi union dikira terus
+  // daripada slot jadual yang sama — hasilnya identik pada aplikasi sebenar.)
+  const slotSet=new Set(), occGuru={};
+  slots.forEach(x=>{ for(let o=0;o<num(x.panjang,1);o++){ const pk=`${x.hari}|${num(x.mula,1)+o}`;
+    slotSet.add(pk); (occGuru[pk]||(occGuru[pk]=new Set())).add(x.guruId); } });
+  const jum=slotSet.size;
+  const dikongsi=Object.values(occGuru).filter(s=>s.size>1).length;
   // Waktu Tetapan: acara tetap yang terpakai untuk kelas (PER, 1M1S, B.ALQ, KOKU Tahap 2). Ia
   // menyumbang kepada JUMLAH WAKTU KELAS dan tamat persekolahan, tetapi TIDAK kepada jumlah subjek
   // (R.jum) atau beban guru. Dikira sebagai UNION slot (hari|waktu) supaya acara bertindih tidak
@@ -1875,7 +1914,7 @@ function ringkasanKelas(id){
   });
   const jumlahTetapan=selTetapan.size;
   const jumlahKelas=jum+jumlahTetapan;
-  return {rows,jum,rowsTetapan,jumlahTetapan,jumlahKelas,clash:Array.from(clashTetapan)};
+  return {rows,jum,barisAgihan,dikongsi,rowsTetapan,jumlahTetapan,jumlahKelas,clash:Array.from(clashTetapan)};
 }
 function tarikhCetak(value){
   const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -1946,6 +1985,7 @@ function lembaranKelas(id,padat){
         ${R.rowsTetapan.map(r=>`<tr class="sum-set"><td>${esc(r.subjek)}</td><td>—</td><td class="c">${r.jum}</td></tr>`).join('')}
         ${Array.from({length:Math.max(0,12-R.rows.length-R.rowsTetapan.length)},()=>`<tr><td>&nbsp;</td><td></td><td></td></tr>`).join('')}
         <tr><td colspan="2" style="text-align:right">Waktu Subjek</td><td class="c" style="font-weight:700">${R.jum}</td></tr>
+        ${R.dikongsi>0?`<tr><td colspan="3" style="font-size:9px;color:#555;text-align:center">(${R.dikongsi} waktu dikongsi dua guru)</td></tr>`:''}
         <tr><td colspan="2" style="text-align:right">Waktu Tetapan</td><td class="c">${R.jumlahTetapan}</td></tr>
         <tr><td colspan="2" style="text-align:right;font-weight:700;border-top:1px solid #000">Jumlah Waktu Kelas</td><td class="c" style="font-weight:700">${R.jumlahKelas}</td></tr>
         </tbody></table>${tandaTangan()}

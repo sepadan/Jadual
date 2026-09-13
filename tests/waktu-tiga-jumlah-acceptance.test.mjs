@@ -156,3 +156,31 @@ test('ringkasanKelas: tiga aktiviti bertindih pada satu slot dilaporkan SEKALI d
   assert.equal(R.clash.length, 1, 'slot bertindih dilaporkan sekali, bukan berulang setiap aktiviti');
   assert.ok(R.clash[0].includes('ISNIN') && R.clash[0].includes('2'), 'clash merujuk ISNIN waktu 2');
 });
+
+// Fixture: SATU slot kelas-waktu dikongsi DUA guru (guru asal + pengganti). Jumlah waktu kelas
+// mesti mengira slot itu SEKALI sahaja (44+4=48 pada data aSc sebenar, bukan 47/51).
+const FIXTURE_KONGSI = `(()=>{
+  S=kosong();
+  S.sekolah.nama='SK CONTOH'; S.sekolah.tajukKelas='JADUAL WAKTU KELAS';
+  S.hari=['ISNIN','SELASA','RABU','KHAMIS','JUMAAT'];
+  S.masa.waktu={ISNIN:8,SELASA:8,RABU:8,KHAMIS:8,JUMAAT:8};
+  S.subjek=[{id:'bm',kod:'BM',nama:'BM',ganda:false}];
+  S.kelas=[{id:'k1',nama:'4 BIJAK',tahap:4,guruKelas:''}];
+  S.guru=[{id:'g1',nama:'GURU ASAL',kod:'G1',maxHari:10,tidakAda:[]},{id:'g2',nama:'GURU MYSTEP',kod:'G2',maxHari:10,tidakAda:[]}];
+  S.jadual={slots:[
+    {kelasId:'k1',subjekId:'bm',guruId:'g1',hari:'ISNIN',mula:1,panjang:2,pairing:true},
+    {kelasId:'k1',subjekId:'bm',guruId:'g2',hari:'ISNIN',mula:1,panjang:2,pairing:true},
+    {kelasId:'k1',subjekId:'bm',guruId:'g2',hari:'SELASA',mula:1,panjang:1}
+  ]};
+  S.acara=[{id:'a1',kod:'PER',hari:'RABU',mula:8,panjang:1,skop:'kelas',kelas:['k1'],guru:[],tahap:[]}];
+  return JSON.stringify(ringkasanKelas('k1'));
+})()`;
+
+test('slot dikongsi dua guru dikira SEKALI dalam jumlah kelas (tidak berganda)', () => {
+  const R = JSON.parse(jalankan(FIXTURE_KONGSI));
+  assert.equal(R.jum, 3, '3 slot unik: ISNIN 1 + ISNIN 2 + SELASA 1 (ISNIN dikongsi dua guru dikira sekali)');
+  assert.equal(R.jumlahTetapan, 1, 'satu slot tetap (PER)');
+  assert.equal(R.jumlahKelas, R.jum + R.jumlahTetapan, 'jumlahKelas = subjek + tetapan');
+  assert.equal(R.dikongsi, 2, 'dua slot dikongsi dilaporkan untuk nota ringkasan');
+  assert.ok(R.barisAgihan >= R.jum, 'baris agihan mentah sentiasa >= slot unik');
+});

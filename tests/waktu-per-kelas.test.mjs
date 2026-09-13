@@ -362,3 +362,165 @@ test('Waktu Tetapan dikira union: acara bertindih tidak dikira berganda, bertind
   assert.equal(r.jumlahKelas, 3, 'jumlah kelas = 0 subjek + 3 tetapan');
   assert.equal(r.clash, 1, 'satu slot bertindih (ISNIN|2) direkodkan sebagai clash');
 });
+
+// ===== SLOT KONGSI (baris bertindih) — kira unik, bukan baris =====
+
+test('import: baris bertindih (kelas+hari+waktu sama, guru berbeza) jadi slot pairing kongsi, bukan dua waktu', () => {
+  const rows = [
+    mk('t1', 'IS', 7, 'BM', '1 BIJAK'),   // mengajar bersama: dua guru BM pada waktu 7
+    mk('t2', 'IS', 7, 'BM', '1 BIJAK'),
+    mk('t1', 'IS', 1, 'MT', '1 BIJAK'),
+  ];
+  const metadata = {
+    schoolName: 'SK PAYA REDAN, MUAR', teacherTitle: 'JADUAL WAKTU PERSENDIRIAN GURU 2026',
+    year: '2026', effectiveDate: '2026-09-14', principalName: 'ENCIK BESAR', principalTitle: 'GURU BESAR',
+    periods: [{ period: 1, startTime: '07:30', endTime: '08:00' }],
+    pages: [
+      { teacherId: 't1', rawName: 'PN GURU SATU', classTeacherClass: '1 BIJAK' },
+      { teacherId: 't2', rawName: 'PN GURU DUA', classTeacherClass: '4 BIJAK' },
+    ],
+  };
+  const state = draftFromPdf(rows, teachers, {}, metadata);
+  const b1 = state.kelas.find((k) => k.nama === '1 BIJAK');
+  const bm = state.subjek.find((s) => s.kod === 'BM');
+  const slots7 = state.jadual.slots.filter((s) => s.hari === 'ISNIN' && s.mula === 7);
+  assert.equal(slots7.length, 2, 'dua slot (satu per guru) pada waktu 7');
+  assert.ok(slots7.every((s) => s.pairing), 'slot bertindih mesti pairing (slot kongsi), bukan pertembungan');
+  const agBM = state.agihan.find((a) => a.kelasId === b1.id && a.subjekId === bm.id);
+  assert.equal(agBM.waktu, 1, 'BM waktu unik = 1 (waktu 7 dikongsi dua guru, bukan 2)');
+  assert.equal(agBM.pairGuruIds.length, 1, 'guru kedua BM direkod sebagai pairGuruIds (mengajar bersama)');
+});
+
+test('stat & semakan kapasiti kira slot unik, bukan baris agihan bertindih (3 guru satu slot); guru dikira sibuk', () => {
+  const r = jalankan(`(()=>{
+    S=kosong();
+    S.kelas=[{id:'1b',nama:'1 BIJAK',tahap:1,waktuHari:{ISNIN:11}}];
+    S.subjek=[{id:'bm',kod:'BM',nama:'BM',ganda:false},{id:'mt',kod:'MT',nama:'MT',ganda:false},{id:'sn',kod:'SN',nama:'SN',ganda:false}];
+    S.guru=[{id:'g1',nama:'G1',kod:'G1',maxHari:12,tidakAda:[]},{id:'g2',nama:'G2',kod:'G2',maxHari:12,tidakAda:[]},{id:'g3',nama:'G3',kod:'G3',maxHari:12,tidakAda:[]}];
+    S.peruntukan={bm:{1:5},mt:{1:5},sn:{1:5}};
+    // Tiga agihan berkongsi slot ISNIN|3 (3 guru / 3 subjek kumpulan selari).
+    S.agihan=[
+      {id:'a1',kelasId:'1b',subjekId:'bm',guruId:'g1',pairGuruIds:[],waktu:5,ganda:0,periods:['ISNIN|1','ISNIN|2','ISNIN|3','ISNIN|4','ISNIN|5']},
+      {id:'a2',kelasId:'1b',subjekId:'mt',guruId:'g2',pairGuruIds:[],waktu:5,ganda:0,periods:['ISNIN|3','ISNIN|4','ISNIN|5','ISNIN|6','ISNIN|7']},
+      {id:'a3',kelasId:'1b',subjekId:'sn',guruId:'g3',pairGuruIds:[],waktu:5,ganda:0,periods:['ISNIN|3','ISNIN|8','ISNIN|9','ISNIN|10','ISNIN|11']},
+    ];
+    const st=stat();
+    const warn=amaranAwal();
+    return JSON.stringify({jum:st.jumWaktu,baris:st.barisAgihan,b1:st.bebanGuru['g1'],b2:st.bebanGuru['g2'],b3:st.bebanGuru['g3'],warn});
+  })()`);
+  assert.equal(r.baris, 15, 'baris agihan mentah = 15 (5 + 5 + 5)');
+  assert.equal(r.jum, 11, 'waktu subjek unik = 11 (union ISNIN 1-11), bukan 15');
+  assert.equal(r.b1, 5, 'g1 dikira sibuk 5 waktu');
+  assert.equal(r.b2, 5, 'g2 dikira sibuk 5 waktu');
+  assert.equal(r.b3, 5, 'g3 dikira sibuk 5 waktu');
+  assert.ok(!r.warn.includes('1 BIJAK'), 'tiada amaran kapasiti palsu (unik 11 ≤ kapasiti)');
+});
+
+test('semakJadual: dua slot pada waktu kelas sama mesti pairing (slot kongsi), selain itu pertembungan', () => {
+  const r = jalankan(`(()=>{
+    S=kosong();
+    S.kelas=[{id:'1b',nama:'1 BIJAK',tahap:1,waktuHari:{ISNIN:11}}];
+    S.subjek=[{id:'bm',kod:'BM',nama:'BM',ganda:false},{id:'mt',kod:'MT',nama:'MT',ganda:false}];
+    S.guru=[{id:'g1',nama:'G1',kod:'G1',maxHari:12,tidakAda:[]},{id:'g2',nama:'G2',kod:'G2',maxHari:12,tidakAda:[]}];
+    S.jadual={slots:[
+      {id:'x1',kelasId:'1b',subjekId:'bm',guruId:'g1',hari:'ISNIN',mula:3,panjang:1,pairing:false},
+      {id:'x2',kelasId:'1b',subjekId:'mt',guruId:'g2',hari:'ISNIN',mula:3,panjang:1,pairing:false},
+    ]};
+    const isu1=semakJadual();
+    S.jadual.slots.forEach(s=>s.pairing=true);
+    const isu2=semakJadual();
+    return JSON.stringify({kelas:isu1.filter(i=>i.t==='kelas').length,kelas2:isu2.filter(i=>i.t==='kelas').length});
+  })()`);
+  assert.equal(r.kelas, 1, 'dua slot bukan pairing pada waktu kelas sama = 1 pertembungan kelas');
+  assert.equal(r.kelas2, 0, 'slot pairing kongsi pada waktu kelas sama bukan pertembungan');
+});
+
+// ===== PAUTAN GANTIAN (Personel MySTEP / Guru Praktikal) semasa import =====
+
+const coverMeta = (pages) => ({
+  schoolName: 'SK PAYA REDAN, MUAR', teacherTitle: 'JADUAL WAKTU PERSENDIRIAN GURU 2026',
+  year: '2026', effectiveDate: '2026-09-14', principalName: 'ENCIK BESAR', principalTitle: 'GURU BESAR',
+  periods: [{ period: 1, startTime: '07:30', endTime: '08:00' }],
+  pages,
+});
+
+test('import: Personel MySTEP menggantikan guru asal pada slot kongsi — SATU slot, MySTEP milik, asal dikeluarkan', () => {
+  const teachersLocal = [
+    { id: 't1', name: 'GURU ASAL', shortName: 'ASAL', position: 'Guru Akademik Biasa', active: true },
+    { id: 'tm', name: 'CIK MYSTEP', shortName: 'MY', position: 'Personel MySTEP', active: true, coversJson: JSON.stringify([{ teacherId: 't1', subjects: [] }]) },
+  ];
+  const rows = [
+    mk('t1', 'IS', 7, 'BM', '1 BIJAK'),   // guru asal
+    mk('tm', 'IS', 7, 'BM', '1 BIJAK'),   // MySTEP (menggantikan t1)
+  ];
+  const metadata = coverMeta([
+    { teacherId: 't1', rawName: 'PN GURU ASAL', classTeacherClass: '1 BIJAK' },
+    { teacherId: 'tm', rawName: 'CIK MYSTEP', classTeacherClass: '' },
+  ]);
+  const state = draftFromPdf(rows, teachersLocal, {}, metadata);
+  const slots7 = state.jadual.slots.filter((s) => s.hari === 'ISNIN' && s.mula === 7);
+  assert.equal(slots7.length, 1, 'SATU slot sahaja pada ISNIN 7 (bukan dua)');
+  const myG = state.guru.find((g) => g.directoryId === 'tm');
+  const asalG = state.guru.find((g) => g.directoryId === 't1');
+  assert.equal(slots7[0].guruId, myG.id, 'slot dimiliki guru MySTEP');
+  assert.ok(!state.jadual.slots.some((s) => s.guruId === asalG.id), 'guru asal tiada slot (diganti sepenuhnya)');
+  const b1 = state.kelas.find((k) => k.nama === '1 BIJAK');
+  const bm = state.subjek.find((s) => s.kod === 'BM');
+  const agBM = state.agihan.find((a) => a.kelasId === b1.id && a.subjekId === bm.id);
+  assert.equal(agBM.guruId, myG.id, 'agihan BM milik MySTEP');
+  assert.equal(agBM.pairGuruIds.length, 0, 'tiada pair (guru asal dikeluarkan)');
+});
+
+test('import: Guru Praktikal berkongsi slot — guru asal kekal, kedua-dua jadi pair', () => {
+  const teachersLocal = [
+    { id: 't1', name: 'GURU ASAL', shortName: 'ASAL', position: 'Guru Akademik Biasa', active: true },
+    { id: 'tp', name: 'CIK PRAKTIKAL', shortName: 'PRK', position: 'Guru Praktikal', active: true, coversJson: JSON.stringify([{ teacherId: 't1', subjects: [] }]) },
+  ];
+  const rows = [
+    mk('t1', 'IS', 7, 'BM', '1 BIJAK'),
+    mk('tp', 'IS', 7, 'BM', '1 BIJAK'),
+  ];
+  const metadata = coverMeta([
+    { teacherId: 't1', rawName: 'PN GURU ASAL', classTeacherClass: '1 BIJAK' },
+    { teacherId: 'tp', rawName: 'CIK PRAKTIKAL', classTeacherClass: '' },
+  ]);
+  const state = draftFromPdf(rows, teachersLocal, {}, metadata);
+  const slots7 = state.jadual.slots.filter((s) => s.hari === 'ISNIN' && s.mula === 7);
+  assert.equal(slots7.length, 2, 'dua slot (asal + praktikal) kekal berkongsi');
+  assert.ok(slots7.every((s) => s.pairing), 'kedua-dua slot pairing (kongsi)');
+  const b1 = state.kelas.find((k) => k.nama === '1 BIJAK');
+  const bm = state.subjek.find((s) => s.kod === 'BM');
+  const agBM = state.agihan.find((a) => a.kelasId === b1.id && a.subjekId === bm.id);
+  assert.equal(agBM.pairGuruIds.length, 1, 'satu pair (praktikal berkongsi, guru asal kekal)');
+});
+
+test('import: tiga guru satu slot — MySTEP menggantikan satu, baki dua jadi pair, tiada slot berganda', () => {
+  const teachersLocal = [
+    { id: 't1', name: 'GURU ASAL', shortName: 'ASAL', position: 'Guru Akademik Biasa', active: true },
+    { id: 't2', name: 'GURU DUA', shortName: 'DUA', position: 'Guru Akademik Biasa', active: true },
+    { id: 'tm', name: 'CIK MYSTEP', shortName: 'MY', position: 'Personel MySTEP', active: true, coversJson: JSON.stringify([{ teacherId: 't1', subjects: [] }]) },
+  ];
+  const rows = [
+    mk('t1', 'IS', 4, 'ALQ2', '6 BIJAK'),
+    mk('t2', 'IS', 4, 'ALQ2', '6 BIJAK'),
+    mk('tm', 'IS', 4, 'ALQ2', '6 BIJAK'),
+  ];
+  const metadata = coverMeta([
+    { teacherId: 't1', rawName: 'PN GURU ASAL', classTeacherClass: '1 BIJAK' },
+    { teacherId: 't2', rawName: 'PN GURU DUA', classTeacherClass: '4 BIJAK' },
+    { teacherId: 'tm', rawName: 'CIK MYSTEP', classTeacherClass: '' },
+  ]);
+  const state = draftFromPdf(rows, teachersLocal, {}, metadata);
+  const slots4 = state.jadual.slots.filter((s) => s.hari === 'ISNIN' && s.mula === 4);
+  assert.equal(slots4.length, 2, 'MySTEP + satu guru asal kekal = 2 slot (t1 diganti, dikeluarkan)');
+  const asalG = state.guru.find((g) => g.directoryId === 't1');
+  assert.ok(!state.jadual.slots.some((s) => s.guruId === asalG.id), 'guru asal t1 tiada slot (diganti)');
+  assert.ok(slots4.every((s) => s.pairing), 'dua slot baki pairing (kongsi)');
+  const b6 = state.kelas.find((k) => k.nama === '6 BIJAK');
+  const alq = state.subjek.find((s) => s.kod === 'ALQ2');
+  const ag = state.agihan.find((a) => a.kelasId === b6.id && a.subjekId === alq.id);
+  const myG = state.guru.find((g) => g.directoryId === 'tm');
+  const duaG = state.guru.find((g) => g.directoryId === 't2');
+  assert.ok([myG.id, duaG.id].includes(ag.guruId), 'agihan milik MySTEP atau guru dua (bukan guru asal t1)');
+  assert.equal(ag.pairGuruIds.length, 1, 'satu pair sahaja (bukan dua)');
+});
