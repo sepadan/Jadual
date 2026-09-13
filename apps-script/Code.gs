@@ -199,17 +199,40 @@ function ensureSpareRowsForDelete_(sheet, count) {
   if (needed > 0) sheet.insertRowsAfter(maxRows, needed);
 }
 
+// Padam baris yang padan dengan SATU tulisan semula, bukan satu `deleteRow` bagi setiap baris.
+// Sebelum ini setiap baris padan = satu panggilan API (587 baris = 587 panggilan untuk satu
+// simpanan), jadi simpanan masa tetapan mengambil minit dan boleh terputus di tengah, meninggalkan
+// versi separuh bertulis. `match` menerima objek yang SAMA seperti `readObjects_` (tarikh sudah
+// diformat sebagai teks), sementara baris MENTAH ditulis semula supaya susunan lajur dan jenis
+// nilai asal (termasuk lajur yang ditambah sendiri oleh `upsert_`) kekal seperti sedia ada.
 function deleteRows_(sheetName, match) {
   var sheet = database_().getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() < 2) return 0;
-  var rows = readObjects_(sheetName);
-  var targets = [];
-  for (var index = rows.length - 1; index >= 0; index -= 1) {
-    if (match(rows[index])) targets.push(index + 2);
-  }
-  ensureSpareRowsForDelete_(sheet, targets.length);
-  targets.forEach(function(row) { sheet.deleteRow(row); });
-  return targets.length;
+  var width = Math.max(sheet.getLastColumn(), 1);
+  var values = sheet.getRange(1, 1, sheet.getLastRow(), width).getValues();
+  var headers = values.shift();
+  var kept = [];
+  var removed = 0;
+  values.forEach(function(row) {
+    if (!row.some(function(value) { return value !== ""; })) return;
+    var object = {};
+    headers.forEach(function(header, index) {
+      var value = row[index];
+      if (value instanceof Date) {
+        var timezone = (typeof Session !== "undefined" && Session.getScriptTimeZone && Session.getScriptTimeZone()) || "Asia/Kuala_Lumpur";
+        value = Utilities.formatDate(value, timezone, /Time$/i.test(header) ? "HH:mm" : "yyyy-MM-dd");
+      }
+      object[header] = value;
+    });
+    if (match(object)) { removed += 1; return; }
+    kept.push(row);
+  });
+  if (!removed) return 0;
+  var dataRows = values.length;
+  var output = kept.slice();
+  for (var index = kept.length; index < dataRows; index += 1) output.push(new Array(width).fill(""));
+  sheet.getRange(2, 1, output.length, width).setValues(output);
+  return removed;
 }
 
 function deleteAbsence_(data) {

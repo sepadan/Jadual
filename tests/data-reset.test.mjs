@@ -11,19 +11,43 @@ const versionBlock = source.slice(source.indexOf("function archiveVersions_("), 
 
 function makeWorld(rows) {
   const tables = JSON.parse(JSON.stringify(rows));
-  const maxRows = Object.fromEntries(Object.entries(tables).map(([name, items]) => [name, items.length + 1]));
+  // Lajur satu jadual: kesatuan kunci barisnya, kerana skrip sebenar membaca baris header sheet.
+  const headersOf = (name) => {
+    const seen = [];
+    for (const item of tables[name] || []) for (const key of Object.keys(item)) if (seen.indexOf(key) < 0) seen.push(key);
+    return seen.length ? seen : ["id"];
+  };
+  const gridOf = (name) => [headersOf(name)].concat((tables[name] || []).map((item) => headersOf(name).map((header) => (header in item ? item[header] : ""))));
   const sheetOf = (name) => ({
     getLastRow: () => (tables[name] || []).length + 1,
-    getLastColumn: () => 3,
-    getMaxRows: () => maxRows[name],
+    getLastColumn: () => headersOf(name).length,
+    getMaxRows: () => (tables[name] || []).length + 1,
     getFrozenRows: () => 1,
-    insertRowsAfter: (_index, count) => { maxRows[name] += count; },
-    deleteRow: (index) => {
-      if (maxRows[name] - 1 <= 1) throw new Error("Sorry, it is not possible to delete all non-frozen rows.");
-      tables[name].splice(index - 2, 1);
-      maxRows[name] -= 1;
+    insertRowsAfter: () => {},
+    // Julat sebenar: `getValues` membaca grid dari baris 1, dan `setValues` menulis semula grid itu
+    // tanpa baris kosong — inilah laluan yang digunakan deleteRows_ sekarang (satu tulisan, bukan
+    // satu deleteRow bagi setiap baris).
+    getRange: (row, column, numRows, numColumns) => {
+      const grid = gridOf(name);
+      const mula = Math.max((row || 1) - 1, 0);
+      const kolum = Math.max((column || 1) - 1, 0);
+      const slice = grid.slice(mula, numRows ? mula + numRows : grid.length).map((line) => line.slice(kolum, numColumns ? kolum + numColumns : line.length));
+      return {
+        getValues: () => slice.map((line) => line.slice()),
+        setValues: (values) => {
+          const header = headersOf(name);
+          // Tulis setia kepada julat sebenar: baris di atas julat kekal, baris dalam julat diganti,
+          // baris di bawahnya kekal. Baris kosong tidak disimpan (sama seperti readObjects_).
+          const gridSemasa = gridOf(name);
+          const ekor = gridSemasa.slice(mula + values.length);
+          const baru = gridSemasa.slice(0, mula).concat(values).concat(ekor)
+            .filter((line, index) => index === 0 || line.some((value) => value !== ""));
+          tables[name] = baru.slice(1).map((line) => Object.fromEntries(header.map((key, urutan) => [key, line[urutan]]).filter(([, value]) => value !== undefined)));
+          return sheetOf(name);
+        },
+        setValue: () => {},
+      };
     },
-    getRange: () => ({ setValue: () => {}, getValues: () => [["", "", "", "", ""]] }),
   });
   const context = vm.createContext({
     JSON, Object, String, Number, Array, Math, console,

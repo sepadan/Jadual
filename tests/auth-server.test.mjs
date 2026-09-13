@@ -163,10 +163,24 @@ test('the audit log is trimmed in blocks instead of growing forever',()=>{
 
 test('saving the builder draft discards the revision rows it replaced',()=>{
   const {context}=server(true);
+  const header=['revision','index','chunk'];
   const rows=[[1,0,'json:{"guru":'],[1,1,'[]}'],[2,0,'json:{"lama":true}']];
   const written=[];let cleared=0;
-  const sheet={getLastRow:()=>rows.length+1,deleteRow:()=>{},
-    getRange:()=>({getValues:()=>rows.map(row=>row.slice()),setValues:value=>written.push(value),clearContent:()=>{cleared++;}})};
+  // Jadual mini yang ikut julat sebenar (baris header + baris data), kerana deleteRows_ kini
+  // membaca dan menulis semula melalui getRange/setValues.
+  const grid=()=>[header].concat(rows.map(row=>row.slice()));
+  const sheet={getLastRow:()=>rows.length+1,getLastColumn:()=>header.length,getFrozenRows:()=>1,
+    insertRowsAfter:()=>{},
+    getRange:(row,column,numRows,numColumns)=>({
+      getValues:()=>grid().slice(row-1,row-1+(numRows||rows.length+1)).map(line=>line.slice(column-1,numColumns?column-1+numColumns:line.length)),
+      setValues:values=>{written.push(values);
+        const semasa=grid();
+        const baru=semasa.slice(0,row-1).concat(values).concat(semasa.slice(row-1+values.length))
+          .filter((line,index)=>index===0||line.some(value=>value!==""));
+        rows.length=0;rows.push(...baru.slice(1));
+        return null;},
+      clearContent:()=>{cleared++;rows.splice(row-2,numRows);},
+    })};
   context.database_=()=>({getSheetByName:name=>name==='BuilderState'?sheet:null});
   context.readObjects_=name=>name==='BuilderState'?rows.map(row=>({revision:row[0],index:row[1],chunk:row[2]})):[];
   context.setConfig_=()=>{};context.audit_=()=>{};
