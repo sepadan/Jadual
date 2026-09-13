@@ -1739,21 +1739,22 @@ function ringkasanGuru(id){
 }
 function ringkasanKelas(id){
   const slots=(S.jadual&&S.jadual.slots||[]).filter(x=>x.kelasId===id);
-  // Digabung ikut SUBJEK sahaja (bukan subjek+guru): satu subjek biasanya satu guru sepanjang
-  // minggu, tetapi apabila lebih daripada satu guru mengajar subjek yang sama (perkongsian/gantian
-  // pada hari berlainan), mengasingkan setiap pasangan subjek+guru sebagai baris berasingan boleh
-  // menghasilkan lebih baris daripada bilangan subjek sebenar dan melimpahi jadual ringkasan sisi.
-  // Nama semua guru terlibat kekal dipaparkan (digabung "/"), tiada maklumat dibuang.
+  // Satu baris bagi SETIAP PASANGAN subjek+guru (bukan digabung ikut subjek): apabila lebih daripada
+  // satu guru mengajar subjek yang sama pada hari berlainan (perkongsian/gantian pertengahan minggu),
+  // setiap guru muncul sebagai baris berasingan dengan jumlah waktunya sendiri, seperti helaian rujukan
+  // (contoh "BM | AIZUDDIN | 10"). Nama ringkas (kod) dipakai kerana helaian cetak ialah paparan
+  // jadual; mampatRingkasanCetak_ mengecilkan fon sel apabila pasangan ini menjadikan ringkasan
+  // lebih tinggi daripada bajet satu A4.
   const peta={};
   slots.forEach(x=>{
-    const s=peta[x.subjekId]||(peta[x.subjekId]={jum:0,guruIds:new Set()});
-    s.jum+=num(x.panjang,1); s.guruIds.add(x.guruId);
+    const k=x.subjekId+'|'+x.guruId;
+    peta[k]=(peta[k]||0)+num(x.panjang,1);
   });
-  const rows=Object.keys(peta).map(sid=>{
-    const nama=[...peta[sid].guruIds].map(gid=>namaGuru(gid)).filter(Boolean);
-    return {subjek:kodSubjek(sid),kelas:nama.join(' / '),jum:peta[sid].jum};
+  const rows=Object.keys(peta).map(k=>{
+    const [sid,gid]=k.split('|');
+    return {subjek:kodSubjek(sid),kelas:namaGuru(gid,true),jum:peta[k]};
   });
-  rows.sort((a,b)=>b.jum-a.jum||a.subjek.localeCompare(b.subjek));
+  rows.sort((a,b)=>b.jum-a.jum||a.subjek.localeCompare(b.subjek)||a.kelas.localeCompare(b.kelas));
   const ac=acaraUntuk('kelas',id).map(a=>({subjek:a.kod,kelas:'—',jum:num(a.panjang,1)}));
   const semua=ac.concat(rows);
   return {rows:semua,jum:semua.reduce((s,r)=>s+r.jum,0)};
@@ -1818,7 +1819,7 @@ function lembaranKelas(id,padat){
   const R=ringkasanKelas(id);
   const rh=padat?'13mm':`min(30mm, calc(158mm / ${S.hari.length}))`;
   return `<div class="sheet ${padat?'compact':''}" style="--rowh:${rh}">
-    ${kepalaLembaran(S.sekolah.tajukKelas,k.nama,`${S.sekolah.bermula?`BERMULA ${esc(tarikhCetak(S.sekolah.bermula))}<br><br>`:''}GURU KELAS:<br><span style="font-weight:400">${esc(k.guruKelas?namaGuru(k.guruKelas):'—')}</span>`)}
+    ${kepalaLembaran(S.sekolah.tajukKelas,k.nama,`${S.sekolah.bermula?`BERMULA ${esc(tarikhCetak(S.sekolah.bermula))}<br><br>`:''}GURU KELAS:<br><span style="font-weight:400">${esc(k.guruKelas?namaGuru(k.guruKelas,true):'—')}</span>`)}
     <div class="sh-body">
       <div class="sh-main">${jadualCetak('kelas',id)}</div>
       <div class="sh-side">
@@ -1984,33 +1985,49 @@ const KEMAS_CETAK_=[
   {sel:'table.sum td',           isi:null, tinggi:true},
 ];
 /* Jadual ringkasan sisi tidak boleh dipendekkan melalui `height` — pada elemen `table`, `height`
-   ialah MINIMUM, jadi ringkasan 15 baris yang kandungannya 679px tidak akan masuk bajet 558px hanya
-   dengan menetapkan tinggi baris. Fon sel dikurangkan sedikit demi sedikit sehingga tinggi SEBENAR
-   jadual masuk bajet. Saiz asal disimpan dalam dataset supaya panggilan berulang (pratonton,
-   kemudian sebelum eksport, kemudian semasa cetak) tidak mengecilkan fon berganda. Lantai 0.5
-   (separuh saiz asal) menjaga kebolehbacaan; padding menegak dirapatkan serentak supaya fon tidak
-   perlu dikecilkan berlebihan. */
+   ialah MINIMUM, jadi ringkasan banyak baris yang kandungannya lebih tinggi daripada bajet tidak
+   akan masuk hanya dengan menetapkan tinggi baris. Fon sel dikurangkan dengan SATU nilai k untuk
+   seluruh jadual (semua td guna k yang sama, dikira daripada tinggi sebenar berbanding bajet) supaya
+   tinggi SEBENAR jadual masuk bajet. Saiz asal disimpan dalam dataset supaya panggilan berulang
+   (pratonton, kemudian sebelum eksport, kemudian semasa cetak) tidak mengecilkan fon berganda.
+   Lantai 0.6 (60% saiz asas) menjaga kebolehbacaan; jika masih tidak muat pada lantai itu, padding
+   dan line-height dirapatkan sehingga 0 (bukan fon), dan hanya selepas itu berhenti — data yang
+   benar-benar melampau dibiarkan melimpah secara terkawal dan dilaporkan, bukan disembunyikan. */
 function mampatRingkasanCetak_(tbl,bajet){
   if(!tbl||!(bajet>0)) return 0;
   const sel=[...tbl.querySelectorAll('tbody td')];
   if(!sel.length) return 0;
-  sel.forEach(td=>{ if(td.dataset.fsRingkas===undefined) td.dataset.fsRingkas=String(parseFloat(getComputedStyle(td).fontSize)||10.5); });
-  const asal=sel.map(td=>parseFloat(td.dataset.fsRingkas)||10.5);
-  let k=1,pusingan=0;
+  sel.forEach(td=>{ if(td.dataset.fsRingkas===undefined) td.dataset.fsRingkas=String(parseFloat(getComputedStyle(td).fontSize)||15); });
+  const asal=sel.map(td=>parseFloat(td.dataset.fsRingkas)||15);
+  // Lajur JUMLAH (td.c) mesti sentiasa sekurang-kurangnya sebesar lajur lain: naikkan asasnya ke
+  // asas terbesar supaya tiada lajur menjadi lebih kecil/lenyap apabila keseluruhan jadual dimampat.
+  const asasMax=Math.max(1,...asal);
+  sel.forEach((td,i)=>{ if(td.classList&&td.classList.contains('c')) asal[i]=asasMax; });
+  const tinggi=()=>tbl.getBoundingClientRect().height;
+  let k=1,pad=1,lh=1.05,pusingan=0;
   const setel=()=>sel.forEach((td,i)=>{
     td.style.fontSize=(asal[i]*k).toFixed(2)+'px';
-    // Padding ditetapkan untuk SETIAP k (termasuk k=1, yang memulihkan padding lalai CSS) supaya
-    // panggilan berulang menghasilkan geometri yang sama — kalau tidak, panggilan kedua (semasa
-    // cetak) bermula dengan padding rapat daripada panggilan pertama (semasa eksport) dan cetakan
-    // tidak lagi sama dengan PDF.
-    td.style.padding=k<0.8?'0px 3px':(k<1?'1px 4px':'');
+    // Padding asal cetak ialah 3px 6px dan line-height 1.05. Kedua-duanya ditetapkan untuk SETIAP
+    // keadaan (termasuk k=1) supaya panggilan berulang memulihkan nilai asal sebelum memampat
+    // semula — geometri pratonton, eksport dan cetak kekal sama.
+    td.style.padding=pad>0?`${(3*pad).toFixed(2)}px ${(6*pad).toFixed(2)}px`:'0';
+    td.style.lineHeight=lh.toFixed(2);
   });
   setel();
-  while(tbl.getBoundingClientRect().height>bajet+0.6&&k>0.5&&pusingan++<12){
-    k=Math.max(0.5,+(k-0.05).toFixed(2));
+  // 1) Satu nilai k untuk SELURUH jadual, dikecilkan sehingga lantai 0.6 — fon tidak sekali-kali
+  //    jatuh di bawah 60% saiz asas (larangan keras untuk menjaga kebolehbacaan).
+  while(tinggi()>bajet+0.6&&k>0.6&&pusingan++<20){ k=Math.max(0.6,+(k-0.05).toFixed(2)); setel(); }
+  // 2) Jika masih tidak muat pada lantai fon, rapatkan padding kemudian line-height (bukan fon)
+  //    sehingga 0, dan hanya selepas itu berhenti.
+  let rap=0;
+  while(tinggi()>bajet+0.6&&(pad>0||lh>0)&&rap++<24){
+    if(pad>0) pad=Math.max(0,+(pad-0.25).toFixed(2));
+    else lh=Math.max(0,+(lh-0.25).toFixed(2));
     setel();
   }
-  return k<1?pusingan:0;
+  // Data yang benar-benar melampau masih tidak muat selepas padding/line-height 0: biarkan jadual
+  // melimpah secara terkawal (fon kekal >= 0.6 asas); limpahan dilaporkan oleh pemanggil.
+  return (k<1||pad<1||lh<1.05)?(pusingan+rap):0;
 }
 /* Tetapkan tinggi setiap baris (kecuali sel rowspan) supaya jadual PENUH (kepala jadual + semua
    baris) tepat sama dengan `ruang` yang diberi, lalu ukur jadual SEBENAR selepas itu dan tolak
@@ -2112,18 +2129,6 @@ function kemasSelCetak_(akar){
       // table.sum tidak ada .pc/.pcls - konf.isi=null bermaksud kecilkan fon sel (td) itu sendiri.
       const isi=konf.isi?[...kotak.querySelectorAll(konf.isi)]:[sel];
       if(!isi.length) return;
-      const gayaSel=getComputedStyle(sel);
-      const padX=(parseFloat(gayaSel.paddingLeft)||0)+(parseFloat(gayaSel.paddingRight)||0);
-      const lebar=Math.max(8,sel.getBoundingClientRect().width-padX-1);
-      let tinggi=0;
-      if(konf.tinggi){
-        // Sasaran diukur daripada KOTAK SEBENAR sel (bukan pembolehubah CSS statik --pt-row /
-        // --pt-row-master): var itu ialah lalai reka bentuk yang tidak berkaitan dengan tinggi
-        // baris sebenar yang ditetapkan oleh isiTinggiCetak_ (contoh nyata: kotak 105px dibandingkan
-        // dengan var 84px), jadi ia mengecilkan tulisan walau kandungan sudah muat.
-        const padY=(parseFloat(gayaSel.paddingTop)||0)+(parseFloat(gayaSel.paddingBottom)||0);
-        tinggi=Math.max(8,sel.getBoundingClientRect().height-padY-2);
-      }
       // Saiz asal disimpan sekali sahaja (dataset) supaya panggilan berulang (pratonton, kemudian
       // sekali lagi sebelum eksport) sentiasa ukur daripada saiz CSS sebenar, bukan saiz yang sudah
       // dikecilkan panggilan lepas - tanpa ini fon mengecil berganda setiap panggilan (19->9.5->4.75).
@@ -2131,12 +2136,17 @@ function kemasSelCetak_(akar){
       const asal=isi.map(el=>parseFloat(el.dataset.fsAsal));
       let k=1,pusingan=0;
       const setel=()=>isi.forEach((el,i)=>{el.style.fontSize=(asal[i]*k).toFixed(2)+'px';});
+      // Syarat muat: kandungan (scrollWidth/scrollHeight) mesti masuk dalam kotak itu sendiri
+      // (clientWidth/clientHeight). .pc ialah position:absolute;inset:0 TANPA sempadan, jadi tolak
+      // padding/border daripada getBoundingClientRect dahulu menjadikan sasaran lebih kecil daripada
+      // kotak sebenar - kandungan yang sudah muat (scrollHeight==clientHeight) tetap kelihatan
+      // "terpotong" dan gelung sentiasa jatuh ke lantai k=0.5 (pengecilan ~2x berganda). scrollHeight
+      // (bukan getBoundingClientRect().height) kekal dipakai kerana .pc bertinggi 100% (inset:0) tidak
+      // berubah walau fon dikecilkan; membandingkannya dengan clientHeight menjadikan gelung berhenti
+      // pada saiz TERBESAR yang muat, bukan terus ke lantai.
       const muat=()=>{
-        if(kotak.scrollWidth>lebar+0.6) return false;
-        // scrollHeight (bukan getBoundingClientRect) kerana .pc bertinggi 100% tetap kekal sama
-        // walau fon dikecilkan; ukur kotak itu sendiri menjadikan syarat tidak boleh dipenuhi
-        // langsung dan gelung sentiasa jatuh ke lantai k=0.5 - itulah punca pengecilan berganda.
-        if(tinggi>0&&kotak.scrollHeight>tinggi+0.6) return false;
+        if(kotak.scrollWidth>kotak.clientWidth+0.6) return false;
+        if(konf.tinggi&&kotak.scrollHeight>kotak.clientHeight+0.6) return false;
         return true;
       };
       setel();
@@ -2366,7 +2376,13 @@ window.jadualBuilder = {
     teachers.filter(t => t.active).forEach(t => {
       let g = S.guru.find(g => g.directoryId === t.id || normalize(g.nama) === normalize(t.name));
       if (!g) { g = {id:uid(),gelaran:'',maxHari:8,tidakAda:[]}; S.guru.push(g); count++; }
-      Object.assign(g, {directoryId:t.id,nama:t.name,kod:t.shortName,jawatan:t.position,coversJson:t.coversJson||''});
+      // Nama direktori yang kosong TIDAK boleh menimpa nama sedia ada: baris Guru dan dialog
+      // "Waktu tidak tersedia" memaparkan g.nama, jadi nama kosong menjadikan baris itu kosong.
+      // Kekalkan nilai sedia ada, dan jika kedua-duanya kosong, jatuh balik kepada shortName.
+      const nama = String(t.name || '').trim()
+        || String((g && g.nama) || '').trim()
+        || String(t.shortName || '').trim();
+      Object.assign(g, {directoryId:t.id,nama,kod:t.shortName,jawatan:t.position,coversJson:t.coversJson||''});
     });
     simpan(true); ulang(); return teachers.filter(t => t.active).length;
   },

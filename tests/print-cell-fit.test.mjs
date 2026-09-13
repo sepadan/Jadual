@@ -25,11 +25,13 @@ test("printed grid uses fixed column widths so every period column is even", () 
 test("a fit pass measures each printed cell and shrinks type that does not fit", () => {
   assert.match(js, /function kemasSelCetak_\(/);
   assert.match(js, /const KEMAS_CETAK_=\[/);
-  // Sasaran tinggi mesti diukur daripada kotak sel sebenar (getBoundingClientRect), bukan
-  // pembolehubah CSS statik --pt-row/--pt-row-master: var itu tidak berkaitan dengan tinggi baris
-  // sebenar yang ditetapkan oleh isiTinggiCetak_, jadi ia mengecilkan tulisan walau kandungan muat.
-  assert.match(js, /sel\.getBoundingClientRect\(\)\.height-padY-2/, "row height comes from the cell's real box, not a stale CSS variable");
-  assert.match(js, /kotak\.scrollHeight>tinggi\+0\.6/, "content height (scrollHeight), not the fixed 100%-height box, decides the fit");
+  // Syarat muat diukur daripada kotak kandungan sebenar (.pc) melalui clientWidth/clientHeight -
+  // bukan saiz sel yang ditolak padding/border. .pc ialah inset:0 tanpa sempadan, jadi menolak
+  // padding daripada getBoundingClientRect menjadikan sasaran lebih kecil daripada kotak sebenar
+  // dan gelung sentiasa jatuh ke lantai (pengecilan berganda). scrollHeight/scrollWidth kekal
+  // dipakai kerana .pc bertinggi 100% (inset:0) tidak berubah walau fon dikecilkan.
+  assert.match(js, /kotak\.scrollWidth>kotak\.clientWidth\+0\.6/, "content width (scrollWidth) measured against the box's own clientWidth");
+  assert.match(js, /kotak\.scrollHeight>kotak\.clientHeight\+0\.6/, "content height (scrollHeight) measured against the box's own clientHeight, not a padding-reduced target");
   assert.match(js, /while\(!muat\(\)&&k>0\.5&&pusingan\+\+<10\)/, "shrinks in steps with a floor");
 });
 

@@ -76,6 +76,8 @@ test('kemasSelCetak_ does not shrink a cell whose content already fits its real 
   const pc = {
     scrollWidth: 60,
     scrollHeight: 100,
+    clientWidth: 120,
+    clientHeight: 105,
     querySelectorAll: () => [textEl],
   };
   const cell = {
@@ -108,6 +110,8 @@ test('kemasSelCetak_ is idempotent: a second pass on the same DOM does not shrin
   // on a box with CSS height:100%, which never changes no matter how small the font gets.
   const pc = {
     querySelectorAll: () => [textEl],
+    clientWidth: 250,
+    clientHeight: 300,
     get scrollWidth() { return 15 * parseFloat(textEl.style.fontSize || textEl.__fsAsal); },
     get scrollHeight() { return 50; },
   };

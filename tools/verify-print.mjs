@@ -74,10 +74,15 @@ function buildState() {
   const slots = [];
   hari.forEach((h, d) => {
     kelas.forEach((k, ci) => {
+      // Satu guru TETAP bagi setiap pasangan kelas+subjek sepanjang minggu (bukan guru berbeza
+      // setiap waktu seperti dahulu, yang menghasilkan 66 pasangan per kelas dan memampatkan
+      // ringkasan ke fon 6px). Setiap subjek diajar oleh satu guru yang sama pada semua hari,
+      // menjadikan ringkasan ~7-9 baris seperti sekolah sebenar dan metrik harness bermakna.
+      const guruSubjek = {};
+      subjects.forEach((s, si) => { guruSubjek[s.id] = guru[(ci * subjects.length + si) % guru.length]; });
       for (let p = 1; p <= N; p++) {
         const subj = subjects[(ci + p) % subjects.length];
-        const g = guru[(ci + p + d) % guru.length];
-        slots.push({ id: `s${d}_${ci}_${p}`, hari: h, kelasId: k.id, subjekId: subj.id, guruId: g.id, mula: p, panjang: 1 });
+        slots.push({ id: `s${d}_${ci}_${p}`, hari: h, kelasId: k.id, subjekId: subj.id, guruId: guruSubjek[subj.id].id, mula: p, panjang: 1 });
       }
     });
   });
@@ -122,7 +127,7 @@ async function preparePrintView(browser, vp, jenis, state) {
   page.on('pageerror', (e) => console.error(`  [pageerror ${jenis}/${vp.name}]`, e.message));
   page.on('console', (msg) => { if (msg.type() === 'error') console.error(`  [console ${jenis}/${vp.name}]`, msg.text()); });
   await page.setViewport({ width: vp.width, height: vp.height });
-  await page.goto(`http://127.0.0.1:${PORT}/_verify-harness.html`, { waitUntil: 'load' });
+  await page.goto(`http://127.0.0.1:${PORT}/tools/verify-print.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => Boolean(window.jadualBuilder));
   await page.evaluate((st) => { localStorage.clear(); window.jadualBuilder.setState(st); }, state);
   await page.evaluate(() => window.jadualBuilder.go('cetak'));
@@ -265,7 +270,15 @@ async function measureSheets(page) {
       const sumTblRect = sumTbl ? sumTbl.getBoundingClientRect() : null;
       const sumRowCount = sumTbl && sumTbl.tBodies[0] ? sumTbl.tBodies[0].rows.length : 0;
       const pclsEl = s.querySelector('td.cellv .pcls, td.pt-master-cell .pcls');
+      const pgrEl = s.querySelector('td.cellv .pgr, td.pt-master-cell .pgr');
       const sumTdEl = s.querySelector('table.sum tbody td');
+      // Metrik ringkasan: fon ringkasan (min/max merentasi semua td tbody) dan bilangan td JUMLAH
+      // (td.c) yang teksnya kosong - mesti 0, membuktikan nombor JUMLAH benar-benar ada dan tidak
+      // "hilang" apabila jadual dimampatkan.
+      const sumTds = [...s.querySelectorAll('table.sum tbody td')];
+      const sumFonts = sumTds.map((td) => parseFloat(getComputedStyle(td).fontSize) || 0);
+      const sumJumlahTds = [...s.querySelectorAll('table.sum tbody td.c')];
+      const sumEmptyJumlahTdCount = sumJumlahTds.filter((td) => td.textContent.trim() === '').length;
       return {
         index: i,
         sheetW: Math.round(r.width), sheetH: Math.round(r.height),
@@ -279,7 +292,11 @@ async function measureSheets(page) {
         deepClipDump,
         sumHeaders,
         sampleCellFontPx: pclsEl ? Math.round((parseFloat(getComputedStyle(pclsEl).fontSize) || 0) * 100) / 100 : null,
+        samplePgrFontPx: pgrEl ? Math.round((parseFloat(getComputedStyle(pgrEl).fontSize) || 0) * 100) / 100 : null,
         sampleSumFontPx: sumTdEl ? Math.round((parseFloat(getComputedStyle(sumTdEl).fontSize) || 0) * 100) / 100 : null,
+        sumFontMinPx: sumFonts.length ? Math.round(Math.min(...sumFonts) * 100) / 100 : null,
+        sumFontMaxPx: sumFonts.length ? Math.round(Math.max(...sumFonts) * 100) / 100 : null,
+        sumEmptyJumlahTdCount,
       };
     });
   });

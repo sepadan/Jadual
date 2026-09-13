@@ -48,7 +48,7 @@ test('builder print CSS keeps aSc-style side summary and uniform borders',()=>{
   assert.match(css,/\.pt-col-master-name\{width:82px\}/);
 });
 
-test('short teacher names stay inside timetable cells, while summaries and metadata keep full names',()=>{
+test('short teacher names stay inside timetable cells, the side summary and the class-sheet header',()=>{
   const summary=source.slice(source.indexOf('function ringkasanKelas('),source.indexOf('function tarikhCetak('));
   const sheet=source.slice(source.indexOf('function lembaranKelas('),source.indexOf('const HAD_BARIS_INDUK'));
   const iSel=source.indexOf('function teksSel(');
@@ -56,8 +56,11 @@ test('short teacher names stay inside timetable cells, while summaries and metad
   // Sel jadual mesti guna nama PENDEK (kod guru) supaya muat; pemboleh ubah dalaman tidak penting,
   // jadi padanan tidak dipakukan pada satu nama pemboleh ubah sahaja.
   assert.match(timetable, /namaGuru\([^)]*guruId[^)]*,\s*true\)/);
-  assert.ok(summary.includes('namaGuru(gid)'));
-  assert.ok(sheet.includes('namaGuru(k.guruKelas)'));
+  // Ringkasan sisi helaian kelas guna nama ringkas (satu baris per pasangan subjek+guru), dan
+  // kepala "GURU KELAS:" juga nama ringkas seperti helaian rujukan. Tajuk helaian guru kekal nama
+  // penuh (g.nama) - hanya kepala kelas dan ringkasan yang pakai nama ringkas.
+  assert.ok(summary.includes('namaGuru(gid,true)'));
+  assert.ok(sheet.includes('namaGuru(k.guruKelas,true)'));
 });
 
 test('master time zero is one readable shared cell instead of repeated narrow labels',()=>{
