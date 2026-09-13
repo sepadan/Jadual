@@ -157,12 +157,17 @@
 #builderRoot .sheet.pdf-capture{border:0;box-shadow:none;border-radius:0;margin:0}
 /* Bentuk muka surat cetak = A4 landskap sebenar (skop asas: eksport berjalan pada semua lebar). Eksport mengecilkan lebar 1100px kepada 287 mm, jadi
    767px tinggi menjadi 200 mm: meja mengisi kertas dan bukan sekadar jalur di tengah dengan jalur putih. */
-#builderRoot #cetakArea .sheet{min-height:767px;display:flex;flex-direction:column;--pt-row:84px;--pt-row-master:64px}
+/* Kotak A4 yang TETAP (height, bukan min-height): bekas flex hanya mengagihkan ruang lebih apabila
+   tingginya pasti, jadi meja benar-benar memenuhi helaian dan tidak berhenti separuh jalan. */
+/* Helaian cetak = 287 x 200 mm (1100 x 767 px) dengan baris grid: kepala auto, badan 1fr (mengisi
+   semua ruang lebih) dan kaki auto. Grid memberi tinggi yang pasti, jadi meja benar-benar memenuhi
+   kertas; flex-grow pada bekas ini tidak mengagihkan ruang (diukur: badan kekal 604 px). */
+#builderRoot #cetakArea .sheet{height:767px;--pt-row:84px;--pt-row-master:64px}
 #builderRoot #cetakArea .sh-body{flex:1;min-height:0}
 #builderRoot #cetakArea table.pt,#builderRoot #cetakArea table.pt-master{height:100%}
 /* Teks dan baris dibesarkan ~1.5x supaya meja yang kini setinggi A4 benar-benar terbaca, bukan sel
    besar dengan tulisan kecil. Tinggi meja kekal 100% supaya baki ruang diserap oleh baris. */
-#builderRoot #cetakArea .sh-body{flex:1;min-height:0;align-items:stretch}
+#builderRoot #cetakArea .sh-body{min-height:0;align-items:stretch}
 #builderRoot #cetakArea .sh-main{display:flex;flex-direction:column}
 #builderRoot #cetakArea table.pt th,#builderRoot #cetakArea table.pt td{height:84px;font-size:16px}
 /* Lajur tetap (table-layout:fixed) supaya semua lajur waktu sama lebar dan baris rata. Auto-layout
@@ -312,17 +317,19 @@
 #builderRoot table.dt th,#builderRoot table.dt td{padding:7px 8px}
 #builderRoot .kpi{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
 }
-@page{size:A4 landscape;margin:8mm}
+@page{size:A4 landscape;margin:5mm}
 @media print{#builderRoot{background:#fff}
 #builderRoot .side,#builderRoot .topbar,#builderRoot .noprint,#builderRoot .scrim{display:none!important}
 #builderRoot .app,#builderRoot .main,#builderRoot .content{display:block;padding:0;margin:0;max-width:none}
 #builderRoot .sheet{width:100%;max-width:none;margin:0;padding:0;border:0;box-shadow:none;border-radius:0;
+/* Sama seperti eksport PDF: satu helaian cetak = 287 x 200 mm (A4 landskap, margin 5 mm),
+   supaya apa yang dicetak sama dengan apa yang dieksport. */
+#builderRoot #cetakArea .sheet{width:100%;height:200mm;min-height:0}
     page-break-after:always;break-after:page}
 #builderRoot .sheet:last-child{page-break-after:auto;break-after:auto}
 #builderRoot table.pt{border:1px solid #000!important}
 #builderRoot table.pt td,#builderRoot table.pt th{border:1px solid #000!important;box-shadow:none!important}
 #builderRoot .card{border:0;box-shadow:none;padding:0;background:#fff}
-#builderRoot table.pt td{height:var(--rowh,15mm)}
 #builderRoot #toastBox,#builderRoot dialog{display:none!important}
 }
 @media print{#builderRoot .portrait-page{page-break-after:always}

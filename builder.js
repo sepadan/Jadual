@@ -1958,7 +1958,41 @@ const KEMAS_CETAK_=[
   {sel:'table.pt-master td.pt-master-cell', isi:'.psub,.pcls,.pgr', row:'--pt-row-master', def:64},
   {sel:'table.sum td',           isi:'.pcls,.pgr,.pmid', row:'',                 def:0},
 ];
+/* Isi tinggi helaian: tinggi baris jadual dikira daripada kotak sebenar helaian supaya meja
+   menutup seluruh kertas A4 dan bukan berhenti separuh jalan. Kiraan dibuat di sini kerana agihan
+   flex/grid tidak dapat diharap pada bekas cetak ini (diukur: badan kekal 604px walau flex:1 / 1fr). */
+function isiTinggiCetak_(akarS){
+  const akar=akarS&&akarS.querySelectorAll?akarS:document;
+  let helaian=0;
+  [...akar.querySelectorAll('#cetakArea .sheet, .sheet')].forEach((sheet,idx,arr)=>{
+    if(arr.indexOf(sheet)!==idx) return;
+    if(!sheet.getClientRects().length) return;
+    const gaya=getComputedStyle(sheet);
+    const kotak=sheet.getBoundingClientRect();
+    const tinggiIsi=Math.round(kotak.height-(parseFloat(gaya.paddingTop)||0)-(parseFloat(gaya.paddingBottom)||0));
+    if(tinggiIsi<120) return;
+    const kepala=sheet.querySelector('.sh-head'),kaki=sheet.querySelector('.sh-foot');
+    const hKepala=kepala?Math.round(kepala.getBoundingClientRect().height):0;
+    const hKaki=kaki?Math.round(kaki.getBoundingClientRect().height):0;
+    let diubah=false;
+    sheet.querySelectorAll('table.pt,table.pt-master').forEach(tbl=>{
+      const thead=tbl.tHead,tbody=tbl.tBodies[0];
+      if(!tbody||!tbody.rows.length) return;
+      const hThead=thead?Math.round(thead.getBoundingClientRect().height):0;
+      const baris=[...tbody.rows];
+      const sasaran=Math.max(38,Math.floor((tinggiIsi-hKepala-hKaki-hThead)/baris.length));
+      baris.forEach(tr=>{ tr.style.height=sasaran+'px';
+        [...tr.cells].forEach(td=>{ if(td.rowSpan<=1) td.style.height=sasaran+'px'; }); });
+      tbl.style.height=(hThead+sasaran*baris.length)+'px';
+      diubah=true;
+    });
+    if(diubah) helaian++;
+  });
+  return helaian;
+}
+
 function kemasSelCetak_(akar){
+  isiTinggiCetak_(akar);
   const root=akar&&akar.querySelectorAll?akar:document;
   let diubah=0;
   KEMAS_CETAK_.forEach(konf=>{
@@ -2182,6 +2216,8 @@ window.jadualBuilder = {
   clear() {S=kosong();$('#content').innerHTML='';},
   getState: () => clone(S),
   kemasSelCetak: kemasSelCetak_,
+  isiTinggiCetak: isiTinggiCetak_,
+  eksportPdf: () => eksportPdfJadual(),
   // Benar apabila draf pada peranti ini dipulihkan semasa mula.
   hasDeviceDraft: () => drafPeranti,
   // Kerja yang belum naik ke Sheets disimpan di tepi semasa log masuk memuatkan draf Sheets, jadi ia

@@ -1,4 +1,4 @@
-import { SITE_CONFIG } from './site-config.js?v=3.1.65';
+import { SITE_CONFIG } from './site-config.js?v=3.1.66';
 // Pembina (~1 MB) mengambil beberapa saat untuk dihantar pada sambungan sekolah. Pelayar yang
 // boleh membuka gzip menerima badan yang dimampatkan; yang lama terus dapat JSON biasa.
 const GZIP_CAPABLE = typeof DecompressionStream === 'function' && typeof Response === 'function';

@@ -24,8 +24,8 @@ test("the printed sheet never relies on writing-mode for vertical labels", () =>
 // jika tidak eksport menghasilkan jalur di tengah dengan jalur putih di atas dan bawah.
 test("the print sheet is shaped like the A4 page it is printed on", () => {
   const css = cssText();
-  assert.match(css, /#builderRoot #cetakArea \.sheet\{min-height:767px/);
-  assert.match(css, /#builderRoot #cetakArea \.sh-body\{flex:1/);
+  assert.match(css, /#builderRoot #cetakArea \.sheet\{height:767px/);
+  assert.match(css, /#builderRoot #cetakArea \.sh-body\{[^}]*min-height:0/);
   assert.match(css, /#builderRoot #cetakArea table\.pt[^{]*\{[^}]*height:100%/);
   // 1100px lebar dipetakan kepada 287 mm oleh eksport, jadi 767px = 200 mm.
   const mm = 767 * (287 / 1100);
@@ -36,7 +36,7 @@ test("the print sheet is shaped like the A4 page it is printed on", () => {
 // hanya terpakai pada telefon dan eksport di desktop kembali menjadi jalur nipis.
 test("the A4 sheet rules apply at every width, not only in a mobile media query", () => {
   const css = cssText();
-  const at = css.indexOf("#builderRoot #cetakArea .sheet{min-height:767px");
+  const at = css.indexOf("#builderRoot #cetakArea .sheet{height:767px");
   assert.ok(at > 0);
   const before = css.slice(0, at);
   assert.equal(before.split("{").length - before.split("}").length, 0, "the A4 rules are nested inside another block");

@@ -78,7 +78,9 @@ test('mobile print preview preserves desktop sheet geometry with horizontal scro
   assert.match(css,/@media screen and \(max-width:860px\)[\s\S]*#builderRoot #cetakArea \.sheet\{width:1100px;max-width:none/);
   assert.match(css,/#builderRoot #cetakArea \.sh-body\{flex-direction:row/);
   assert.match(css,/#builderRoot #cetakArea \.sh-side\{width:250px;flex:0 0 250px/);
-  assert.match(css,/@page\{size:A4 landscape;margin:8mm\}/);
+  // 5 mm = margin yang sama digunakan oleh eksport PDF (287 x 200 mm), supaya cetakan dan PDF
+  // kelihatan sama; 8 mm dahulu menghasilkan halaman yang berbeza daripada fail PDF.
+  assert.match(css,/@page\{size:A4 landscape;margin:5mm\}/);
 });
 
 test('PDF export generates and downloads a PDF independently from printing',()=>{
