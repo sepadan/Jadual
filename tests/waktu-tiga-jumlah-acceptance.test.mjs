@@ -129,3 +129,30 @@ test('lembaranKelas (HTML cetak): baris aktiviti tetap dikategorikan berasingan 
   assert.ok(!/<tr class="sum-set">\s*<td>BM<\/td>/.test(html), 'BM (subjek sebenar) tidak boleh ditanda sebagai baris aktiviti tetap');
   assert.ok(!/<tr class="sum-set">\s*<td>MT<\/td>/.test(html), 'MT (subjek sebenar) tidak boleh ditanda sebagai baris aktiviti tetap');
 });
+
+// Fixture: TIGA aktiviti bertindih pada slot yang SAMA (ISNIN waktu 2). Versi awal mengumpul
+// pertindihan yang sama berulang kali ke dalam R.clash (3 entri untuk 1 slot) — ditemui oleh
+// semakan bebas Gemini, dibetulkan dengan Set dan dikunci di sini.
+const FIXTURE_TIGA = `(()=>{
+  S=kosong();
+  S.sekolah.nama='SK CONTOH'; S.sekolah.tajukKelas='JADUAL WAKTU KELAS';
+  S.hari=['ISNIN','SELASA','RABU','KHAMIS','JUMAAT'];
+  S.masa.waktu={ISNIN:8,SELASA:8,RABU:8,KHAMIS:8,JUMAAT:8};
+  S.subjek=[{id:'bm',kod:'BM',nama:'BM',ganda:false}];
+  S.kelas=[{id:'k1',nama:'4 BIJAK',tahap:4,guruKelas:''}];
+  S.guru=[{id:'g1',nama:'GURU SATU',kod:'G1',maxHari:10,tidakAda:[]}];
+  S.jadual={slots:[{kelasId:'k1',subjekId:'bm',guruId:'g1',hari:'ISNIN',mula:1,panjang:1}]};
+  S.acara=[
+    {id:'a1',kod:'PER',hari:'ISNIN',mula:2,panjang:1,skop:'kelas',kelas:['k1'],guru:[],tahap:[]},
+    {id:'a2',kod:'1M1S',hari:'ISNIN',mula:2,panjang:1,skop:'kelas',kelas:['k1'],guru:[],tahap:[]},
+    {id:'a3',kod:'B.ALQ',hari:'ISNIN',mula:2,panjang:1,skop:'kelas',kelas:['k1'],guru:[],tahap:[]}
+  ];
+  return JSON.stringify(ringkasanKelas('k1'));
+})()`;
+
+test('ringkasanKelas: tiga aktiviti bertindih pada satu slot dilaporkan SEKALI dalam clash', () => {
+  const R = JSON.parse(jalankan(FIXTURE_TIGA));
+  assert.equal(R.jumlahTetapan, 1, 'ISNIN waktu 2 dikira sekali sahaja (union)');
+  assert.equal(R.clash.length, 1, 'slot bertindih dilaporkan sekali, bukan berulang setiap aktiviti');
+  assert.ok(R.clash[0].includes('ISNIN') && R.clash[0].includes('2'), 'clash merujuk ISNIN waktu 2');
+});

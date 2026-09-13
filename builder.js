@@ -1863,17 +1863,19 @@ function ringkasanKelas(id){
   // menyumbang kepada JUMLAH WAKTU KELAS dan tamat persekolahan, tetapi TIDAK kepada jumlah subjek
   // (R.jum) atau beban guru. Dikira sebagai UNION slot (hari|waktu) supaya acara bertindih tidak
   // dikira berganda — bertindih ialah clash, bukan jam tambahan.
-  const rowsTetapan=[]; const selTetapan=new Set(); const clashTetapan=[];
+  const rowsTetapan=[]; const selTetapan=new Set(); const clashTetapan=new Set();
   acaraUntuk('kelas',id).forEach(a=>{
     rowsTetapan.push({subjek:a.kod,kelas:'—',jum:num(a.panjang,1)});
     for(let o=0;o<num(a.panjang,1);o++){
       const p=num(a.mula,1)+o; const sel=`${a.hari}|${p}`;
-      if(selTetapan.has(sel)) clashTetapan.push(sel); else selTetapan.add(sel);
+      // Set (bukan array) supaya tiga aktiviti atau lebih yang bertindih pada slot sama
+      // dilaporkan SEKALI, bukan diulang setiap kali pertindihan dikesan.
+      if(selTetapan.has(sel)) clashTetapan.add(sel); else selTetapan.add(sel);
     }
   });
   const jumlahTetapan=selTetapan.size;
   const jumlahKelas=jum+jumlahTetapan;
-  return {rows,jum,rowsTetapan,jumlahTetapan,jumlahKelas,clash:clashTetapan};
+  return {rows,jum,rowsTetapan,jumlahTetapan,jumlahKelas,clash:Array.from(clashTetapan)};
 }
 function tarikhCetak(value){
   const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
