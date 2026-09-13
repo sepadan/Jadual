@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.53">
-  <link rel="stylesheet" href="./builder.css?v=3.1.53">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.53">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.53"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
+  <link rel="stylesheet" href="./styles.css?v=3.1.54">
+  <link rel="stylesheet" href="./builder.css?v=3.1.54">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.54">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.54"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
 <body class="public-mode">
   <div class="app-shell">
@@ -258,10 +258,18 @@
 
   <dialog id="settingDialog">
     <div class="dialog-head"><div><p class="step">GURU PEMULIHAN</p><h2 id="settingDialogTitle">Tetapan jadual</h2></div><button type="button" class="close" data-close-setting aria-label="Tutup">×</button></div>
-    <p>Tekan ruang kosong yang sepatutnya menjadi masa pemulihan. Waktu yang sudah ada kelas tidak boleh diubah di sini, dan masa pemulihan ini akan menghalang guru daripada dipilih sebagai guru ganti.</p>
+    <p>Tekan ruang kosong yang sepatutnya menjadi masa pemulihan, kemudian pilih subjek dan kelas asal murid. Waktu yang sudah ada kelas tidak boleh diubah di sini, dan masa pemulihan ini akan menghalang guru daripada dipilih sebagai guru ganti.</p>
     <div id="settingGrid" class="setting-grid"></div>
     <p class="setting-count" id="settingCount"></p>
     <div class="dialog-actions"><button type="button" class="button ghost" data-close-setting>Batal</button><button type="button" class="button ghost" id="clearSettingSlots">Kosongkan tanda</button><button type="button" class="button primary" id="saveSettingSlots">Simpan tetapan</button></div>
+  </dialog>
+
+  <dialog id="settingCellDialog">
+    <div class="dialog-head"><div><p class="step">MASA PEMULIHAN</p><h2 id="settingCellTitle">Waktu pemulihan</h2></div><button type="button" class="close" data-close-setting-cell aria-label="Tutup">×</button></div>
+    <p>Guru pemulihan mengambil sebahagian murid sahaja, jadi kelas di sini ialah kelas ASAL murid — bukan kelas yang diajar. Biarkan kelas kosong untuk aktiviti seperti perhimpunan atau koku.</p>
+    <label>Subjek<input id="settingCellSubject" list="settingCellSubjects" placeholder="BM, MT, KOKU…" autocomplete="off" maxlength="24"><datalist id="settingCellSubjects"></datalist></label>
+    <label>Kelas asal murid<select id="settingCellClass"></select></label>
+    <div class="dialog-actions"><button type="button" class="button ghost" data-close-setting-cell>Batal</button><button type="button" class="button ghost hidden" id="settingCellRemove">Buang tanda</button><button type="button" class="button primary" id="settingCellApply">Simpan waktu ini</button></div>
   </dialog>
 
   <dialog id="builderPublishDialog"><form id="builderPublishForm" method="dialog">
@@ -274,6 +282,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.53"></script>
+  <script type="module" src="./app.js?v=3.1.54"></script>
 </body>
 </html>

@@ -46,8 +46,8 @@ a { color: #0b6b5b; text-decoration: none; }
   <div class="meta">
     <div><strong>Dokumen:</strong> Panduan penggunaan untuk pentadbir dan pengunjung</div>
     <div><strong>Aplikasi:</strong> https://sepadan.github.io/Jadual/</div>
-    <div><strong>Versi sistem:</strong> 3.1.53</div>
-    <div><strong>Tarikh dokumen:</strong> 12/09/2026</div>
+    <div><strong>Versi sistem:</strong> 3.1.54</div>
+    <div><strong>Tarikh dokumen:</strong> 13/09/2026</div>
   </div>
 </section>
 <h1>PANDUAN PENGGUNAAN SISTEM JADUAL</h1>
@@ -416,8 +416,8 @@ a { color: #0b6b5b; text-decoration: none; }
 <td>Waktu mengajar sebenar — kod subjek kecil di atas (contoh <code>BM</code>), nama kelas tebal di tengah (contoh <code>3 BIJAK</code>).</td>
 </tr>
 <tr>
-<td>Blok kuning <code>Pemulihan</code> + <code>Aktiviti</code></td>
-<td><strong>Masa tetapan guru pemulihan</strong> — waktu bukan subjek yang menyekat relief (Bahagian 11).</td>
+<td>Blok kuning <code>Pemulihan</code> + subjek/kelas (contoh <code>BM 3B</code>)</td>
+<td><strong>Masa tetapan guru pemulihan</strong> — waktu bukan subjek yang menyekat relief (Bahagian 11). Kelas yang tertulis ialah kelas <strong>asal murid</strong>.</td>
 </tr>
 <tr>
 <td>Sel kosong</td>
@@ -674,6 +674,7 @@ a { color: #0b6b5b; text-decoration: none; }
 <h2>11. Guru pemulihan dan <strong>masa tetapan</strong> mereka</h2>
 <h3>11.1 Apa itu guru pemulihan</h3>
 <p>Di sesetengah sekolah, guru pemulihan <strong>tidak mempunyai subjek</strong> dalam jadual rasmi. Subjek bagi kelas pemulihan diisi oleh guru itu sendiri, jadi jadualnya hanya perlu menunjukkan <strong>waktu (masa) yang dikhaskan untuk kerja pemulihan</strong> — contohnya waktu 1 dan 2 setiap hari. Waktu-waktu itu dalam sistem ini dipanggil <strong>masa tetapan</strong>.</p>
+<p>Setiap waktu pemulihan boleh membawa <strong>subjek</strong> dan <strong>kelas asal murid</strong> — contohnya <code>BM 3B</code>, iaitu pemulihan Bahasa Melayu untuk sebahagian murid dari kelas 3B. Guru pemulihan hanya mengambil sebahagian murid dari kelas itu, jadi kelas yang dicatat ialah <strong>kelas asal murid</strong>, bukan kelas yang diajar: waktu ini <strong>tidak</strong> mengambil kelas daripada sesiapa dan tidak menjejaskan jadual kelas.</p>
 <h3>11.2 Apa yang berlaku apabila masa tetapan ditanda</h3>
 <table>
 <thead>
@@ -685,7 +686,7 @@ a { color: #0b6b5b; text-decoration: none; }
 <tbody>
 <tr>
 <td>Pada jadual guru itu</td>
-<td>Sel dipaparkan sebagai <code>PEMULIHAN</code> / <code>Aktiviti</code> (kuning) pada minggu guru tersebut (Bahagian 7.1).</td>
+<td>Sel dipaparkan sebagai <strong><code>Pemulihan</code></strong> (kuning) dengan <strong>subjek dan kelas asal murid</strong> di bawahnya (contoh <code>BM 3B</code>) pada minggu guru tersebut (Bahagian 7.1).</td>
 </tr>
 <tr>
 <td>Pada enjin relief</td>
@@ -710,10 +711,12 @@ a { color: #0b6b5b; text-decoration: none; }
 <li>
 <p><strong>Jadual minggu</strong> guru itu terbuka — <strong>hari ke bawah (5 baris), waktu melintang (13 lajur, waktu 0–12)</strong> — supaya lajur waktu mudah dibaca pada telefon:</p>
 <ul>
-<li>Sel kosong bertulis <strong>"kosong"</strong> boleh ditekan untuk menanda masa tetapan.</li>
-<li>Sel yang sudah ditanda menunjukkan <strong>"Pemulihan"</strong> dengan nota <em>tekan untuk buang</em> — tekan sekali lagi untuk membuang tanda.</li>
+<li>Sel kosong bertulis <strong>"kosong"</strong> boleh ditekan untuk menanda masa tetapan. Tekanan itu membuka borang kecil <strong>Masa pemulihan</strong> (hari + waktu dipaparkan di atasnya).</li>
+<li>Dalam borang itu, isi <strong>Subjek</strong> (contoh <code>BM</code>, <code>MT</code>, <code>KOKU</code>; cadangan diambil daripada senarai subjek sekolah) dan pilih <strong>Kelas asal murid</strong> (contoh <code>3B</code>). Biarkan kelas kosong untuk aktiviti tanpa kelas seperti perhimpunan, koku atau B. Al-Quran.</li>
+<li>Tekan <strong>Simpan waktu ini</strong> — borang menutup dan sel menunjukkan <code>Pemulihan</code> dengan subjek + kelas di bawahnya.</li>
+<li>Sel yang sudah ditanda <strong>boleh ditekan semula</strong>: borang terbuka dengan subjek dan kelas sedia ada untuk diubah, dan butang <strong>Buang tanda</strong> ada di situ untuk membuang tanda itu.</li>
 <li>Sel yang sudah ada kelas sebenar (contoh <code>BM</code> + <code>3 BIJAK</code>) <strong>tidak boleh ditekan</strong> — masa tetapan tidak boleh menindih pengajaran sebenar.
-6. Tekan setiap ruang kosong yang sepatutnya menjadi masa pemulihan. Setiap ketukan menghasilkan tanda, dan kiraan di bawah jadual berubah (contoh: "3 waktu pemulihan ditanda.").
+6. Ulang untuk setiap ruang kosong yang sepatutnya menjadi masa pemulihan. Setiap ketukan menghasilkan satu tanda, dan kiraan di bawah jadual berubah (contoh: "3 waktu pemulihan ditanda.").
 7. Tekan <strong>Simpan tetapan</strong>.</li>
 </ul>
 </li>
@@ -721,8 +724,9 @@ a { color: #0b6b5b; text-decoration: none; }
 <p>Selepas disimpan, dialog ditutup dan butang kembali kepada keadaan asal. Jadual minggu guru itu kini menunjukkan masa tetapan, dan enjin relief menghormatinya.</p>
 <h3>11.4 Mengubah, menambah atau membuang masa tetapan</h3>
 <ul>
-<li>Buka semula <strong>Tetapan Jadual</strong> pada kad guru yang sama; tanda sedia ada dipaparkan.</li>
-<li>Tekan sel yang sudah ditanda untuk <strong>membuang</strong> tanda itu.</li>
+<li>Buka semula <strong>Tetapan Jadual</strong> pada kad guru yang sama; tanda sedia ada dipaparkan bersama subjek dan kelasnya.</li>
+<li>Tekan sel yang sudah ditanda untuk membuka borang, tukar <strong>Subjek</strong> atau <strong>Kelas asal murid</strong>, kemudian tekan <strong>Simpan waktu ini</strong>.</li>
+<li>Tekan <strong>Buang tanda</strong> di dalam borang itu untuk membuang tanda bagi waktu tersebut.</li>
 <li>Tekan <strong>Kosongkan tanda</strong> untuk membuang <strong>semua</strong> tanda sebelum menyimpan.</li>
 <li>Tekan <strong>Simpan tetapan</strong> untuk menyimpan keadaan terakhir.</li>
 </ul>

@@ -5,6 +5,7 @@
 //
 // The model is pure: the callers pass the rows they want shown (already filtered to one teacher or
 // one class) and get columns, rows and legend back, which keeps the browser out of the tests.
+import { SETTING_SUBJECT, isSettingRow, parseSettingSubject } from "./setting-slots.js";
 
 const PALETTE = [
   "#dbeafe", "#dcfce7", "#fef3c7", "#fae8ff", "#e0e7ff",
@@ -94,14 +95,16 @@ export function weekGrid({ rows = [], days = [], periods = [], colours = {}, res
     const code = String(day).toUpperCase();
     const cells = clock.map((period) => {
       const row = byKey.get(`${code}-${period.period}`);
-      const state = !row ? "free" : row.isDuty ? (String(row.subject || "").toUpperCase() === "PEMULIHAN" ? "setting" : "duty") : "lesson";
-      const subject = state === "free" ? "" : String(row.subject || "");
+      const state = !row ? "free" : row.isDuty ? (isSettingRow(row) ? "setting" : "duty") : "lesson";
+      // Masa pemulihan: tajuknya kekal "Pemulihan" dan baris kedua menunjukkan subjek + kelas asal murid.
+      const setting = state === "setting" ? parseSettingSubject(row.subject) : null;
+      const subject = state === "free" ? "" : setting ? SETTING_SUBJECT : String(row.subject || "");
       return {
         day: code,
         period: period.period,
         state,
         subject,
-        label: state === "free" ? "" : String(row.className || "Aktiviti"),
+        label: state === "free" ? "" : setting ? setting.detail : String(row.className || "Aktiviti"),
         colour: state === "free" ? "" : subjectColour(subject, colours),
         locked: state === "lesson",
       };

@@ -223,6 +223,9 @@ table.timetable td.locked .lock { display: block; font-size: 8px; line-height: 1
 #settingDialog .timetable-wrap { border-radius: 12px; }
 #settingDialog table.timetable td.pick:focus-visible { outline: 2px solid var(--green-800); outline-offset: -2px; }
 #settingDialog table.timetable td.chosen .cls { color: #8a5a11; }
+/* The heading of a claimed period ("Pemulihan") and the subject + class under it must both stay
+   readable on the amber claim colour. */
+#settingDialog table.timetable td.chosen .sub { color: #6b4708; }
 #settingDialog table.timetable td.free .hint { font-size: 9px; }
 .setting-count { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
 .schedule-switch { width: fit-content; margin: 0 0 14px; }

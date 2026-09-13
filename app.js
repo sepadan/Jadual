@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.53";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.53";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.53";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.53";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.53";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.53";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.53';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.53';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.53';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.53';
-import { SETTING_SUBJECT, mergeSettingRows, settingDayName, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.53';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.53';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.54";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.54";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.54";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.54";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.54";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.54";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.54';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.54';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.54';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.54';
+import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.54';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.54';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -525,6 +525,10 @@ async function restoreTeacherProfiles() {
 // duty row in the active version, which is exactly how the builder's fixed activities block relief.
 let settingTeacherId = "";
 let settingSelection = new Set();
+// Subjek + kelas asal murid bagi setiap waktu pemulihan yang ditanda (lihat setting-slots.js).
+let settingDetails = {};
+// Waktu yang sedang diubah dalam dialog subjek/kelas.
+let settingCellKey = "";
 // Saving a version rewrites all of its rows, so the dialog remembers what the version looked like
 // when it opened. Anything else changing that version means the admin must look again first.
 let settingGuard = null;
@@ -549,6 +553,7 @@ function openSettingDialog(id) {
   if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
   settingTeacherId = id;
   settingSelection = new Set(settingSelectionFromRows({ rows: settingVersionRows(version), teacherId: id }));
+  settingDetails = settingDetailsFromRows({ rows: settingVersionRows(version), teacherId: id });
   settingGuard = { revision: Number(db.revision || 0), versionId: version.id, signature: settingVersionSignature(version) };
   $("#settingDialogTitle").textContent = `Tetapan jadual · ${teacher.name}`;
   renderSettingGrid();
@@ -590,14 +595,14 @@ function renderSettingGrid() {
       return `<td class="blk has locked" data-locked-cell="${key}" title="${esc(`${cell.subject} ${cell.label}`.trim())}">${cell.subject ? `<span class="sub">${esc(cell.subject)}</span>` : ""}<span class="cls">${esc(cell.label)}</span><span class="lock" aria-hidden="true">🔒</span></td>`;
     }
     const chosen = cell.state === "setting" || settingSelection.has(key);
-    return `<td class="blk ${chosen ? "has chosen" : "free"} pick" data-setting-cell="${key}" role="button" tabindex="0" aria-pressed="${chosen}" ${chosen ? `style="--sc:${SETTING_COLOUR}"` : ""} title="${chosen ? "Buang tanda" : "Tanda sebagai masa pemulihan"}">${chosen ? `<span class="cls">${esc(label)}</span><span class="hint">tekan untuk buang</span>` : `<span class="hint">kosong</span>`}</td>`;
+    return `<td class="blk ${chosen ? "has chosen" : "free"} pick" data-setting-cell="${key}" role="button" tabindex="0" aria-pressed="${chosen}" ${chosen ? `style="--sc:${SETTING_COLOUR}"` : ""} title="${chosen ? "Tekan untuk ubah subjek dan kelas" : "Tekan untuk pilih subjek dan kelas"}">${chosen ? `<span class="sub">${esc(label)}</span>${settingCellDetail(key)}<span class="hint">ubah</span>` : `<span class="hint">kosong</span>`}</td>`;
   });
   $$("#settingGrid [data-setting-cell]").forEach((cell) => {
-    cell.addEventListener("click", () => toggleSettingCell(cell.dataset.settingCell));
+    cell.addEventListener("click", () => openSettingCellDialog(cell.dataset.settingCell));
     cell.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
-      toggleSettingCell(cell.dataset.settingCell);
+      openSettingCellDialog(cell.dataset.settingCell);
     });
   });
   $("#settingCount").textContent = settingSelection.size
@@ -605,17 +610,84 @@ function renderSettingGrid() {
     : `Belum ada waktu ${label.toLowerCase()} ditanda.`;
 }
 
-function toggleSettingCell(key) {
-  if (settingSelection.has(key)) settingSelection.delete(key);
-  else settingSelection.add(key);
+// Sel yang sudah ditanda memaparkan subjek + kelas asal murid di bawah tajuk "Pemulihan".
+function settingCellDetail(key) {
+  const detail = settingDetails[key] || {};
+  const text = [detail.subjek, detail.kelas].filter(Boolean).join(" ");
+  return text ? `<span class="cls">${esc(text)}</span>` : "";
+}
+
+// Pilihan kelas dan subjek untuk dialog: kelas daripada jadual aktif (dan senarai kelas pembina bila
+// ada), subjek daripada senarai subjek pembina ditambah apa yang sudah dipakai di waktu pemulihan.
+function settingCellPickers() {
+  const rows = settingVersionRows(settingVersion());
+  const classes = new Set();
+  for (const row of rows) if (!row.isDuty && row.className) classes.add(String(row.className));
+  let subjects = [];
+  try {
+    const state = window.jadualBuilder?.getState?.() || {};
+    for (const item of state.kelas || []) if (item?.nama) classes.add(String(item.nama));
+    subjects = (state.subjek || []).map((item) => String(item?.kod || "").toUpperCase()).filter(Boolean);
+  } catch { subjects = []; }
+  const set = new Set(subjects);
+  for (const row of rows) {
+    // Kod subjek yang sudah dipakai dalam jadual aktif ialah cadangan yang paling berguna.
+    if (!row.isDuty && row.subject) set.add(String(row.subject).toUpperCase());
+    if (!isSettingRow(row)) continue;
+    const { subjek } = parseSettingSubject(row.subject);
+    if (subjek) set.add(subjek.toUpperCase());
+  }
+  return { classes: [...classes].sort(bandingNamaKelas), subjects: [...set].sort() };
+}
+
+// Tekan satu ruang kosong: pilih subjek dan kelas asal murid. Tekan ruang yang sudah ditanda: ubah
+// atau buang tanda itu. Guru pemulihan hanya mengambil sebahagian murid, jadi kelas di sini ialah
+// kelas ASAL murid — bukan kelas yang diajar.
+function openSettingCellDialog(key) {
+  if (!requireAdmin()) return;
+  const version = settingVersion();
+  if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
+  const [day, period] = String(key).split("-");
+  const clock = PERIODS.find((item) => Number(item.period) === Number(period));
+  settingCellKey = key;
+  const { classes, subjects } = settingCellPickers();
+  const current = settingDetails[key] || {};
+  $("#settingCellTitle").textContent = `${settingDayName(day)} · waktu ${period}${clock ? ` (${clock.startTime}–${clock.endTime})` : ""}`;
+  $("#settingCellClass").innerHTML = `<option value="">— tiada kelas —</option>` +
+    classes.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join("");
+  $("#settingCellClass").value = current.kelas || "";
+  $("#settingCellSubject").value = current.subjek || "";
+  $("#settingCellSubjects").innerHTML = subjects.map((code) => `<option value="${esc(code)}"></option>`).join("");
+  $("#settingCellRemove").classList.toggle("hidden", !settingSelection.has(key));
+  $("#settingCellDialog").showModal();
+}
+
+function applySettingCell() {
+  const key = settingCellKey;
+  if (!key) return;
+  const subjek = String($("#settingCellSubject").value || "").trim().toUpperCase();
+  const kelas = String($("#settingCellClass").value || "").trim();
+  if (!subjek) return toast("Isi subjek dahulu (contoh BM atau MT).", "error");
+  settingSelection.add(key);
+  settingDetails[key] = { subjek, kelas };
+  $("#settingCellDialog").close();
+  renderSettingGrid();
+}
+
+function removeSettingCell() {
+  const key = settingCellKey;
+  if (!key) return;
+  settingSelection.delete(key);
+  delete settingDetails[key];
+  $("#settingCellDialog").close();
   renderSettingGrid();
 }
 
 function clearSettingSlots() {
   settingSelection = new Set();
+  settingDetails = {};
   renderSettingGrid();
 }
-
 // Saving rewrites every row of the version in Sheets, so a stale dialog must never win: the school
 // revision is checked first and, when it moved, the version this dialog saw is compared with the
 // fresh one before anything is written.
@@ -650,7 +722,7 @@ async function saveSettingSlots() {
     const active = settingVersion();
     if (!active) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
     const teacher = teacherById(settingTeacherId);
-    const result = mergeSettingRows({ rows: db.schedule, teacherId: settingTeacherId, versionId: active.id, selected: [...settingSelection], periods: PERIODS });
+    const result = mergeSettingRows({ rows: db.schedule, teacherId: settingTeacherId, versionId: active.id, selected: [...settingSelection], periods: PERIODS, details: settingDetails });
     db.schedule = result.rows;
     settingGuard = { revision: Number(db.revision || 0), versionId: active.id, signature: settingVersionSignature(active) };
     persist();
@@ -1346,6 +1418,9 @@ function wireEvents() {
   $$('[data-close-setting]').forEach((button) => button.addEventListener("click", () => $("#settingDialog").close()));
   $("#saveSettingSlots").addEventListener("click", saveSettingSlots);
   $("#clearSettingSlots").addEventListener("click", clearSettingSlots);
+  $("#settingCellApply").addEventListener("click", applySettingCell);
+  $("#settingCellRemove").addEventListener("click", removeSettingCell);
+  $$('[data-close-setting-cell]').forEach((button) => button.addEventListener("click", () => $("#settingCellDialog").close()));
   setReliefPanel(reliefPanel);
   $$('[data-relief-tab]').forEach((button) => button.addEventListener("click", () => setReliefTab(button.dataset.reliefTab)));
   // One arrow-key handler serves every tablist in the app (relief sub tabs, the view switch

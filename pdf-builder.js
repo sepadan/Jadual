@@ -150,9 +150,12 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
   });
 
   const dutySlots=new Map();
+  // Masa pemulihan menyimpan subjek + kelas asal murid selepas penanda "PEMULIHAN · " (lihat
+  // setting-slots.js); kod aktiviti kekal penanda sahaja supaya satu baris aktiviti dikongsi.
+  const dutyKod=row=>upper(String(row.subject||'AKTIVITI').split('·')[0]||'AKTIVITI');
   validRows.filter(row=>row.isDuty||!row.className).forEach(row=>{
-    const dutyKey=`${upper(row.subject||'AKTIVITI')}|${DAYS[row.day]}|${Number(row.period)}`;
-    if(!dutySlots.has(dutyKey)) dutySlots.set(dutyKey,{kod:upper(row.subject||'AKTIVITI'),hari:DAYS[row.day],period:Number(row.period),teachers:[]});
+    const dutyKey=`${dutyKod(row)}|${DAYS[row.day]}|${Number(row.period)}`;
+    if(!dutySlots.has(dutyKey)) dutySlots.set(dutyKey,{kod:dutyKod(row),hari:DAYS[row.day],period:Number(row.period),teachers:[]});
     const guruId=teacherMap.get(row.teacherId)?.id;if(guruId&&!dutySlots.get(dutyKey).teachers.includes(guruId))dutySlots.get(dutyKey).teachers.push(guruId);
   });
   const duties=[...dutySlots.values()].map(item=>({...item,teachers:item.teachers.sort()})).sort((a,b)=>a.kod.localeCompare(b.kod)||DAY_ORDER.indexOf(a.hari)-DAY_ORDER.indexOf(b.hari)||a.period-b.period);
