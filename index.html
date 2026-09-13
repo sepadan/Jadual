@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.58">
-  <link rel="stylesheet" href="./builder.css?v=3.1.58">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.58">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.58"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
+  <link rel="stylesheet" href="./styles.css?v=3.1.59">
+  <link rel="stylesheet" href="./builder.css?v=3.1.59">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.59">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.59"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
 <body class="public-mode">
   <div class="app-shell">
@@ -261,14 +261,6 @@
     <p>Tekan ruang kosong yang sepatutnya menjadi masa pemulihan, kemudian pilih subjek dan kelas asal murid. Waktu yang sudah ada kelas tidak boleh diubah di sini, dan masa pemulihan ini akan menghalang guru daripada dipilih sebagai guru ganti.</p>
     <div id="settingGrid" class="setting-grid"></div>
     <p class="setting-count" id="settingCount"></p>
-    <!-- SEMENTARA: kotak tampal senarai waktu pemulihan (buang selepas semua guru selesai mengisi). -->
-    <details class="tampal-pemulihan" id="tampalPemulihanBox">
-      <summary>Tampal senarai waktu (pantas untuk borang PDPC)</summary>
-      <p class="setting-count">Satu baris satu waktu: <strong>HARI WAKTU SUBJEK KELAS</strong> — contoh <code>IS 4 MT 3B</code>, <code>SEL 1 1M1S</code>, <code>RAB 11 KOKU</code>. Baris yang tidak difahami dilaporkan, tidak ditanda.</p>
-      <textarea id="tampalPemulihanTeks" rows="5" spellcheck="false" placeholder="IS 4 MT 3B&#10;IS 5 MT 3B&#10;SEL 1 1M1S"></textarea>
-      <div class="dialog-actions"><button type="button" class="button ghost" id="tampalPemulihanGuna">Tanda daripada senarai</button></div>
-      <p class="setting-count" id="tampalPemulihanLaporan"></p>
-    </details>
     <div class="dialog-actions"><button type="button" class="button ghost" data-close-setting>Batal</button><button type="button" class="button ghost" id="clearSettingSlots">Kosongkan tanda</button><button type="button" class="button primary" id="saveSettingSlots">Simpan tetapan</button></div>
   </dialog>
 
@@ -290,6 +282,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.58"></script>
+  <script type="module" src="./app.js?v=3.1.59"></script>
 </body>
 </html>

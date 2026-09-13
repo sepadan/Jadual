@@ -1,17 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.58";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.58";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.58";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.58";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.58";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.58";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.58';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.58';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.58';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.58';
-import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.58';
-// SEMENTARA: kotak tampal senarai waktu pemulihan (buang selepas semua guru selesai mengisi).
-import { laporanTampalPemulihan, susunTampalPemulihan, tafsirTampalPemulihan } from './tampal-pemulihan.js?v=3.1.58';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.58';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.59";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.59";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.59";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.59";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.59";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.59";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.59';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.59';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.59';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.59';
+import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.59';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.59';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -688,30 +686,9 @@ function removeSettingCell() {
 function clearSettingSlots() {
   settingSelection = new Set();
   settingDetails = {};
-  $("#tampalPemulihanLaporan").textContent = "";
   renderSettingGrid();
 }
 
-// SEMENTARA: tanda semua waktu daripada senarai yang ditampal (HARI WAKTU SUBJEK [KELAS]).
-function gunaTampalPemulihan() {
-  if (!requireAdmin()) return;
-  const version = settingVersion();
-  if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
-  const { tanda, ralat } = tafsirTampalPemulihan($("#tampalPemulihanTeks").value, { hari: SETTING_DAYS, waktu: PERIODS.map((item) => Number(item.period)) });
-  if (!tanda.length) {
-    $("#tampalPemulihanLaporan").textContent = laporanTampalPemulihan({ boleh: [], dilangkau: [], ralat });
-    return toast("Tiada baris yang boleh dibaca. Format: HARI WAKTU SUBJEK KELAS (contoh IS 4 MT 3B).", "error");
-  }
-  const grid = weekGrid({ rows: settingVersionRows(version), days: SETTING_DAYS, periods: PERIODS, teacherId: settingTeacherId });
-  const { boleh, dilangkau } = susunTampalPemulihan({ grid, tanda, bolehTanda: claimableCell });
-  for (const item of boleh) {
-    const id = settingKey(item.h, item.w);
-    settingSelection.add(id);
-    settingDetails[id] = { subjek: item.s, kelas: item.k };
-  }
-  renderSettingGrid();
-  $("#tampalPemulihanLaporan").textContent = `${laporanTampalPemulihan({ boleh, dilangkau, ralat })} · tekan Simpan tetapan untuk menghantar ke Sheets.`;
-}
 // Saving rewrites every row of the version in Sheets, so a stale dialog must never win: the school
 // revision is checked first and, when it moved, the version this dialog saw is compared with the
 // fresh one before anything is written.
@@ -1443,8 +1420,6 @@ function wireEvents() {
   $("#saveSettingSlots").addEventListener("click", saveSettingSlots);
   $("#clearSettingSlots").addEventListener("click", clearSettingSlots);
   $("#settingCellApply").addEventListener("click", applySettingCell);
-  // SEMENTARA: kotak tampal senarai waktu pemulihan (buang selepas semua guru selesai mengisi).
-  $("#tampalPemulihanGuna").addEventListener("click", gunaTampalPemulihan);
   $("#settingCellRemove").addEventListener("click", removeSettingCell);
   $$('[data-close-setting-cell]').forEach((button) => button.addEventListener("click", () => $("#settingCellDialog").close()));
   setReliefPanel(reliefPanel);
