@@ -29,8 +29,9 @@ function closure(entry) {
 
 const reached = closure("app.js");
 
-test("the first wave carries the whole module graph", () => {
+test("any modulepreload hint covers the whole module graph", () => {
   const hinted = [...html.matchAll(/<link rel="modulepreload" href="\.\/([A-Za-z0-9._-]+\.js)/g)].map((m) => m[1]);
+  if (!hinted.length) return; // hints were measured and dropped for now; keep this guard for their return
   const missing = [...reached].filter((file) => !hinted.includes(file));
   assert.deepEqual(missing, [], `modul tanpa modulepreload: $..."...`);
   const stale = hinted.filter((file) => !reached.has(file));
