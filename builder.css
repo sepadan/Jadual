@@ -155,6 +155,50 @@
 }
 #builderRoot .sheet *{color:#000}
 #builderRoot .sheet.pdf-capture{border:0;box-shadow:none;border-radius:0;margin:0}
+/* Bentuk muka surat cetak = A4 landskap sebenar (skop asas: eksport berjalan pada semua lebar). Eksport mengecilkan lebar 1100px kepada 287 mm, jadi
+   767px tinggi menjadi 200 mm: meja mengisi kertas dan bukan sekadar jalur di tengah dengan jalur putih. */
+#builderRoot #cetakArea .sheet{min-height:767px;display:flex;flex-direction:column}
+#builderRoot #cetakArea .sh-body{flex:1;min-height:0}
+#builderRoot #cetakArea table.pt,#builderRoot #cetakArea table.pt-master{height:100%}
+/* Teks dan baris dibesarkan ~1.5x supaya meja yang kini setinggi A4 benar-benar terbaca, bukan sel
+   besar dengan tulisan kecil. Tinggi meja kekal 100% supaya baki ruang diserap oleh baris. */
+#builderRoot #cetakArea .sh-body{flex:1;min-height:0;align-items:stretch}
+#builderRoot #cetakArea .sh-main{display:flex;flex-direction:column}
+#builderRoot #cetakArea table.pt th,#builderRoot #cetakArea table.pt td{height:84px;font-size:16px}
+#builderRoot #cetakArea table.pt th{font-size:19px;padding:3px 2px}
+#builderRoot #cetakArea table.pt th .tm{font-size:10px}
+#builderRoot #cetakArea .pt-rest-head{font-size:12px!important}
+#builderRoot #cetakArea table.pt td.day{font-size:24px}
+#builderRoot #cetakArea table.pt td.vert{font-size:28px;width:40px}
+#builderRoot #cetakArea .pt-col-rest{width:42px}
+#builderRoot #cetakArea .pt-col-day{width:70px}
+#builderRoot #cetakArea .pc{padding:12px 2px 2px}
+#builderRoot #cetakArea .pc .psub{font-size:12px}
+#builderRoot #cetakArea .pc .pmid{font-size:16px}
+#builderRoot #cetakArea .pc .pgr{font-size:11px}
+#builderRoot #cetakArea table.pt-master th,#builderRoot #cetakArea table.pt-master td{height:64px;font-size:13px}
+#builderRoot #cetakArea table.pt-master thead th{height:96px;font-size:17px}
+#builderRoot #cetakArea table.pt-master .pt-master-name{font-size:13px}
+#builderRoot #cetakArea table.pt-master .pt-master-cell .pgr{font-size:10px}
+#builderRoot #cetakArea table.pt-master td.pt-master-pre{font-size:20px}
+#builderRoot #cetakArea .sh-head{min-height:104px}
+#builderRoot #cetakArea .sh-title .s1{font-size:32px}
+#builderRoot #cetakArea .sh-title .s2{font-size:22px}
+#builderRoot #cetakArea .sh-title .s3{font-size:29px}
+#builderRoot #cetakArea .sh-title .s3.sh-title-sm{font-size:23px}
+#builderRoot #cetakArea .sh-title .s3.sh-title-xs{font-size:19px}
+#builderRoot #cetakArea .sh-meta{font-size:15px;width:200px;flex:0 0 200px}
+#builderRoot #cetakArea .sh-brand{width:190px;flex:0 0 190px}
+#builderRoot #cetakArea .sh-logo{width:88px;height:88px}
+#builderRoot #cetakArea .sh-side{width:330px;flex:0 0 330px}
+#builderRoot #cetakArea table.sum th,#builderRoot #cetakArea table.sum td{font-size:15px;padding:3px 6px}
+#builderRoot #cetakArea table.sum th{font-size:15px}
+#builderRoot #cetakArea table.sum td.sum-fit-sm{font-size:13px}
+#builderRoot #cetakArea table.sum td.sum-fit-xs{font-size:11px}
+#builderRoot #cetakArea .sh-sign{font-size:15px}
+#builderRoot #cetakArea .sh-sign .nm{font-size:16px}
+#builderRoot #cetakArea .sh-foot{font-size:13px}
+#builderRoot #cetakArea .legend i{font-size:15px}
 #builderRoot .sh-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;min-height:66px}
 #builderRoot .sh-brand{width:142px;flex:0 0 142px;display:flex;align-items:flex-start;gap:6px}
 #builderRoot .sh-logo{width:60px;height:60px;object-fit:contain;flex:0 0 auto}
@@ -178,7 +222,9 @@
 #builderRoot .pt-col-rest{width:30px}
 #builderRoot .pt-rest-head{font-size:8px!important;overflow-wrap:anywhere;writing-mode:horizontal-tb}
 #builderRoot table.pt td.day{width:52px;font-size:17px;font-weight:700}
-#builderRoot table.pt td.vert{width:28px;writing-mode:vertical-rl;transform:rotate(180deg);font-size:19px;font-weight:700;letter-spacing:.06em}
+#builderRoot table.pt td.vert{width:28px;position:relative;padding:0;font-size:19px;font-weight:700;letter-spacing:.06em}
+#builderRoot table.pt td.vert .vtext{position:absolute;left:50%;top:50%;white-space:nowrap;line-height:1;
+  transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center center}
 #builderRoot table.pt td.cellv{position:relative;padding:0}
 #builderRoot .pc{height:100%;display:flex;flex-direction:column;justify-content:center;padding:9px 1px 1px;overflow:hidden}
 #builderRoot .pc .psub{position:absolute;top:1px;left:2px;font-size:8.5px;font-weight:700;letter-spacing:.02em;line-height:1}
@@ -191,7 +237,9 @@
 #builderRoot table.pt-master .pt-master-cell{padding:1px;gap:1px}
 #builderRoot table.pt-master .pt-master-cell .pcls{font-weight:800;overflow-wrap:anywhere}
 #builderRoot table.pt-master .pt-master-cell .pgr{font-size:6.5px;overflow-wrap:anywhere}
-#builderRoot table.pt-master td.pt-master-pre{font-size:10px;font-weight:800;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.08em;background:#f7f7f7}
+#builderRoot table.pt-master td.pt-master-pre{font-size:10px;font-weight:800;letter-spacing:.08em;background:#f7f7f7;position:relative;padding:0}
+#builderRoot table.pt-master td.pt-master-pre .vtext{position:absolute;left:50%;top:50%;white-space:nowrap;line-height:1;
+  transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center center}
 #builderRoot table.pt-master .pt-closed{background:#eee}
 #builderRoot table.sum{border-collapse:collapse;width:100%;table-layout:fixed;font-family:Arial,Helvetica,sans-serif}
 #builderRoot table.sum th,#builderRoot table.sum td{border:1px solid #000;font-size:10.5px;padding:1px 4px;text-align:left;vertical-align:middle;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word;line-height:1.05}
@@ -241,6 +289,7 @@
 #builderRoot .mobonly{display:inline-flex}
 #builderRoot #cetakArea{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-inline:-12px;padding-inline:12px}
 #builderRoot #cetakArea .sheet{width:1100px;max-width:none;padding:12px 14px;margin-left:0}
+
 #builderRoot #cetakArea .sh-body{flex-direction:row}
 #builderRoot #cetakArea .sh-side{width:250px;flex:0 0 250px}
 #builderRoot table.dt{font-size:12.5px}

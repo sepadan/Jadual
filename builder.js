@@ -1510,10 +1510,10 @@ function gridSkrin(mode,id,bolehEdit){
   let body='';
   S.hari.forEach((h,d)=>{
     body+=`<tr><td class="day">${HARI_PENDEK[h]||h.slice(0,3)}</td>`;
-    if(pra&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}">${esc(S.masa.pra.label)}</td>`;
+    if(pra&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}"><span class="vtext">${esc(S.masa.pra.label)}</span></td>`;
     for(let p=1;p<=N;p++){
       const c=m[d][p];
-      if(c&&!c.mula){ if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}">REHAT</td>`; continue; }
+      if(c&&!c.mula){ if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}"><span class="vtext">REHAT</span></td>`; continue; }
       if(p>waktuHari(h)){ body+=`<td style="background:repeating-linear-gradient(45deg,transparent,transparent 5px,var(--line) 5px,var(--line) 6px)"></td>`; }
       else if(!c){ body+=`<td class="free ${bolehEdit?'pick':''}" data-d="${d}" data-p="${p}"></td>`; }
       else{
@@ -1525,7 +1525,7 @@ function gridSkrin(mode,id,bolehEdit){
             <span class="cls" style="color:#111;font-size:${szTeks(t.utama)}px">${t.utama}${!t.sudut&&c.jenis==='w'&&c.ref.kunci?' 🔒':''}</span>
             ${t.kecil?`<span class="gr" style="color:#444">${t.kecil}</span>`:''}</div></td>`;
       }
-      if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}">REHAT</td>`;
+      if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}"><span class="vtext">REHAT</span></td>`;
     }
     body+=`</tr>`;
   });
@@ -1656,7 +1656,7 @@ function gridInduk(){
         body+=`<td class="has" colspan="${c.len}" style="--sc:${esc(t.warna)}"><div class="cell">
           <span class="cls" style="color:#111;font-size:${szTeks(t.utama)}px">${t.utama}</span>
           ${t.kecil?`<span class="gr" style="color:#444">${t.kecil}</span>`:''}</div></td>`; }
-      if(reh[p]) body+=`<td class="vert" style="background:var(--panel2)"></td>`;
+      if(reh[p]) body+=`<td class="vert" style="background:var(--panel2)"><span class="vtext"></span></td>`;
     }
     body+='</tr>';
   });
@@ -1702,10 +1702,10 @@ function jadualCetak(mode,id){
   let body='';
   S.hari.forEach((h,d)=>{
     body+=`<tr><td class="day">${HARI_PENDEK[h]||h.slice(0,3)}</td>`;
-    if(pra&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}">${esc(S.masa.pra.label)}</td>`;
+    if(pra&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}"><span class="vtext">${esc(S.masa.pra.label)}</span></td>`;
     for(let p=1;p<=N;p++){
       const c=m[d][p];
-      if(c&&!c.mula){ if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}">${esc((reh[p].label||'REHAT'))}</td>`; continue; }
+      if(c&&!c.mula){ if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}"><span class="vtext">${esc((reh[p].label||'REHAT'))}</span></td>`; continue; }
       if(p>waktuHari(h)) body+=`<td style="background:#eee"></td>`;
       else if(!c) body+=`<td></td>`;
       else{
@@ -1715,7 +1715,7 @@ function jadualCetak(mode,id){
           <span class="pcls" style="font-size:${szTeks(t.utama,true)}px">${t.utama}</span>
           ${t.kecil?`<span class="pgr">${t.kecil}</span>`:''}</div></td>`;
       }
-      if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}">${esc((reh[p].label||'REHAT'))}</td>`;
+      if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}"><span class="vtext">${esc((reh[p].label||'REHAT'))}</span></td>`;
     }
     body+='</tr>';
   });
@@ -1847,7 +1847,7 @@ function lembaranIndukBahagian(mode,hari,senarai,indeks,jumlahBahagian){
     const m=matriks(mode,entiti.id);
     const nama=mode==='kelas'?entiti.nama:(entiti.kod||entiti.nama);
     body+=`<tr><th class="pt-master-name" title="${esc(entiti.nama)}">${esc(nama)}</th>`;
-    if(pra&&ri===0) body+=`<td class="vert pt-master-pre" rowspan="${senarai.length}">${esc(S.masa.pra.label||'PENGURUSAN')}</td>`;
+    if(pra&&ri===0) body+=`<td class="vert pt-master-pre" rowspan="${senarai.length}"><span class="vtext">${esc(S.masa.pra.label||'PENGURUSAN')}</span></td>`;
     for(let p=1;p<=N;p++){
       const c=m[d][p];
       if(p>waktuHari(hari)) body+='<td class="pt-closed"></td>';
@@ -1858,7 +1858,7 @@ function lembaranIndukBahagian(mode,hari,senarai,indeks,jumlahBahagian){
           <span class="pcls" style="font-size:${Math.min(11,szTeks(t.utama,true))}px">${t.utama}</span>
           ${kecil?`<span class="pgr">${kecil}</span>`:''}</div></td>`;
       }
-      if(reh[p]&&ri===0) body+=`<td class="vert" rowspan="${senarai.length}">${esc(reh[p].label||'REHAT')}</td>`;
+      if(reh[p]&&ri===0) body+=`<td class="vert" rowspan="${senarai.length}"><span class="vtext">${esc(reh[p].label||'REHAT')}</span></td>`;
     }
     body+='</tr>';
   });
