@@ -375,6 +375,8 @@ dijadualkan mengajar sesuatu lain pada waktu yang sama).
 
 **Satu waktu kelas dikira sekali sahaja, walaupun ada dua guru.** Eksport aSc kadangkala menyenaraikan guru asal dan guru pengganti pada waktu dan subjek yang sama. Sistem menyuaikannya dengan **peranan guru pada kad** (lihat Bahagian 11.5): **Personel MySTEP** mengambil alih slot itu (guru asal tidak lagi memegangnya), **Guru Praktikal** berkongsi slot (guru asal kekal), dan jika tiada pautan gantian, seorang guru menjadi guru utama dan seorang lagi pasangan. Jumlah Waktu Subjek dan Jumlah Waktu Kelas pada ringkasan mengira slot itu **sekali sahaja**; apabila ada slot dikongsi, ringkasan memaparkan nota "(n waktu dikongsi dua guru)". **Beban guru tidak dikurangkan** — setiap guru yang benar-benar mengajar slot itu dikira pada helaian guru.
 
+Butang **"Jana jadual gantian"** di bawah panel Jana Jadual hanya diperlukan untuk draf lama yang dibina sebelum gantian automatik: ia **memindahkan** pemilikan slot kepada Personel MySTEP (bukan menyalin baris), atau menambah guru Praktikal sebagai pasangan. Menekannya berulang kali tidak menambah kiraan.
+
 Draf yang dibina sebelum kemas kini ini perlu **diimport semula** daripada PDF aSc supaya bilangan waktu setiap kelas dan kiraan slot dikemas kini.
 
 **Kokurikulum (KOKU) tidak terpakai kepada Tahap 1 (Tahun 1–3)**, walaupun slot tetap itu

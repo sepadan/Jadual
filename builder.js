@@ -233,7 +233,9 @@ function slotUnikSubjek(kelasId){
   const set=new Set(); let fallback=0;
   agihan.forEach(a=>{
     if(Array.isArray(a.periods)&&a.periods.length) a.periods.forEach(p=>set.add(p));
-    else fallback+=waktuEfektif(a);
+    // Baris tanpa `periods` (agihan manual) dikira ikut waktu. Baris salinan lapuk (dariGantian
+    // tanpa periods) diabaikan supaya slot kongsi tidak pernah dikira berganda.
+    else if(!a.dariGantian) fallback+=waktuEfektif(a);
   });
   return set.size+fallback;
 }
@@ -2576,16 +2578,34 @@ function pautanGantian(){
 function janaJadualGantian(){
   const links=pautanGantian();
   if(!links.length) return {added:0,skipped:0,total:0};
+  // Buang salinan lapuk daripada versi lama (agihan pendua tanpa periods yang menggelembungkan kiraan).
+  S.agihan=S.agihan.filter(a=>!a.dariGantian);
   let added=0,skipped=0,total=0;
   links.forEach(link=>{
+    const replace=String(link.guru.jawatan||'')==='Personel MySTEP';
     S.agihan.filter(a=>a.guruId===link.diganti.id||(a.pairGuruIds||[]).includes(link.diganti.id)).forEach(a=>{
       const subjek=subjekById(a.subjekId);
       const nama=String((subjek&&(subjek.nama||subjek.kod))||'').toUpperCase();
       if(link.subjects.length&&!link.subjects.includes(nama)) return;
       total++;
-      if(S.agihan.some(x=>x.guruId===link.guru.id&&x.kelasId===a.kelasId&&x.subjekId===a.subjekId)){ skipped++; return; }
-      S.agihan.push({id:uid(),kelasId:a.kelasId,subjekId:a.subjekId,guruId:link.guru.id,pairGuruIds:[],waktu:'',ganda:0,dariGantian:true,gantiGuruId:link.diganti.id});
-      added++;
+      if(replace){
+        // MySTEP: pemilikan BERPINDAH (bukan salinan). Guru asal tidak lagi memegang slot.
+        if(a.guruId===link.diganti.id){
+          const sudahAda=S.agihan.some(x=>x!==a&&x.guruId===link.guru.id&&x.kelasId===a.kelasId&&x.subjekId===a.subjekId);
+          if(sudahAda){ S.agihan=S.agihan.filter(x=>x!==a); skipped++; return; }
+          a.guruId=link.guru.id;
+          a.pairGuruIds=(a.pairGuruIds||[]).filter(id=>id!==link.guru.id);
+        } else {
+          if((a.pairGuruIds||[]).includes(link.guru.id)){ skipped++; return; }
+          a.pairGuruIds=[...new Set((a.pairGuruIds||[]).filter(id=>id!==link.diganti.id).concat(link.guru.id).filter(id=>id!==a.guruId))];
+        }
+        added++;
+      } else {
+        // Praktikal: BERKONGSI — kedua-dua guru memegang slot yang sama (satu agihan, periods kekal).
+        if((a.pairGuruIds||[]).includes(link.guru.id)||a.guruId===link.guru.id){ skipped++; return; }
+        a.pairGuruIds=[...new Set([...(a.pairGuruIds||[]),link.guru.id].filter(id=>id!==a.guruId))];
+        added++;
+      }
     });
   });
   simpan(true); ulang();

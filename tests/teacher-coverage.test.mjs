@@ -118,7 +118,7 @@ test("a lesson already filed under the covering teacher is never added twice", (
 test("the builder offers a generated timetable for covering teachers", () => {
   const builder = readFileSync(new URL("../builder.js", import.meta.url), "utf8");
   assert.match(builder, /onclick="janaJadualGantianUI\(\)"/, "the generate screen has no cover-timetable button");
-  assert.match(builder, /dariGantian:true/, "copied allocations are not marked, so they would double on a second press");
+  assert.match(builder, /dariGantian/, "stale cover copies are cleaned up so they cannot double on a second press");
   assert.match(builder, /coversJson:t\.coversJson/, "the builder never receives the cover links from the directory");
 });
 

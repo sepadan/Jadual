@@ -26,34 +26,44 @@ function uniqueRows(rows) {
   });
 }
 
-// Satu slot kelas+hari+waktu dengan SUBJEK SAMA tetapi guru berbeza ialah SATU slot kongsi
-// (guru asal + guru gantian). Pemilik ditentukan oleh pautan gantian pada kad guru:
-//   - Personel MySTEP menggantikan penuh -> guru MySTEP milik slot, guru asal dikeluarkan.
-//   - Guru Praktikal berkongsi -> kedua-dua kekal (pair), guru asal masih ada.
-//   - Tiada pautan -> guru utama + pasangan (pair).
-// Berlaku AUTOMATIK semasa import, tanpa butang manual.
+// Pautan gantian dari kad guru disuaikan dengan baris import secara AUTOMATIK (tanpa butang manual).
+// SEMANTIK (rujuk teacher-coverage.js):
+//   - Personel MySTEP (replace): SETIAP slot milik guru yang diganti BERPINDAH kepada guru MySTEP
+//     (teacherId ditukar); guru asal tidak lagi memegang slot, tidak muncul dalam grid, tiada beban.
+//     Ini berlaku WALAUPUN aSc hanya ada nama guru asal (guru gantian tidak perlu wujud dalam PDF).
+//   - Guru Praktikal (share): slot menjadi milik KEDUA-DUA guru (asal kekal + gantian sebagai
+//     pasangan); kedua-duanya dikira sibuk.
+//   - Tiada pautan: baris kekal seperti sedia ada.
+// Penapis `subjects` pada pautan dipatuhi (senarai kosong = seluruh jadual). Baris yang menjadi
+// pendua selepas pemindahan (cth. kedua-dua nama asal + gantian wujud pada slot sama) digabung
+// SEKALI supaya slot tidak dikira berganda.
 function resolveCoverageRows(rows, teachersDirectory) {
-  const replaceLinks = coverLinks(teachersDirectory).filter((link) => link.replace);
-  if (!replaceLinks.length) return rows;
-  const groups = new Map();
+  const links = coverLinks(teachersDirectory);
+  if (!links.length) return { rows, coveringIds: [] };
+  const coveringIds = new Set();
+  const seen = new Set();
+  const out = [];
+  const push = (row) => {
+    const dk = `${row.teacherId}|${row.day}|${Number(row.period)}|${key(row.className || '')}|${key(row.subject || '')}`;
+    if (seen.has(dk)) return;
+    seen.add(dk);
+    out.push(row);
+  };
   rows.forEach((row) => {
-    const gk = `${key(row.className)}|${row.day}|${Number(row.period)}|${key(row.subject || '')}`;
-    if (!groups.has(gk)) groups.set(gk, []);
-    groups.get(gk).push(row);
+    const link = links.find((item) => item.coveredId === row.teacherId
+      && (!item.subjects.length || item.subjects.includes(String(row.subject || '').trim().toUpperCase())));
+    if (!link) { push(row); return; }
+    coveringIds.add(link.coveringId);
+    if (link.replace) {
+      // MySTEP menggantikan penuh: guru asal dikeluarkan, slot menjadi milik guru gantian.
+      push({ ...row, teacherId: link.coveringId, coveredFor: row.teacherId });
+    } else {
+      // Guru Praktikal berkongsi: guru asal kekal + guru gantian ditambah sebagai pasangan.
+      push(row);
+      push({ ...row, teacherId: link.coveringId, coveredFor: row.teacherId, sharedWith: row.teacherId });
+    }
   });
-  const buang = new Set();
-  groups.forEach((group) => {
-    if (group.length < 2) return;
-    const teacherIds = new Set(group.map((row) => row.teacherId));
-    const subj = String(group[0].subject || '').trim().toUpperCase();
-    replaceLinks.forEach((link) => {
-      if (!teacherIds.has(link.coveringId) || !teacherIds.has(link.coveredId)) return;
-      if (link.subjects.length && !link.subjects.includes(subj)) return;
-      // MySTEP menggantikan: guru asal (covered) dikeluarkan daripada slot ini.
-      group.forEach((row) => { if (row.teacherId === link.coveredId) buang.add(row); });
-    });
-  });
-  return buang.size ? rows.filter((row) => !buang.has(row)) : rows;
+  return { rows: out, coveringIds: [...coveringIds] };
 }
 
 function titleFromRawName(rawName) {
@@ -107,8 +117,11 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
   uniqueRows(validRows);
   let teachingRows=validRows.filter(row=>!row.isDuty&&row.className);
   if(!teachingRows.length) throw new Error('Tiada slot kelas dipadankan untuk membina draf.');
-  // Pautan gantian (Personel MySTEP / Guru Praktikal) disuaikan dengan slot kongsi secara automatik.
-  teachingRows=resolveCoverageRows(teachingRows,teachers);
+  // Pautan gantian (Personel MySTEP / Guru Praktikal) disuaikan secara automatik: slot guru asal
+  // berpindah kepada pengganti (MySTEP) atau dikongsi (Praktikal), walaupun pengganti tiada dalam PDF.
+  const coverage=resolveCoverageRows(teachingRows,teachers);
+  teachingRows=coverage.rows;
+  const coveringIds=coverage.coveringIds;
 
   const baseSchool=state.sekolah||{};
   state.v=3;
@@ -117,7 +130,7 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
 
   const pageByTeacher=new Map((metadata.pages||[]).filter(page=>page.teacherId).map(page=>[page.teacherId,page]));
   const teacherMap=new Map();
-  [...new Set(validRows.map(row=>row.teacherId))].forEach(teacherId=>{
+  [...new Set([...validRows.map(row=>row.teacherId),...coveringIds])].forEach(teacherId=>{
     const directory=teachers.find(teacher=>teacher.active&&teacher.id===teacherId);if(!directory) return;
     const existing=(base.guru||[]).find(guru=>guru.directoryId===directory.id||key(guru.nama)===key(directory.name));
     const guru={...existing,id:existing?.id||makeId('g',teacherMap.size),directoryId:directory.id,nama:directory.name,kod:directory.shortName||existing?.kod||'',jawatan:directory.position||existing?.jawatan||'',gelaran:existing?.gelaran||titleFromRawName(pageByTeacher.get(teacherId)?.rawName),maxHari:Number(existing?.maxHari||8),tidakAda:structuredClone(existing?.tidakAda||[])};
