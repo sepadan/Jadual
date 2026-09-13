@@ -1,28 +1,28 @@
-const VERSION = "3.1.75";
+const VERSION = "3.1.76";
 const CACHE = `sistem-jadual-${VERSION}`;
 const APP_SHELL = [
   "./",
   "./index.html",
 
-  "./styles.css?v=3.1.75",
-  "./app.js?v=3.1.75",
-  "./builder.js?v=3.1.75",
-  "./builder.css?v=3.1.75",
-  "./workspace.css?v=3.1.75",
-  "./builder-relief.js?v=3.1.75",
-  "./admin-api.js?v=3.1.75",
-  "./site-config.js?v=3.1.75",
-  "./public-ui.css?v=3.1.75",
-  "./data.js?v=3.1.75",
-  "./relief-engine.js?v=3.1.75",
-  "./setting-slots.js?v=3.1.75",
-  "./week-view.js?v=3.1.75",
-  "./pdf-import.js?v=3.1.75",
-  "./pdf-builder.js?v=3.1.75",
-  "./teacher-transfer.js?v=3.1.75",
-  "./teacher-coverage.js?v=3.1.75",
-  "./relief-print.js?v=3.1.75",
-  "./relief-pdf.js?v=3.1.75",
+  "./styles.css?v=3.1.76",
+  "./app.js?v=3.1.76",
+  "./builder.js?v=3.1.76",
+  "./builder.css?v=3.1.76",
+  "./workspace.css?v=3.1.76",
+  "./builder-relief.js?v=3.1.76",
+  "./admin-api.js?v=3.1.76",
+  "./site-config.js?v=3.1.76",
+  "./public-ui.css?v=3.1.76",
+  "./data.js?v=3.1.76",
+  "./relief-engine.js?v=3.1.76",
+  "./setting-slots.js?v=3.1.76",
+  "./week-view.js?v=3.1.76",
+  "./pdf-import.js?v=3.1.76",
+  "./pdf-builder.js?v=3.1.76",
+  "./teacher-transfer.js?v=3.1.76",
+  "./teacher-coverage.js?v=3.1.76",
+  "./relief-print.js?v=3.1.76",
+  "./relief-pdf.js?v=3.1.76",
   "./manifest.webmanifest",
   "./icons/icon.svg",
   "./icons/icon-192.png",
@@ -32,7 +32,7 @@ const APP_SHELL = [
 // Pustaka eksport PDF (~2.3 MB) hanya admin perlukan. Ia diisi apabila aplikasi memberitahu SW
 // (selepas log masuk pentadbir); ciri yang digunakan sebelum itu tetap dicache melalui pengendali
 // fetch di bawah. Pelawat awam tidak pernah memuat turunnya.
-const HEAVY_SHELL = ["./vendor/pdf.min.js","./vendor/pdf.worker.min.js","./vendor/html2canvas-1.4.1.min.js","./vendor/jspdf-3.0.4.umd.min.js"];
+const HEAVY_SHELL = ["./vendor/pdf-compat.js","./vendor/pdf.worker.compat.js","./vendor/pdf.min.js","./vendor/pdf.worker.min.js","./vendor/html2canvas-1.4.1.min.js","./vendor/jspdf-3.0.4.umd.min.js"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
