@@ -113,6 +113,95 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
     if(kelas&&guru) kelas.guruKelas=guru.id;
   });
 
+  // --- Slot tetap (aktiviti bukan kelas: KOKU, PER, B.ALQ, 1M1S) ---
+  // Dibina DAHULU supaya inferens "tamat hari" (waktuHari) boleh merangkumi SEMUA blok persekolahan
+  // yang sah untuk kelas (cth. KOKU RABU 11-12), TANPA memasukkan aktiviti itu ke dalam jumlah subjek,
+  // agihan atau beban guru (agihan/beban kekal berasaskan teachingRows sahaja, di bawah).
+  const dutySlots=new Map();
+  // Masa pemulihan menyimpan subjek + kelas asal murid selepas penanda "PEMULIHAN · " (lihat
+  // setting-slots.js); kod aktiviti kekal penanda sahaja supaya satu baris aktiviti dikongsi.
+  const dutyKod=row=>upper(String(row.subject||'AKTIVITI').split('·')[0]||'AKTIVITI');
+  validRows.filter(row=>row.isDuty||!row.className).forEach(row=>{
+    const dutyKey=`${dutyKod(row)}|${DAYS[row.day]}|${Number(row.period)}`;
+    if(!dutySlots.has(dutyKey)) dutySlots.set(dutyKey,{kod:dutyKod(row),hari:DAYS[row.day],period:Number(row.period),teachers:[]});
+    const guruId=teacherMap.get(row.teacherId)?.id;if(guruId&&!dutySlots.get(dutyKey).teachers.includes(guruId))dutySlots.get(dutyKey).teachers.push(guruId);
+  });
+  const duties=[...dutySlots.values()].map(item=>({...item,teachers:item.teachers.sort()})).sort((a,b)=>a.kod.localeCompare(b.kod)||DAY_ORDER.indexOf(a.hari)-DAY_ORDER.indexOf(b.hari)||a.period-b.period);
+  // Aktiviti bukan kelas (KOKU, PER, B.ALQ, 1M1S) dihadkan kepada kelas yang benar-benar ada aktiviti
+  // itu. Guru yang membawa aktiviti dikaitkan dengan kelas mereka (guru kelas); semua kelas terlibat
+  // -> skop 'semua', sebahagian -> skop 'kelas' dengan senarai, tiada padanan kelas -> kekal 'guru'.
+  const kelasByGuru=new Map();
+  state.kelas.forEach(k=>{ if(k.guruKelas){ if(!kelasByGuru.has(k.guruKelas)) kelasByGuru.set(k.guruKelas,[]); kelasByGuru.get(k.guruKelas).push(k.id); } });
+  duties.forEach(item=>{
+    let kelasTerlibat=[...new Set((item.teachers||[]).flatMap(gid=>kelasByGuru.get(gid)||[]))];
+    // KOKU hanya untuk Tahap 2 (Tahun 4–6); jangan sekali-kali skop KOKU kepada kelas Tahap 1.
+    if(item.kod==='KOKU') kelasTerlibat=kelasTerlibat.filter(id=>{const k=state.kelas.find(x=>x.id===id);return k&&Number(k.tahap)>=4;});
+    const semuaKelas=state.kelas.length>0&&kelasTerlibat.length===state.kelas.length;
+    const skop=semuaKelas?'semua':(kelasTerlibat.length?'kelas':'guru');
+    const guruList=skop==='guru'?item.teachers:[];
+    const kelasList=skop==='kelas'?kelasTerlibat:[];
+    const previous=state.acara.at(-1);
+    const canJoin=previous&&previous.kod===item.kod&&previous.hari===item.hari&&previous.mula+previous.panjang===item.period&&previous.skop===skop&&sameTeacherSet(previous.guru||[],guruList)&&sameTeacherSet(previous.kelas||[],kelasList);
+    if(canJoin) previous.panjang+=1;
+    else state.acara.push({id:makeId('event',state.acara.length),nama:item.kod,kod:item.kod,warna:'#e2e8f0',hari:item.hari,mula:item.period,panjang:1,skop,guru:guruList,kelas:kelasList,tahap:[]});
+  });
+
+  // Bilangan waktu per kelas per hari (inferens tamat hari). Eksport guru aSc TIADA penanda waktu
+  // balik yang jelas, jadi nilai ini ialah INFERENS (perlu pengesahan) — bukan fakta pasti. Ia
+  // merangkumi SEMUA blok persekolahan yang sah: slot subjek (teachingRows) DAN acara tetap yang
+  // terpakai, supaya sempadan tidak menutup aktiviti (cth. KOKU 11-12 menjadikan RABU ≥12).
+  // Provenance disimpan PER HARI dalam kelas.waktuHariAuto; hanya hari yang diedit manual (nilai
+  // semasa berbeza daripada nilai auto) yang kekal apabila PDF baru berbeza.
+  const waktuHariMap=new Map();
+  teachingRows.forEach(row=>{
+    const kelas=classMap.get(key(row.className)); if(!kelas) return;
+    const day=DAYS[row.day], period=Number(row.period);
+    if(!day||!(period>=1)) return;
+    if(!waktuHariMap.has(kelas.id)) waktuHariMap.set(kelas.id,{});
+    const byDay=waktuHariMap.get(kelas.id);
+    byDay[day]=Math.max(byDay[day]||0,period);
+  });
+  // Sambung tamat hari dengan acara tetap yang terpakai (bukan acara skop guru — itu blok guru sahaja).
+  (state.acara||[]).forEach(a=>{
+    const akhir=Number(a.mula)+Number(a.panjang||1)-1; if(!(akhir>=1)) return;
+    const day=a.hari; if(!day) return;
+    const sasaran=a.skop==='semua'?state.kelas.map(k=>k.id):(a.skop==='kelas'?(a.kelas||[]):[]);
+    sasaran.forEach(kid=>{
+      if(!waktuHariMap.has(kid)) waktuHariMap.set(kid,{});
+      const byDay=waktuHariMap.get(kid);
+      byDay[day]=Math.max(byDay[day]||0,akhir);
+    });
+  });
+  state.kelas.forEach(kelas=>{
+    const byDay=waktuHariMap.get(kelas.id); if(!byDay) return;
+    const auto=kelas.waktuHariAuto||{}, cur=kelas.waktuHari||{};
+    const merged={...cur}, nextAuto={...auto};
+    Object.keys(byDay).forEach(day=>{
+      const baru=byDay[day];
+      const autoN=(auto[day]==null||auto[day]==='')?null:Number(auto[day]);
+      const curN=(cur[day]==null||cur[day]==='')?null:Number(cur[day]);
+      const manual=autoN!=null&&curN!=null&&curN!==autoN;
+      if(!manual){ merged[day]=baru; nextAuto[day]=baru; }
+    });
+    kelas.waktuHari=merged; kelas.waktuHariAuto=nextAuto;
+  });
+  // Amaran konflik: override manual yang memotong aktiviti sumber (cth. waktuHari lebih kecil
+  // daripada akhir acara tetap yang terpakai) — aktiviti TIDAK dipadam, tetapi direkod sebagai
+  // amaran supaya pentadbir tahu sempadan yang di-override memotong blok persekolahan sebenar.
+  const konflik=[];
+  state.kelas.forEach(kelas=>{
+    (state.acara||[]).forEach(a=>{
+      const berlaku=a.skop==='semua'||(a.skop==='kelas'&&(a.kelas||[]).includes(kelas.id));
+      if(!berlaku) return;
+      const akhir=Number(a.mula)+Number(a.panjang||1)-1;
+      const wh=kelas.waktuHari?.[a.hari];
+      if(wh!=null&&wh!==''&&Number(wh)<akhir){
+        konflik.push({kelasId:kelas.id,nama:kelas.nama,hari:a.hari,kod:a.kod,mula:Number(a.mula),akhir,waktuHari:Number(wh)});
+      }
+    });
+  });
+  if(konflik.length) state.amaran=konflik;
+
   const mapped=teachingRows.map(row=>({...row,hari:DAYS[row.day],period:Number(row.period),guruId:teacherMap.get(row.teacherId)?.id,kelasId:classMap.get(key(row.className))?.id,subjekId:subjectMap.get(key(row.subject||'SUBJEK'))?.id})).filter(row=>row.guruId&&row.kelasId&&row.subjekId).sort((a,b)=>a.guruId.localeCompare(b.guruId)||DAY_ORDER.indexOf(a.hari)-DAY_ORDER.indexOf(b.hari)||a.period-b.period||a.kelasId.localeCompare(b.kelasId));
   mapped.forEach(row=>{
     const previous=state.jadual.slots.at(-1);
@@ -147,22 +236,6 @@ export function draftFromPdf(rows,teachers,base={},metadata={}) {
     const byStage=new Map();
     state.agihan.filter(item=>item.subjekId===subject.id).forEach(item=>{const kelas=state.kelas.find(value=>value.id===item.kelasId);if(!kelas)return;if(!byStage.has(kelas.tahap))byStage.set(kelas.tahap,[]);byStage.get(kelas.tahap).push(Number(item.waktu));});
     const allocation={};byStage.forEach((values,stage)=>allocation[stage]=mostCommon(values));if(Object.keys(allocation).length)state.peruntukan[subject.id]=allocation;
-  });
-
-  const dutySlots=new Map();
-  // Masa pemulihan menyimpan subjek + kelas asal murid selepas penanda "PEMULIHAN · " (lihat
-  // setting-slots.js); kod aktiviti kekal penanda sahaja supaya satu baris aktiviti dikongsi.
-  const dutyKod=row=>upper(String(row.subject||'AKTIVITI').split('·')[0]||'AKTIVITI');
-  validRows.filter(row=>row.isDuty||!row.className).forEach(row=>{
-    const dutyKey=`${dutyKod(row)}|${DAYS[row.day]}|${Number(row.period)}`;
-    if(!dutySlots.has(dutyKey)) dutySlots.set(dutyKey,{kod:dutyKod(row),hari:DAYS[row.day],period:Number(row.period),teachers:[]});
-    const guruId=teacherMap.get(row.teacherId)?.id;if(guruId&&!dutySlots.get(dutyKey).teachers.includes(guruId))dutySlots.get(dutyKey).teachers.push(guruId);
-  });
-  const duties=[...dutySlots.values()].map(item=>({...item,teachers:item.teachers.sort()})).sort((a,b)=>a.kod.localeCompare(b.kod)||DAY_ORDER.indexOf(a.hari)-DAY_ORDER.indexOf(b.hari)||a.period-b.period);
-  duties.forEach(item=>{
-    const previous=state.acara.at(-1),canJoin=previous&&previous.kod===item.kod&&previous.hari===item.hari&&previous.mula+previous.panjang===item.period&&sameTeacherSet(previous.guru||[],item.teachers);
-    if(canJoin) previous.panjang+=1;
-    else {const allTeachers=item.teachers.length===state.guru.length;state.acara.push({id:makeId('event',state.acara.length),nama:item.kod,kod:item.kod,warna:'#e2e8f0',hari:item.hari,mula:item.period,panjang:1,skop:allTeachers?'semua':'guru',guru:allTeachers?[]:item.teachers,kelas:[]});}
   });
 
   const timing=(metadata.periods||[]).length?metadata.periods:validRows.map(row=>({period:Number(row.period),startTime:row.startTime,endTime:row.endTime})).filter(item=>item.startTime&&item.endTime);

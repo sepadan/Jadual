@@ -302,13 +302,13 @@ Selain membaca jadual, admin boleh **membina** jadual dari kosong atau mengimpor
 | Bahagian | Fungsi |
 |---|---|
 | Ruang bina jadual (Papan Utama) | Ringkasan bilangan kelas, guru, subjek, waktu seminggu dan status persediaan. |
-| Sekolah & masa (Tetapan) | Nama sekolah, tahun, hari persekolahan, masa mula, tempoh waktu, waktu rehat. |
+| Sekolah & masa (Tetapan) | Nama sekolah, tahun, hari persekolahan, masa mula, tempoh waktu, waktu rehat, dan **Bilangan Waktu Ikut Kelas** — waktu balik setiap kelas boleh berbeza ikut kelas *dan* ikut hari (lihat Bahagian 8.3). |
 | Subjek | Kod, nama, warna, subjek teras / waktu pagi. |
 | Kelas | Nama kelas dan tahap tahun (1–6). |
 | Guru & ketersediaan | Nama, kod, had waktu sehari, waktu guru tidak boleh mengajar. |
 | Peruntukan waktu | Bilangan waktu setiap subjek mengikut tahun/tahap. |
 | Agihan guru | Guru yang mengajar subjek tertentu di kelas tertentu. |
-| Slot tetap | Perhimpunan, kokurikulum dan aktiviti berjadual tetap (**juga asas kepada masa tetapan guru pemulihan** — lihat Bahagian 11.5). |
+| Slot tetap | Perhimpunan, kokurikulum dan aktiviti berjadual tetap (**juga asas kepada masa tetapan guru pemulihan** — lihat Bahagian 11.5). Dikira berasingan daripada waktu subjek dan tiada beban guru, tetapi tetap masuk dalam Jumlah Waktu Kelas — lihat Bahagian 8.3. |
 | Kekangan | Had waktu berturut-turut, keutamaan waktu pagi untuk subjek teras, kemudahan terhad. |
 | Jana jadual | Menjana jadual secara automatik berdasarkan data di atas. |
 | Lihat & edit | Menyemak dan mengubah jadual yang dijana, termasuk menyemak isu/pertembungan. |
@@ -339,6 +339,48 @@ Jika peranti ini masih menyimpan kerja yang belum dinaikkan ke Sheets, **draf Sh
 - Draf yang terus diubah selepas pengaktifan **tidak** menjejaskan jadual relief yang sedang berkuat kuasa sehingga ia diaktifkan semula secara eksplisit.
 
 > **Amalan selamat:** sebelum menekan **Aktifkan jadual**, pastikan tarikh kuat kuasa betul. Semua cadangan relief selepas itu — dan semua **masa tetapan guru pemulihan** — akan dikira daripada versi baharu ini.
+
+### 8.3 Bilangan waktu ikut kelas, waktu balik, dan slot tetap
+
+**Setiap kelas boleh mempunyai bilangan waktu sehari yang berbeza — dan berbeza pula ikut hari.**
+Contoh sebenar: Tahun 1 pulang lebih awal daripada Tahun 6 pada hari yang sama, dan sesetengah
+kelas pulang lebih awal pada hari Jumaat berbanding hari lain. Ini ditetapkan pada jadual
+**"Bilangan Waktu Ikut Kelas"** dalam **Sekolah & masa (Tetapan)**: satu baris bagi setiap kelas,
+satu lajur bagi setiap hari. Sel yang dikosongkan menggunakan bilangan waktu hari persekolahan
+(nilai global) sebagai lalai — ia **tidak** mengira jumlah subjek atau beban guru kelas itu; ia
+semata-mata sempadan **waktu balik**. Jana jadual **tidak akan** meletakkan sebarang waktu selepas
+sempadan ini bagi kelas berkenaan, walaupun hari itu masih dibuka untuk kelas lain yang pulang
+lebih lewat.
+
+Bilangan waktu sehari ini **termasuk** sebarang slot tetap yang sah pada hari itu (contoh KOKU pada
+waktu terakhir) — waktu balik sebenar ialah waktu tamat aktiviti terakhir, sama ada ia pengajaran
+subjek atau slot tetap.
+
+Ringkasan skrin dan ringkasan cetak (jadual sisi pada helaian PDF) memaparkan **tiga jumlah yang
+berasingan** bagi setiap kelas, supaya slot tetap tidak disamakan dengan waktu mengajar tetapi juga
+tidak "hilang" daripada jumlah keseluruhan:
+
+| Jumlah | Apa yang dikira | Contoh (1 BIJAK) |
+|---|---|---|
+| **Jumlah waktu subjek** | Hanya waktu pengajaran subjek sebenar (baris subjek + guru). | 47 |
+| **Jumlah waktu tetapan** | Hanya slot tetap (Perhimpunan/PER, 1M1S, B. Al-Quran, Kokurikulum/KOKU dan slot tetap lain). | 4 |
+| **Jumlah waktu kelas** | Subjek **+** tetapan — jumlah keseluruhan waktu kelas itu sehari/seminggu, sepadan dengan bilangan waktu ikut kelas di atas. | 51 |
+
+Slot tetap kekal kelihatan pada grid jadual seperti biasa dan **turut dikira** dalam Jumlah Waktu
+Kelas (kerana ia benar-benar menduduki waktu kelas itu), tetapi **tidak** muncul sebagai baris
+dalam ringkasan subjek dan **tidak** menambah beban seorang guru — slot tetap tiada guru
+pengajaran yang ditugaskan kepadanya, jadi ia tidak mempunyai nilai "beban" pada mana-mana guru
+(walaupun ia menduduki waktu guru itu jika slot tetap berskop guru/semua, guru itu tidak boleh
+dijadualkan mengajar sesuatu lain pada waktu yang sama).
+
+**Kokurikulum (KOKU) tidak terpakai kepada Tahap 1 (Tahun 1–3)**, walaupun slot tetap itu
+dikonfigurasikan merangkumi tahap tersebut (contoh: skop "Tahap terpilih" tersilap tanda Tahun 1–3
+sekali). Sistem mengecualikan kelas Tahun 1–3 secara automatik daripada KOKU pada grid, ringkasan
+dan semasa jana jadual; Tahun 4–6 tidak terjejas.
+
+> **Import aSc mengisi bilangan waktu ikut kelas secara automatik** (ditanda "auto/inferens",
+> perlu disahkan) — lihat Bahagian 9.5 untuk cara ia berfungsi dan cara override manual per hari
+> dikekalkan.
 
 ---
 
@@ -376,6 +418,30 @@ Sistem memadankan nama pada setiap halaman PDF dengan nama dalam tab **Guru**, s
 | **Buka sebagai draf pembina** | Memindahkan hasil import ke **draf pembina** pada peranti untuk disemak dan disunting lanjut. Ia menggantikan draf pembina semasa selepas pengesahan, dan **tidak** menyimpan apa-apa ke Google Sheets sehingga anda menekan **Simpan draf ke Sheets**. Jadual aktif sedia ada tidak berubah. |
 
 > Jika masa tetapan guru pemulihan pernah ditanda pada versi lama, ia **tidak** berpindah ke versi baharu secara automatik. Selepas mengaktifkan versi baharu, buka semula **Tetapan Jadual** guru pemulihan berkenaan dan tandakan kembali waktunya (Bahagian 11).
+
+### 9.5 Bilangan waktu ikut kelas selepas import — auto, pengesahan, dan override manual
+
+PDF aSc tidak menyatakan waktu balik secara eksplisit, jadi import mengira **bilangan waktu per
+kelas per hari** daripada waktu terakhir yang terisi pada PDF bagi kelas dan hari berkenaan, lalu
+menandanya sebagai **auto (inferens)** — sel berlatar kuning pada jadual "Bilangan Waktu Ikut
+Kelas" (Bahagian 8.3), dengan petua "Inferens — sahkan" apabila tuding tetikus diletakkan di
+atasnya. **Semak dan sahkan** nilai ini selepas setiap import, terutamanya jika hari terakhir
+seseorang kelas kebetulan tiada subjek eksplisit pada waktu terakhir sebenar.
+
+Mengedit **satu sel** (satu hari, satu kelas) menandakan **hari itu sahaja** sebagai disahkan
+(latar bertukar putih) — hari-hari **lain** kelas yang sama kekal auto sehingga turut disahkan
+secara berasingan. Pengesahan satu hari tidak "mengesahkan" hari lain secara senyap.
+
+Apabila PDF yang sama atau PDF kemas kini diimport semula ke draf yang sama:
+
+- Hari yang **belum disahkan** (masih auto) dikemas kini mengikut nilai PDF terbaharu.
+- Hari yang **sudah disahkan** (override manual) **kekal** nilai yang disahkan itu, tidak ditimpa
+  oleh import semula.
+
+> **Pembetulan ini terpakai pada import/draf baharu**, bukan draf yang sudah wujud sebelum
+> kemas kini ini — draf lama tidak ditanda semula secara automatik. Jika bilangan waktu sesuatu
+> kelas pada draf sedia ada dipercayai silap, import semula PDF ke draf itu (atau sahkan/betulkan
+> sel berkenaan secara manual) supaya penanda auto/disahkan terkini terpakai.
 
 ---
 

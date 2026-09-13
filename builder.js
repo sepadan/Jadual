@@ -121,7 +121,12 @@ function muat(){
 /* ---------- Pengiraan masa ---------- */
 function mm(hhmm){ const [h,m]=String(hhmm||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
 function hm(t){ t=((t%1440)+1440)%1440; const h=Math.floor(t/60), m=t%60; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
-function maxWaktu(){ return Math.max(...S.hari.map(h=>num(S.masa.waktu[h],0)),0); }
+function maxWaktu(){
+  let m=0;
+  S.hari.forEach(h=>{ m=Math.max(m,num(S.masa.waktu[h],0)); });
+  S.kelas.forEach(k=>{ if(k&&k.waktuHari) S.hari.forEach(h=>{ m=Math.max(m,num(k.waktuHari[h],0)); }); });
+  return m;
+}
 function rehatSelepas(){ const m={}; (S.masa.rehat||[]).forEach(r=>{ m[num(r.selepas)]=r; }); return m; }
 /** Senarai { p, mula, tamat } untuk waktu 1..N + rehat */
 function jalurMasa(){
@@ -144,6 +149,21 @@ function waktuPagi(p){
   return r.length? p<=r[0] : p<=Math.ceil(maxWaktu()/2);
 }
 function waktuHari(h){ return num(S.masa.waktu[h], maxWaktu()); }
+/** Bilangan waktu untuk satu kelas pada satu hari; gugur ke nilai hari global (maksimum). */
+function waktuHariKelas(kelasId,hari){
+  const k=S.kelas.find(x=>x.id===kelasId);
+  const raw=k&&k.waktuHari?k.waktuHari[hari]:undefined;
+  if(raw!=null&&raw!=='') return num(raw,0);
+  return num(S.masa.waktu[hari], maxWaktu());
+}
+/** Adakah satu hari pada kelas ini ialah override manual (nilai semasa berbeza daripada nilai auto import). */
+function hariManual(kelasId,hari){
+  const k=S.kelas.find(x=>x.id===kelasId); if(!k) return false;
+  const cur=k.waktuHari?.[hari], auto=k.waktuHariAuto?.[hari];
+  const curN=(cur==null||cur==='')?null:num(cur,0);
+  const autoN=(auto==null||auto==='')?null:num(auto,0);
+  return curN!=null&&autoN!=null&&curN!==autoN;
+}
 
 function tahunKelas(kelas){
   const tahap=Number(kelas&&kelas.tahap);
@@ -167,6 +187,30 @@ function namaGuru(id,pendek){ const g=guruById(id); if(!g) return '—'; return 
 function kodSubjek(id){ const s=subjekById(id); return s?s.kod:'?'; }
 function namaKelas(id){ const k=kelasById(id); return k?k.nama:'?'; }
 function warnaSubjek(id){ const s=subjekById(id); return s?(s.warna||'#e6e6e6'):'#e6e6e6'; }
+/** Adakah satu kelas layak untuk satu acara (KOKU hanya Tahap 2 / Tahun 4–6). */
+function kelasLayakAcara(a, kelasId){
+  if(a.kod==='KOKU'){ const k=kelasById(kelasId); if(!k||Number(k.tahap)<4) return false; }
+  return true;
+}
+/** Tahap yang berkuat kuasa bagi satu acara (KOKU terhad kepada Tahun 4–6). */
+function tahapEfektifAcara(a){
+  const t=a.tahap||[];
+  return a.kod==='KOKU' ? t.filter(x=>Number(x)>=4) : t;
+}
+/** Senarai id kelas yang benar-benar terlibat dengan satu slot tetap/acara (ikut skop). */
+function kelasTerkenaAcara(a){
+  if(a.skop==='semua') return S.kelas.filter(k=>kelasLayakAcara(a,k.id)).map(k=>k.id);
+  if(a.skop==='kelas') return (a.kelas||[]).filter(id=>kelasLayakAcara(a,id));
+  if(a.skop==='tahap') return S.kelas.filter(k=>tahapEfektifAcara(a).includes(Number(k.tahap))).map(k=>k.id);
+  return [];
+}
+/** Adakah guru terlibat dengan acara skop tahap (guru kelas / mengajar kelas tahap itu). */
+function guruAjarTahap(guruId,tahapArr){
+  const t=new Set((tahapArr||[]).map(Number));
+  const tahapKelas=kid=>{ const k=kelasById(kid); return k&&t.has(Number(k.tahap)); };
+  if(S.kelas.some(k=>k.guruKelas===guruId&&t.has(Number(k.tahap)))) return true;
+  return (S.agihan||[]).some(a=>(a.guruId===guruId||(a.pairGuruIds||[]).includes(guruId))&&tahapKelas(a.kelasId));
+}
 
 /* Peruntukan waktu untuk kelas+subjek (ikut tahap, boleh diganti pada agihan) */
 function waktuDiperuntuk(kelasId, subjekId){
@@ -242,7 +286,7 @@ function dataContoh(){
   st.acara=[
     {id:uid(),nama:'Perhimpunan',kod:'PER',warna:'#ffe7c7',hari:'ISNIN',mula:1,panjang:1,skop:'semua',guru:[],kelas:[]},
     {id:uid(),nama:'Program 1M1S',kod:'1M1S',warna:'#c9ecff',hari:'SELASA',mula:1,panjang:2,skop:'semua',guru:[],kelas:[]},
-    {id:uid(),nama:'Kokurikulum',kod:'KOKU',warna:'#d9f0d1',hari:'RABU',mula:11,panjang:2,skop:'semua',guru:[],kelas:[]},
+    {id:uid(),nama:'Kokurikulum',kod:'KOKU',warna:'#d9f0d1',hari:'RABU',mula:11,panjang:2,skop:'tahap',tahap:[4,5,6],guru:[],kelas:[]},
     {id:uid(),nama:'Bacaan Al-Quran',kod:'B.ALQ',warna:'#e2f7c4',hari:'JUMAAT',mula:1,panjang:1,skop:'semua',guru:[],kelas:[]}
   ];
   st.masa.waktu={ISNIN:12,SELASA:12,RABU:12,KHAMIS:12,JUMAAT:10};
@@ -326,8 +370,8 @@ function stat(){
   const bebanGuru={}; S.guru.forEach(g=>bebanGuru[g.id]=0);
   S.agihan.forEach(a=>{ const w=waktuEfektif(a); jumWaktu+=w;
     if(!a.guruId) tanpaGuru+=w; else [a.guruId,...(a.pairGuruIds||[])].forEach(id=>bebanGuru[id]=(bebanGuru[id]||0)+w); });
-  const kapasiti=S.hari.reduce((s,h)=>s+waktuHari(h),0)*S.kelas.length;
-  const acaraBlok=(S.acara||[]).filter(a=>a.skop==='semua').reduce((s,a)=>s+num(a.panjang,1),0)*S.kelas.length;
+  const kapasiti=S.kelas.reduce((s,k)=>s+S.hari.reduce((x,h)=>x+waktuHariKelas(k.id,h),0),0);
+  const acaraBlok=(S.acara||[]).reduce((s,a)=>s+num(a.panjang,1)*kelasTerkenaAcara(a).length,0);
   return {jumWaktu,tanpaGuru,bebanGuru,kapasiti,acaraBlok,baki:kapasiti-acaraBlok-jumWaktu};
 }
 function bilJadual(){ return S.jadual&&S.jadual.slots?S.jadual.slots.length:0; }
@@ -434,6 +478,21 @@ VIEWS.tetapan={t:'Tetapan Sekolah & Waktu', r(){
           <input type="number" min="0" max="20" data-whari="${h}" value="${num(S.masa.waktu[h],12)}" ${on?'':'disabled'}>
         </div>`;}).join('')}
     </div>
+  </div>
+
+  <div class="card"><h3>Bilangan Waktu Ikut Kelas</h3>
+    <p class="hint">Kosongkan sel untuk guna bilangan waktu hari persekolahan (maksimum global). Sel <b>kuning</b> = inferens daripada import (perlu pengesahan); sel <b>putih</b> = nilai yang anda sahkan (override manual, kekal selepas import semula).</p>
+    ${(S.amaran||[]).length?`<div class="alert warn" style="margin:0 0 12px"><b>⚠ Konflik sempadan hari</b> — sempadan yang disahkan memotong aktiviti tetap. Aktiviti <b>tidak dipadam</b>, tetapi sel perlu disemak:<ul style="margin:6px 0 0 18px">${S.amaran.map(a=>`<li>${esc(a.nama||a.kelasId)} · ${esc(a.hari)} · ${esc(a.kod)} berakhir waktu <b>${a.akhir}</b>, sempadan anda <b>${a.waktuHari}</b></li>`).join('')}</ul></div>`:''}
+    <div class="tblwrap"><table class="dt"><thead><tr>
+      <th style="min-width:150px">Kelas</th>
+      ${S.hari.map(h=>`<th style="text-align:center">${HARI_PENDEK[h]||h.slice(0,3)}</th>`).join('')}
+    </tr></thead><tbody>
+    ${S.kelas.map((k,ki)=>`<tr><td>${esc(k.nama)}</td>
+      ${S.hari.map(h=>{const v=(k.waktuHari&&k.waktuHari[h]!=null&&k.waktuHari[h]!=='')?num(k.waktuHari[h],0):'';
+        const manual=hariManual(k.id,h);
+        return `<td style="text-align:center" title="${manual?'Disahkan (override manual)':'Inferens — sahkan'}"><input type="number" min="0" max="20" style="width:64px;text-align:center;${manual?'':'background:#fef3c7'}" placeholder="${num(S.masa.waktu[h],12)}" value="${v}" oninput="ubah(()=>{S.kelas[${ki}].waktuHari=S.kelas[${ki}].waktuHari||{};S.kelas[${ki}].waktuHari['${h}']=this.value===''?'':num(this.value,0)})"></td>`;}).join('')}
+    </tr>`).join('')||`<tr><td colspan="${S.hari.length+1}" class="empty">Belum ada kelas.</td></tr>`}
+    </tbody></table></div>
   </div>
 
   <div class="card"><h3>Waktu &amp; Rehat</h3>
@@ -594,7 +653,7 @@ VIEWS.kelas={t:'Kelas', r(){
       <th style="width:110px">Jumlah waktu</th><th style="width:70px"></th></tr></thead><tbody>
     ${S.kelas.map((k,i)=>{
       const jum=S.subjek.reduce((s,sb)=>s+waktuDiperuntuk(k.id,sb.id),0);
-      const kap=S.hari.reduce((s,h)=>s+waktuHari(h),0);
+      const kap=S.hari.reduce((s,h)=>s+waktuHariKelas(k.id,h),0);
       return `<tr>
       <td><input value="${esc(k.nama)}" oninput="ubah(()=>S.kelas[${i}].nama=this.value)"></td>
       <td><select onchange="ubah(()=>S.kelas[${i}].tahap=num(this.value,1));ulang()">
@@ -803,9 +862,8 @@ function agihanIkutKelas(){
   const k=kelasById(agihanKelas);
   const rows=S.agihan.filter(a=>a.kelasId===agihanKelas);
   const jum=rows.reduce((s,a)=>s+waktuEfektif(a),0);
-  const kap=S.hari.reduce((s,h)=>s+waktuHari(h),0);
-  const acaraSemua=(S.acara||[]).filter(a=>a.skop!=='guru'&&(a.skop==='semua'||(a.kelas||[]).includes(agihanKelas)))
-    .reduce((s,a)=>s+num(a.panjang,1),0);
+  const kap=S.hari.reduce((s,h)=>s+waktuHariKelas(agihanKelas,h),0);
+  const acaraSemua=(S.acara||[]).reduce((s,a)=>s+(kelasTerkenaAcara(a).includes(agihanKelas)?num(a.panjang,1):0),0);
   return `<div class="card">
     <div class="row"><div style="flex:1;max-width:320px"><label class="f">Kelas</label>
       <select onchange="agihanKelas=this.value;ulang()">
@@ -904,15 +962,17 @@ VIEWS.acara={t:'Slot Tetap', r(){
       <td><select onchange="ubah(()=>S.acara[${i}].skop=this.value);ulang()">
         <option value="semua" ${a.skop==='semua'?'selected':''}>Seluruh sekolah</option>
         <option value="kelas" ${a.skop==='kelas'?'selected':''}>Kelas terpilih…</option>
+        <option value="tahap" ${a.skop==='tahap'?'selected':''}>Tahap terpilih…</option>
         <option value="guru" ${a.skop==='guru'?'selected':''}>Guru terpilih…</option></select>
         ${a.skop==='kelas'?`<button class="btn sm" style="margin-top:4px" onclick="pilihSenarai(${i},'kelas')">${(a.kelas||[]).length} kelas ▸</button>`:''}
+        ${a.skop==='tahap'?`<button class="btn sm" style="margin-top:4px" onclick="pilihTahap(${i})">${(a.tahap||[]).length} tahap ▸</button>`:''}
         ${a.skop==='guru'?`<button class="btn sm" style="margin-top:4px" onclick="pilihSenarai(${i},'guru')">${(a.guru||[]).length} guru ▸</button>`:''}</td>
       <td><input class="swatch" type="color" value="${esc(a.warna||'#e6e6e6')}" oninput="ubah(()=>S.acara[${i}].warna=this.value)"></td>
       <td><button class="btn sm dgr" onclick="ubah(()=>S.acara.splice(${i},1));ulang()">✕</button></td></tr>`).join('')
       ||`<tr><td colspan="8" class="empty">Tiada slot tetap.</td></tr>`}
     </tbody></table></div>
     <div class="row" style="margin-top:12px">
-      <button class="btn pri" onclick="ubah(()=>S.acara.push({id:uid(),nama:'Aktiviti',kod:'AKT',warna:'#e6e6e6',hari:S.hari[0],mula:1,panjang:1,skop:'semua',guru:[],kelas:[]}));ulang()">+ Tambah slot tetap</button>
+      <button class="btn pri" onclick="ubah(()=>S.acara.push({id:uid(),nama:'Aktiviti',kod:'AKT',warna:'#e6e6e6',hari:S.hari[0],mula:1,panjang:1,skop:'semua',guru:[],kelas:[],tahap:[]}));ulang()">+ Tambah slot tetap</button>
     </div></div>`;
 }};
 function pilihSenarai(i,jenis){
@@ -928,6 +988,21 @@ function pilihSenarai(i,jenis){
 }
 function doPilihSenarai(i,jenis){
   ubah(()=>S.acara[i][jenis]=$$('.psX').filter(c=>c.checked).map(c=>c.value));
+  $('#dlg').close(); ulang();
+}
+function pilihTahap(i){
+  const a=S.acara[i]; const cur=new Set((a.tahap||[]).map(String));
+  $('#dlgBody').innerHTML=`<h3>Pilih tahap — ${esc(a.nama)}</h3>
+    <p class="hint">Slot tetap ini akan dikenakan kepada semua kelas pada tahun terpilih.</p>
+    <div style="max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px">
+    ${[1,2,3,4,5,6].map(t=>`<label class="chk"><input type="checkbox" class="ptX" value="${t}" ${cur.has(String(t))?'checked':''}> Tahun ${t}</label>`).join('')}</div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn" onclick="dlg.close()">Batal</button>
+      <button class="btn pri" onclick="doPilihTahap(${i})">Simpan</button></div>`;
+  $('#dlg').showModal();
+}
+function doPilihTahap(i){
+  ubah(()=>S.acara[i].tahap=$$('.ptX').filter(c=>c.checked).map(c=>num(c.value)));
   $('#dlg').close(); ulang();
 }
 
@@ -985,6 +1060,7 @@ function binaKonteks(){
   const cn=D*N;
   const C={hari,D,N,cn,kelas,guru,subjek,ki,gi,si,
     dayLen:hari.map(h=>Math.min(waktuHari(h),N)),
+    kelasDayLen:kelas.map(k=>hari.map(h=>Math.min(waktuHariKelas(k.id,h),N))),
     brk:rehatSet(),
     kelasBusy:kelas.map(()=>new Int32Array(cn).fill(-1)),
     guruBusy:guru.map(()=>new Int32Array(cn).fill(-1)),
@@ -1005,9 +1081,11 @@ function binaKonteks(){
   [...new Set(subjek.map(s=>s.kemudahan).filter(Boolean))].forEach(k=>{
     C.kem[k]=new Int16Array(cn); C.kemMax[k]=num((S.kekangan.kapasiti||{})[k],2);
   });
-  // sekat waktu di luar bilangan waktu hari
-  for(let d=0;d<D;d++) for(let p=C.dayLen[d]+1;p<=N;p++){
-    const c=d*N+p-1; kelas.forEach((_,i)=>C.kelasBlok[i][c]=1); guru.forEach((_,i)=>C.guruBlok[i][c]=1);
+  // sekat waktu di luar bilangan waktu hari (ikut kelas; guru ikut maksimum global)
+  for(let d=0;d<D;d++) for(let p=1;p<=N;p++){
+    const c=d*N+p-1;
+    kelas.forEach((_,i)=>{ if(p>C.kelasDayLen[i][d]) C.kelasBlok[i][c]=1; });
+    guru.forEach((_,i)=>{ if(p>C.dayLen[d]) C.guruBlok[i][c]=1; });
   }
   // guru tidak tersedia
   guru.forEach((g,i)=>(g.tidakAda||[]).forEach(k=>{
@@ -1019,8 +1097,8 @@ function binaKonteks(){
     const d=hari.indexOf(a.hari); if(d<0) return;
     for(let o=0;o<num(a.panjang,1);o++){
       const p=num(a.mula,1)+o; if(p<1||p>N) continue; const c=d*N+p-1;
-      if(a.skop==='semua'){ kelas.forEach((_,i)=>C.kelasBlok[i][c]=1); guru.forEach((_,i)=>C.guruBlok[i][c]=1); }
-      else if(a.skop==='kelas'){ (a.kelas||[]).forEach(id=>{ if(ki[id]!=null) C.kelasBlok[ki[id]][c]=1; }); }
+      kelasTerkenaAcara(a).forEach(id=>{ if(ki[id]!=null) C.kelasBlok[ki[id]][c]=1; });
+      if(a.skop==='semua'){ guru.forEach((_,i)=>C.guruBlok[i][c]=1); }
       else if(a.skop==='guru'){ (a.guru||[]).forEach(id=>{ if(gi[id]!=null) C.guruBlok[gi[id]][c]=1; }); }
     }
   });
@@ -1058,7 +1136,7 @@ function unitGuruIndexes(u){ return [...new Set([u.g,...(u.pairGs||[])])]; }
 /* ---------- Semakan & letakan ---------- */
 function slotSah(C,u,d,p){
   const N=C.N, base=d*N;
-  if(p<1||p+u.len-1>C.dayLen[d]) return false;
+  if(p<1||p+u.len-1>C.kelasDayLen[u.k][d]) return false;
   if(u.len===2 && C.brk.has(p)) return false;           // jangan merentas rehat
   for(let o=0;o<u.len;o++){
     const c=base+p+o-1;
@@ -1109,7 +1187,7 @@ function buang(C,u){
 function skorSlot(C,u,d,p){
   const K=S.kekangan; let s=0;
   if(K.terasPagi && u.pagi && !waktuPagi(p)) s+=7;
-  if(K.elakAkhirTeras && u.teras && p+u.len-1>=C.dayLen[d]) s+=4;
+  if(K.elakAkhirTeras && u.teras && p+u.len-1>=C.kelasDayLen[u.k][d]) s+=4;
   if(K.sebarHari){ const nS=Math.max(1,C.subjek.length);
     const ada=C.subDay[u.k][d*nS+u.s], ideal=C.ideal[u.k][u.s];
     s+=Math.max(0,(ada+u.len)-ideal)*6; }
@@ -1131,7 +1209,7 @@ function kosKeseluruhan(C,units){
   const K=S.kekangan; let kos=0;
   units.forEach(u=>{ if(u.d==null){kos+=200;return;}
     if(K.terasPagi&&u.pagi&&!waktuPagi(u.p)) kos+=7;
-    if(K.elakAkhirTeras&&u.teras&&u.p+u.len-1>=C.dayLen[u.d]) kos+=4;
+    if(K.elakAkhirTeras&&u.teras&&u.p+u.len-1>=C.kelasDayLen[u.k][u.d]) kos+=4;
   });
   const nS=Math.max(1,C.subjek.length);
   if(K.sebarHari) for(let k=0;k<C.kelas.length;k++) for(let d=0;d<C.D;d++) for(let s=0;s<nS;s++){
@@ -1155,7 +1233,7 @@ function cariSlotTerbaik(C,u,sd){
   const hariOrder=Array.from({length:C.D},(_,i)=>i);
   shuffle(hariOrder,sd);
   for(const d of hariOrder){
-    for(let p=1;p+u.len-1<=C.dayLen[d];p++){
+    for(let p=1;p+u.len-1<=C.kelasDayLen[u.k][d];p++){
       if(!slotSah(C,u,d,p)||!bebasDi(C,u,d,p)) continue;
       if(!larianOk(C,u,d,p)) continue;
       const s=skorSlot(C,u,d,p)+rnd(sd)*1.2;
@@ -1166,7 +1244,7 @@ function cariSlotTerbaik(C,u,sd){
 }
 function cariSlotUsir(C,u,units,sd){
   let best=null,bestS=Infinity;
-  for(let d=0;d<C.D;d++) for(let p=1;p+u.len-1<=C.dayLen[d];p++){
+  for(let d=0;d<C.D;d++) for(let p=1;p+u.len-1<=C.kelasDayLen[u.k][d];p++){
     if(!slotSah(C,u,d,p)) continue;
     const base=d*C.N, ev=new Set();
     for(let o=0;o<u.len;o++){ const c=base+p+o-1;
@@ -1235,7 +1313,7 @@ function perbaiki(C,units,seed,pusingan){
     const od=u.d, op=u.p;
     buang(C,u);
     const d=Math.floor(rnd(sd)*C.D);
-    const p=1+Math.floor(rnd(sd)*Math.max(1,C.dayLen[d]-u.len+1));
+    const p=1+Math.floor(rnd(sd)*Math.max(1,C.kelasDayLen[u.k][d]-u.len+1));
     if(slotSah(C,u,d,p)&&bebasDi(C,u,d,p)&&larianOk(C,u,d,p)){
       letak(C,u,d,p,i);
       const baru=kosKeseluruhan(C,units);
@@ -1312,7 +1390,7 @@ function semakJadual(){
   S.jadual.slots.forEach(x=>{
     for(let o=0;o<num(x.panjang,1);o++){
       const p=num(x.mula,1)+o, key=x.hari+'-'+p;
-      if(p>waktuHari(x.hari)) isu.push({t:'luar',m:`${namaKelas(x.kelasId)} ${kodSubjek(x.subjekId)} pada ${x.hari} waktu ${p} melebihi bilangan waktu hari tersebut`});
+      if(p>waktuHariKelas(x.kelasId,x.hari)) isu.push({t:'luar',m:`${namaKelas(x.kelasId)} ${kodSubjek(x.subjekId)} pada ${x.hari} waktu ${p} melebihi bilangan waktu hari tersebut`});
       const gk=x.guruId+'|'+key, kk=x.kelasId+'|'+key;
       if(petaG[gk]) isu.push({t:'guru',m:`Guru ${namaGuru(x.guruId)} bertembung pada ${x.hari} waktu ${p} (${kodSubjek(petaG[gk].subjekId)} ${namaKelas(petaG[gk].kelasId)} vs ${kodSubjek(x.subjekId)} ${namaKelas(x.kelasId)})`});
       else petaG[gk]=x;
@@ -1333,7 +1411,7 @@ function semakJadual(){
   (S.acara||[]).forEach(a=>{
     for(let o=0;o<num(a.panjang,1);o++){
       const p=num(a.mula,1)+o, key=a.hari+'-'+p;
-      const sasarK = a.skop==='semua'?S.kelas.map(k=>k.id):(a.skop==='kelas'?(a.kelas||[]):[]);
+      const sasarK = kelasTerkenaAcara(a);
       sasarK.forEach(kid=>{ if(petaK[kid+'|'+key]) isu.push({t:'acara',m:`Slot tetap ${a.kod} bertembung dengan kelas ${namaKelas(kid)} pada ${a.hari} waktu ${p}`}); });
       const sasarG = a.skop==='semua'?S.guru.map(g=>g.id):(a.skop==='guru'?(a.guru||[]):[]);
       sasarG.forEach(gid=>{ if(petaG[gid+'|'+key]) isu.push({t:'acara',m:`Slot tetap ${a.kod} bertembung dengan guru ${namaGuru(gid)} pada ${a.hari} waktu ${p}`}); });
@@ -1414,11 +1492,10 @@ function amaranAwal(){
   S.guru.forEach(g=>{ const had=Math.min(num(S.kekangan.maxHariGuru,8),num(g.maxHari,99))*D;
     if((bebanG[g.id]||0)>had) a.push(`<b>${esc(g.nama)}</b>: ${bebanG[g.id]} waktu melebihi had ${had} (maks ${Math.min(num(S.kekangan.maxHariGuru,8),num(g.maxHari,99))} waktu/hari × ${D} hari).`); });
   // kapasiti kelas
-  const kap=S.hari.reduce((s,h)=>s+waktuHari(h),0);
   S.kelas.forEach(k=>{
+    const kap=S.hari.reduce((s,h)=>s+waktuHariKelas(k.id,h),0);
     const jum=S.agihan.filter(x=>x.kelasId===k.id).reduce((s,x)=>s+waktuEfektif(x),0);
-    const ac=(S.acara||[]).filter(x=>x.skop==='semua'||(x.skop==='kelas'&&(x.kelas||[]).includes(k.id)))
-      .reduce((s,x)=>s+num(x.panjang,1),0);
+    const ac=(S.acara||[]).reduce((s,x)=>s+(kelasTerkenaAcara(x).includes(k.id)?num(x.panjang,1):0),0);
     if(jum+ac>kap) a.push(`<b>${esc(k.nama)}</b>: ${jum} waktu + ${ac} slot tetap melebihi kapasiti ${kap} waktu seminggu.`);
   });
   if(!a.length) return '';
@@ -1475,8 +1552,13 @@ function laporanSemak(){
    ============================================================ */
 function acaraUntuk(mode,id){
   return (S.acara||[]).filter(a=>{
-    if(a.skop==='semua') return true;
-    if(mode==='kelas') return a.skop==='kelas'&&(a.kelas||[]).includes(id);
+    if(a.skop==='semua'){ if(mode==='kelas') return kelasLayakAcara(a,id); return true; }
+    if(a.skop==='tahap'){
+      if(mode==='kelas'){ const k=kelasById(id); return k?tahapEfektifAcara(a).includes(Number(k.tahap)):false; }
+      if(mode==='guru') return guruAjarTahap(id,tahapEfektifAcara(a));
+      return false;
+    }
+    if(mode==='kelas') return a.skop==='kelas'&&(a.kelas||[]).includes(id)&&kelasLayakAcara(a,id);
     if(mode==='guru')  return a.skop==='guru' &&(a.guru ||[]).includes(id);
     return false;
   });
@@ -1535,7 +1617,7 @@ function gridSkrin(mode,id,bolehEdit){
     for(let p=1;p<=N;p++){
       const c=m[d][p];
       if(c&&!c.mula){ if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}"><span class="vtext">REHAT</span></td>`; continue; }
-      if(p>waktuHari(h)){ body+=`<td style="background:repeating-linear-gradient(45deg,transparent,transparent 5px,var(--line) 5px,var(--line) 6px)"></td>`; }
+      if(p>(mode==='kelas'?waktuHariKelas(id,h):waktuHari(h))){ body+=`<td style="background:repeating-linear-gradient(45deg,transparent,transparent 5px,var(--line) 5px,var(--line) 6px)"></td>`; }
       else if(!c){ body+=`<td class="free ${bolehEdit?'pick':''}" data-d="${d}" data-p="${p}"></td>`; }
       else{
         const t=teksSel(mode,c);
@@ -1596,7 +1678,7 @@ function legendSubjek(){
 function slotById(id){ return (S.jadual&&S.jadual.slots||[]).find(x=>x.id===id); }
 function bolehLetak(slot,hari,mula){
   const N=maxWaktu(), len=num(slot.panjang,1);
-  if(mula<1||mula+len-1>waktuHari(hari)) return 'Melebihi bilangan waktu hari itu';
+  if(mula<1||mula+len-1>waktuHariKelas(slot.kelasId,hari)) return 'Melebihi bilangan waktu hari itu';
   if(len===2&&rehatSet().has(mula)) return 'Blok 2 waktu tidak boleh merentas rehat';
   for(let o=0;o<len;o++){
     const p=mula+o;
@@ -1605,7 +1687,7 @@ function bolehLetak(slot,hari,mula){
     const bentrokG=(S.jadual.slots||[]).some(x=>x!==slot&&x.guruId===slot.guruId&&x.hari===hari&&p>=num(x.mula,1)&&p<num(x.mula,1)+num(x.panjang,1));
     if(bentrokG) return 'Guru sudah mengajar kelas lain pada waktu itu';
     const ac=(S.acara||[]).find(a=>a.hari===hari&&p>=num(a.mula,1)&&p<num(a.mula,1)+num(a.panjang,1)&&
-      (a.skop==='semua'||(a.skop==='kelas'&&(a.kelas||[]).includes(slot.kelasId))||(a.skop==='guru'&&(a.guru||[]).includes(slot.guruId))));
+      (kelasTerkenaAcara(a).includes(slot.kelasId)||(a.skop==='guru'&&(a.guru||[]).includes(slot.guruId))));
     if(ac) return 'Bertembung dengan slot tetap '+ac.kod;
     const g=guruById(slot.guruId);
     if(g&&(g.tidakAda||[]).includes(hari+'-'+p)) return 'Guru ditanda tidak tersedia pada waktu itu';
@@ -1671,7 +1753,7 @@ function gridInduk(){
     for(let p=1;p<=N;p++){
       const c=m[d][p];
       if(c&&!c.mula){ if(reh[p]) body+=''; continue; }
-      if(p>waktuHari(indukHari)) body+=`<td style="background:repeating-linear-gradient(45deg,transparent,transparent 5px,var(--line) 5px,var(--line) 6px)"></td>`;
+      if(p>waktuHariKelas(k.id,indukHari)) body+=`<td style="background:repeating-linear-gradient(45deg,transparent,transparent 5px,var(--line) 5px,var(--line) 6px)"></td>`;
       else if(!c) body+=`<td></td>`;
       else{ const t=teksSel('kelas',c);
         body+=`<td class="has" colspan="${c.len}" style="--sc:${esc(t.warna)}"><div class="cell">
@@ -1731,7 +1813,7 @@ function jadualCetak(mode,id){
     for(let p=1;p<=N;p++){
       const c=m[d][p];
       if(c&&!c.mula){ if(reh[p]&&d===0) body+=`<td class="vert" rowspan="${S.hari.length}"><span class="vtext">${esc((reh[p].label||'REHAT'))}</span></td>`; continue; }
-      if(p>waktuHari(h)) body+=`<td style="background:#eee"></td>`;
+      if(p>(mode==='kelas'?waktuHariKelas(id,h):waktuHari(h))) body+=`<td style="background:#eee"></td>`;
       else if(!c) body+=`<td></td>`;
       else{
         const t=teksSel(mode,c);
@@ -1753,10 +1835,10 @@ function ringkasanGuru(id){
   const rows=Object.keys(peta).map(k=>{const [sid,kid]=k.split('|');
     return {subjek:kodSubjek(sid),kelas:namaKelas(kid),jum:peta[k],tahap:(kelasById(kid)||{}).tahap||0};});
   rows.sort((a,b)=>a.tahap-b.tahap||a.subjek.localeCompare(b.subjek));
-  const ac=acaraUntuk('guru',id).map(a=>({subjek:a.kod,kelas:'Tanpa kelas',jum:num(a.panjang,1),tahap:-1}));
-  const semua=ac.concat(rows);
-  const jum=semua.reduce((s,r)=>s+r.jum,0);
-  return {rows:semua,jum};
+  // Acara tetap (slot tetap skop guru/semua) KEKAL dalam grid tetapi TIDAK dikira sebagai baris
+  // subjek atau jumlah beban guru — ia bukan waktu mengajar.
+  const jum=rows.reduce((s,r)=>s+r.jum,0);
+  return {rows,jum};
 }
 function ringkasanKelas(id){
   const slots=(S.jadual&&S.jadual.slots||[]).filter(x=>x.kelasId===id);
@@ -1776,9 +1858,22 @@ function ringkasanKelas(id){
     return {subjek:kodSubjek(sid),kelas:namaGuru(gid,true),jum:peta[k]};
   });
   rows.sort((a,b)=>b.jum-a.jum||a.subjek.localeCompare(b.subjek)||a.kelas.localeCompare(b.kelas));
-  const ac=acaraUntuk('kelas',id).map(a=>({subjek:a.kod,kelas:'—',jum:num(a.panjang,1)}));
-  const semua=ac.concat(rows);
-  return {rows:semua,jum:semua.reduce((s,r)=>s+r.jum,0)};
+  const jum=rows.reduce((s,r)=>s+r.jum,0);
+  // Waktu Tetapan: acara tetap yang terpakai untuk kelas (PER, 1M1S, B.ALQ, KOKU Tahap 2). Ia
+  // menyumbang kepada JUMLAH WAKTU KELAS dan tamat persekolahan, tetapi TIDAK kepada jumlah subjek
+  // (R.jum) atau beban guru. Dikira sebagai UNION slot (hari|waktu) supaya acara bertindih tidak
+  // dikira berganda — bertindih ialah clash, bukan jam tambahan.
+  const rowsTetapan=[]; const selTetapan=new Set(); const clashTetapan=[];
+  acaraUntuk('kelas',id).forEach(a=>{
+    rowsTetapan.push({subjek:a.kod,kelas:'—',jum:num(a.panjang,1)});
+    for(let o=0;o<num(a.panjang,1);o++){
+      const p=num(a.mula,1)+o; const sel=`${a.hari}|${p}`;
+      if(selTetapan.has(sel)) clashTetapan.push(sel); else selTetapan.add(sel);
+    }
+  });
+  const jumlahTetapan=selTetapan.size;
+  const jumlahKelas=jum+jumlahTetapan;
+  return {rows,jum,rowsTetapan,jumlahTetapan,jumlahKelas,clash:clashTetapan};
 }
 function tarikhCetak(value){
   const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -1846,8 +1941,11 @@ function lembaranKelas(id,padat){
       <div class="sh-side">
         <table class="sum"><thead><tr><th style="width:9ch">Subjek</th><th>Guru</th><th style="width:9ch">Jumlah</th></tr></thead>
         <tbody>${R.rows.map(r=>`<tr><td>${esc(r.subjek)}</td><td class="${kelasSaizRingkasan(r.kelas)}">${esc(r.kelas)}</td><td class="c">${r.jum}</td></tr>`).join('')}
-        ${Array.from({length:Math.max(0,14-R.rows.length)},()=>`<tr><td>&nbsp;</td><td></td><td></td></tr>`).join('')}
-        <tr><td colspan="2" style="text-align:right;font-weight:700">Jumlah Waktu</td><td class="c" style="font-weight:700">${R.jum}</td></tr>
+        ${R.rowsTetapan.map(r=>`<tr class="sum-set"><td>${esc(r.subjek)}</td><td>—</td><td class="c">${r.jum}</td></tr>`).join('')}
+        ${Array.from({length:Math.max(0,12-R.rows.length-R.rowsTetapan.length)},()=>`<tr><td>&nbsp;</td><td></td><td></td></tr>`).join('')}
+        <tr><td colspan="2" style="text-align:right">Waktu Subjek</td><td class="c" style="font-weight:700">${R.jum}</td></tr>
+        <tr><td colspan="2" style="text-align:right">Waktu Tetapan</td><td class="c">${R.jumlahTetapan}</td></tr>
+        <tr><td colspan="2" style="text-align:right;font-weight:700;border-top:1px solid #000">Jumlah Waktu Kelas</td><td class="c" style="font-weight:700">${R.jumlahKelas}</td></tr>
         </tbody></table>${tandaTangan()}
       </div></div>${kakiLembaran()}</div>`;
 }
@@ -1886,7 +1984,7 @@ function lembaranIndukBahagian(mode,hari,senarai,indeks,jumlahBahagian){
     if(pra&&ri===0) body+=`<td class="vert pt-master-pre" rowspan="${senarai.length}"><span class="vtext">${esc(S.masa.pra.label||'PENGURUSAN')}</span></td>`;
     for(let p=1;p<=N;p++){
       const c=m[d][p];
-      if(p>waktuHari(hari)) body+='<td class="pt-closed"></td>';
+      if(p>(mode==='kelas'?waktuHariKelas(entiti.id,hari):waktuHari(hari))) body+='<td class="pt-closed"></td>';
       else if(!c) body+='<td></td>';
       else{
         const t=teksSel(mode,c), kecil=mode==='guru'?t.sudut:t.kecil;

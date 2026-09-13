@@ -1,4 +1,15 @@
-import { normalizeName } from './pdf-import.js?v=3.1.71';
+import { normalizeName } from './pdf-import.js?v=3.1.72';
+
+// Slot tetap kini boleh berskop 'kelas' atau 'tahap' (import aSc menghadkan aktiviti bukan kelas
+// kepada kelas yang benar-benar ada aktiviti itu). Untuk tujuan relief, guru yang terlibat ialah
+// guru kelas bagi kelas terlibat — padanan songsang senarai guru asal yang diturunkan dari PDF.
+function eventAffectsTeacher_(event, guru, state) {
+  if (event.skop === 'semua') return true;
+  if (event.skop === 'guru') return (event.guru || []).includes(guru.id);
+  if (event.skop === 'kelas') return state.kelas.some(k => (event.kelas || []).includes(k.id) && k.guruKelas === guru.id);
+  if (event.skop === 'tahap') return state.kelas.some(k => (event.tahap || []).includes(Number(k.tahap)) && k.guruKelas === guru.id);
+  return false;
+}
 
 // Convert a validated builder timetable into the same per-period records as PDF import.
 export function convertBuilderSchedule(state, teachers, times) {
@@ -27,7 +38,7 @@ export function convertBuilderSchedule(state, teachers, times) {
   for (const guru of state.guru) {
     const teacherId = teacherMap.get(guru.id); if (!teacherId) continue;
     for (const event of state.acara || []) {
-      if (!(event.skop === 'semua' || (event.skop === 'guru' && (event.guru || []).includes(guru.id)))) continue;
+      if (!eventAffectsTeacher_(event, guru, state)) continue;
       for (let n=0; n<Number(event.panjang || 1); n++) add(teacherId,event.hari,Number(event.mula)+n,event.kod || 'AKTIVITI','',true);
     }
     for (const unavailable of guru.tidakAda || []) {

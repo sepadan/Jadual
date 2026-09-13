@@ -37,7 +37,7 @@ test('a subject taught by more than one teacher across the week produces one row
 
   const bmRows = R.rows.filter((r) => r.subjek === 'BM');
   assert.equal(bmRows.length, 2, 'BM taught by two teachers must be two separate rows, one per teacher');
-  assert.deepEqual(bmRows.map((r) => r.kelas).sort(), ['G1', 'G2'], 'each teacher short code shown in its own row');
+  assert.deepEqual(Array.from(bmRows, (r) => r.kelas).sort(), ['G1', 'G2'], 'each teacher short code shown in its own row');
   assert.equal(bmRows[0].jum + bmRows[1].jum, 2, 'the two BM periods split across the two teacher rows');
   assert.equal(R.rows.length, 3, 'row count must equal distinct subject+teacher pairs (3), not distinct subjects (2)');
 });
