@@ -25,8 +25,17 @@ test("printed grid uses fixed column widths so every period column is even", () 
 test("a fit pass measures each printed cell and shrinks type that does not fit", () => {
   assert.match(js, /function kemasSelCetak_\(/);
   assert.match(js, /const KEMAS_CETAK_=\[/);
-  assert.match(js, /getPropertyValue\(konf\.row\)/, "row height comes from the sheet's CSS variable");
+  // Sasaran tinggi mesti diukur daripada kotak sel sebenar (getBoundingClientRect), bukan
+  // pembolehubah CSS statik --pt-row/--pt-row-master: var itu tidak berkaitan dengan tinggi baris
+  // sebenar yang ditetapkan oleh isiTinggiCetak_, jadi ia mengecilkan tulisan walau kandungan muat.
+  assert.match(js, /sel\.getBoundingClientRect\(\)\.height-padY-2/, "row height comes from the cell's real box, not a stale CSS variable");
+  assert.match(js, /kotak\.scrollHeight>tinggi\+0\.6/, "content height (scrollHeight), not the fixed 100%-height box, decides the fit");
   assert.match(js, /while\(!muat\(\)&&k>0\.5&&pusingan\+\+<10\)/, "shrinks in steps with a floor");
+});
+
+test("the fit pass is idempotent: font baseline is cached, not re-read from an already-shrunk style", () => {
+  assert.match(js, /el\.dataset\.fsAsal===undefined/, "original font size must be captured once and reused");
+  assert.ok(!/const asal=isi\.map\(el=>parseFloat\(getComputedStyle\(el\)\.fontSize\)/.test(js), "must not re-derive the baseline from the current (possibly shrunk) computed style");
 });
 
 test("the fit pass runs for the preview and again just before the PDF capture", () => {
@@ -36,4 +45,39 @@ test("the fit pass runs for the preview and again just before the PDF capture", 
   const capture = exportado.indexOf("window.html2canvas(");
   assert.ok(exportado.indexOf("kemasSelCetak_(") < capture, "fit runs before the canvas is taken");
   assert.ok(exportado.indexOf("document.fonts.ready") < exportado.indexOf("kemasSelCetak_("), "after fonts settle");
+});
+
+// window.print() (Cetak) memakai media print (.sheet 100% x 200mm), berbeza unit daripada kotak
+// pratonton/eksport (1100x767px). Tanpa kira semula, baris yang sudah diisi tinggi ikut kotak skrin
+// tidak sepadan dengan kotak cetak sebenar. beforeprint mesti kira semula sejurus sebelum cetak.
+test("printing recomputes row/font geometry against the real print box, matching PDF export", () => {
+  assert.match(js, /window\.addEventListener\('beforeprint',\(\)=>\{ kemasSelCetak_\(\$\('#cetakArea'\)\); \}\)/);
+});
+
+test("the row budget includes sheet borders and the outer margins of headers, footers and signatures", () => {
+  // clientHeight dipakai dahulu (ia mengecualikan border helaian); ukuran rect hanya jadi sandaran
+  // apabila clientHeight tiada, supaya bajet tidak menjadi NaN.
+  assert.match(js, /const tinggiRujuk=sheet\.clientHeight\|\|/, "clientHeight excludes the sheet border");
+  assert.match(js, /const tinggiIsi=tinggiRujuk-/, "content box = reference height minus padding");
+  assert.match(js, /const hKepala=tinggiLuar\(kepala\),hKaki=tinggiLuar\(kaki\)/, "header/footer margins count against the page");
+  assert.match(js, /const hTandatangan=tinggiLuar\(tandatangan\)/, "signature margin counts against the side summary");
+});
+
+// Lajur "Subjek"/"Jumlah" pada jadual ringkasan sisi lebih sempit daripada satu perkataan pada fon
+// cetak (15px), jadi overflow-wrap:anywhere + word-break:break-word mematahkannya di tengah huruf.
+test("the side summary table header words never break mid-word", () => {
+  assert.match(js, /<th style="width:9ch">Subjek<\/th><th>Kelas<\/th><th style="width:9ch">Jumlah<\/th>/);
+  assert.match(js, /<th style="width:9ch">Subjek<\/th><th>Guru<\/th><th style="width:9ch">Jumlah<\/th>/);
+  assert.match(css, /#builderRoot table\.sum thead th\{white-space:nowrap!important\}/);
+});
+
+// Kelas pt-master-cell berada pada div dalaman (`<div class="pc pt-master-cell">`), bukan pada td.
+// Selektor lama `table.pt-master td.pt-master-cell` tidak pernah sepadan, jadi pengecilan fon sel
+// jadual induk tidak berjalan dan teks yang lebih tinggi daripada baris terpotong senyap.
+test("the master cell shrink pass targets the inner .pc, which is where the class really lives", () => {
+  const konf = js.slice(js.indexOf("const KEMAS_CETAK_=["), js.indexOf("/* Tetapkan tinggi setiap baris"));
+  assert.match(konf, /sel:'table\.pt-master \.pt-master-cell'/, "selektor mesti padan div .pc.pt-master-cell");
+  assert.doesNotMatch(konf, /table\.pt-master td\.pt-master-cell/, "td tidak pernah membawa kelas ini");
+  assert.match(js, /<div class="pc pt-master-cell">/, "markup sebenar meletakkan kelas pada div dalaman");
+  assert.doesNotMatch(js, /<td class="[^"]*pt-master-cell/, "kelas bukan pada td");
 });

@@ -162,7 +162,9 @@
 /* Helaian cetak = 287 x 200 mm (1100 x 767 px) dengan baris grid: kepala auto, badan 1fr (mengisi
    semua ruang lebih) dan kaki auto. Grid memberi tinggi yang pasti, jadi meja benar-benar memenuhi
    kertas; flex-grow pada bekas ini tidak mengagihkan ruang (diukur: badan kekal 604 px). */
-#builderRoot #cetakArea .sheet{height:767px;--pt-row:84px;--pt-row-master:64px}
+/* width tetap + max-width:none: peraturan asas .sheet menetapkan max-width:100%, jadi pada tetingkap
+   860-1124px helaian mengecil dan eksport menghasilkan imej yang tidak memenuhi kertas. */
+#builderRoot #cetakArea .sheet{width:1100px;max-width:none;height:767px;--pt-row:84px;--pt-row-master:64px}
 #builderRoot #cetakArea .sh-body{flex:1;min-height:0}
 #builderRoot #cetakArea table.pt,#builderRoot #cetakArea table.pt-master{height:100%}
 /* Teks dan baris dibesarkan ~1.5x supaya meja yang kini setinggi A4 benar-benar terbaca, bukan sel
@@ -188,12 +190,21 @@
 #builderRoot #cetakArea table.pt-master .pc{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
 #builderRoot #cetakArea table.pt th{font-size:19px;padding:3px 2px}
 #builderRoot #cetakArea table.pt th .tm{font-size:10px}
+/* Dua baris: "07:20 -" di atas, "07:30" di bawah, jadi masa tidak bertindan antara lajur. */
+#builderRoot #cetakArea table.pt th .tm .tm-a,#builderRoot #cetakArea table.pt th .tm .tm-b{display:block;line-height:1.05;white-space:nowrap;letter-spacing:-.02em}
 #builderRoot #cetakArea .pt-rest-head{font-size:12px!important}
 #builderRoot #cetakArea table.pt td.day{font-size:24px}
 #builderRoot #cetakArea table.pt td.vert{font-size:28px;width:40px}
 #builderRoot #cetakArea .pt-col-rest{width:42px}
 #builderRoot #cetakArea .pt-col-day{width:70px}
 #builderRoot #cetakArea .pc{padding:12px 2px 2px}
+/* .pc{padding:12px 2px 2px} di atas (2 ID) sentiasa mengatasi table.pt-master .pt-master-cell{
+   padding:1px} (1 ID, di bawah dalam fail ini) walaupun ia dimaksudkan untuk sel induk sahaja -
+   12px atas itu direka untuk baris besar (64-84px, ruang untuk .psub penjuru) tetapi sel induk
+   TIADA .psub langsung dan barisnya boleh secilit 22px (23 baris dalam satu A4): 12px padding sahaja
+   menghabiskan >separuh tinggi sel, jadi kandungan terklip walau fon dikecilkan ke lantai. Override
+   dengan kekhususan yang cukup supaya sel induk kekal nipis. */
+#builderRoot #cetakArea table.pt-master .pt-master-cell{padding:1px 2px}
 #builderRoot #cetakArea .pc .psub{font-size:12px}
 #builderRoot #cetakArea .pc .pmid{font-size:16px}
 #builderRoot #cetakArea .pc .pgr{font-size:11px}
@@ -214,6 +225,10 @@
 #builderRoot #cetakArea .sh-side{width:330px;flex:0 0 330px}
 #builderRoot #cetakArea table.sum th,#builderRoot #cetakArea table.sum td{font-size:15px;padding:3px 6px}
 #builderRoot #cetakArea table.sum th{font-size:15px}
+/* Header "Subjek"/"Jumlah" mematahkan pertengahan perkataan sebab lajur lebih sempit daripada satu
+   perkataan pada fon ini. thead th tidak sesekali berbalut (bukan overflow:hidden - lajur sudah
+   diluaskan supaya cukup ruang), jadi ia kekal satu baris yang boleh dibaca. */
+#builderRoot table.sum thead th{white-space:nowrap!important}
 #builderRoot #cetakArea table.sum td.sum-fit-sm{font-size:13px}
 #builderRoot #cetakArea table.sum td.sum-fit-xs{font-size:11px}
 #builderRoot #cetakArea .sh-sign{font-size:15px}
@@ -247,7 +262,15 @@
 #builderRoot table.pt td.vert .vtext{position:absolute;left:50%;top:50%;white-space:nowrap;line-height:1;
   transform:translate(-50%,-50%) rotate(-90deg);transform-origin:center center}
 #builderRoot table.pt td.cellv{position:relative;padding:0}
-#builderRoot .pc{height:100%;display:flex;flex-direction:column;justify-content:center;padding:9px 1px 1px;overflow:hidden}
+/* position:absolute;inset:0 (bukan height:100%) supaya .pc BENAR-BENAR keluar dari aliran biasa,
+   sama seperti teknik .vtext di atas. Sel jadual (td) hanya menganggap height sebagai MINIMUM, bukan
+   siling - kandungan .pc yang tidak muat (walau selepas kemasSelCetak_ mengecilkan fon ke lantai)
+   akan memaksa td/tr membesar melepasi tinggi yang ditetapkan isiTinggiCetak_ jika .pc turut serta
+   dalam aliran (height:100% terhadap ibu bapa yang tingginya belum pasti diselesaikan sebagai auto,
+   iaitu ikut kandungan). Dengan position:absolute, tinggi td/tr yang ditetapkan JS menjadi siling
+   sebenar; overflow:hidden pada .pc barulah berkuat kuasa sebagai jaring keselamatan terakhir, bukan
+   fon yang sentiasa mengecil betul (scrollHeight) dalam kemasSelCetak_. */
+#builderRoot .pc{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:9px 1px 1px;overflow:hidden}
 #builderRoot .pc .psub{position:absolute;top:1px;left:2px;font-size:8.5px;font-weight:700;letter-spacing:.02em;line-height:1}
 #builderRoot .pc .pcls{font-weight:600;line-height:1.04;word-break:break-word;hyphens:auto}
 #builderRoot .pc .pmid{font-size:11px;font-weight:600;line-height:1.05;word-break:break-word}
@@ -322,10 +345,12 @@
 #builderRoot .side,#builderRoot .topbar,#builderRoot .noprint,#builderRoot .scrim{display:none!important}
 #builderRoot .app,#builderRoot .main,#builderRoot .content{display:block;padding:0;margin:0;max-width:none}
 #builderRoot .sheet{width:100%;max-width:none;margin:0;padding:0;border:0;box-shadow:none;border-radius:0;
-/* Sama seperti eksport PDF: satu helaian cetak = 287 x 200 mm (A4 landskap, margin 5 mm),
-   supaya apa yang dicetak sama dengan apa yang dieksport. */
-#builderRoot #cetakArea .sheet{width:100%;height:200mm;min-height:0}
     page-break-after:always;break-after:page}
+/* Sama seperti eksport PDF: satu helaian cetak = 287 x 200 mm (A4 landskap, margin 5 mm), supaya apa
+   yang dicetak sama dengan apa yang dieksport. Mesti jadi peraturan BERASINGAN (bukan bersarang di
+   dalam #builderRoot .sheet di atas) - selektor bersarang menjadikan diri sendiri keturunan dirinya
+   dan tidak sekali-kali sepadan, jadi override 200mm lama tidak pernah terpakai semasa cetak sebenar. */
+#builderRoot #cetakArea .sheet{width:100%;height:200mm;min-height:0}
 #builderRoot .sheet:last-child{page-break-after:auto;break-after:auto}
 #builderRoot table.pt{border:1px solid #000!important}
 #builderRoot table.pt td,#builderRoot table.pt th{border:1px solid #000!important;box-shadow:none!important}

@@ -1,0 +1,12 @@
+# Kebergantungan pemasangan — bukan kod projek.
+node_modules/
+
+# Hasilan pengesahan cetakan/PDF (PDF, PNG, metrics.json) — bukti ujian, bukan sumber.
+.pdf-verification/
+claude-pdf-results/
+
+# Fail kerja sementara alat pengesahan (yang rasmi tinggal dalam tools/).
+_*.txt
+_*.json
+_*.html
+_*.mjs

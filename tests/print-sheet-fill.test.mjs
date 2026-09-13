@@ -8,7 +8,7 @@ const flat = css.replace(/\s+/g, "");
 
 test("the print sheet is a definite A4 box so the grid can fill it", () => {
   const rule = flat.slice(flat.indexOf("#builderRoot#cetakArea.sheet{"));
-  assert.ok(rule.startsWith("#builderRoot#cetakArea.sheet{height:767px"), "sheet box: " + rule.slice(0, 80));
+  assert.ok(/^#builderRoot#cetakArea\.sheet\{[^}]*height:767px/.test(rule), "sheet box: " + rule.slice(0, 90));
 });
 
 test("row heights are set from the measured sheet, not left to flex/grid", () => {

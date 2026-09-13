@@ -32,7 +32,8 @@ test('master timetables use fixed period columns without content-driven colspan'
   const master=source.slice(source.indexOf('function lembaranIndukBahagian('),source.indexOf('/* ============================================================\n   CETAK'));
   assert.match(master,/<colgroup>\$\{cols\}<\/colgroup>/);
   assert.match(master,/JADUAL INDUK \$\{jenis\}/);
-  assert.match(master,/\$\{jm\[p-1\]\.mula\} - \$\{jm\[p-1\]\.tamat\}/);
+  // Masa dalam kepala cetak dipecah dua baris melalui tmJulat_(), bukan satu baris panjang.
+  assert.match(master,/\$\{tmJulat_\(jm\[p-1\]\.mula,jm\[p-1\]\.tamat\)\}/);
   assert.ok(!master.includes('colspan="${c.len}"'));
 });
 
@@ -47,11 +48,16 @@ test('builder print CSS keeps aSc-style side summary and uniform borders',()=>{
   assert.match(css,/\.pt-col-master-name\{width:82px\}/);
 });
 
-test('class print summaries use short teacher names everywhere',()=>{
+test('short teacher names stay inside timetable cells, while summaries and metadata keep full names',()=>{
   const summary=source.slice(source.indexOf('function ringkasanKelas('),source.indexOf('function tarikhCetak('));
   const sheet=source.slice(source.indexOf('function lembaranKelas('),source.indexOf('const HAD_BARIS_INDUK'));
-  assert.ok(summary.includes('namaGuru(gid,true)'));
-  assert.ok(sheet.includes('namaGuru(k.guruKelas,true)'));
+  const iSel=source.indexOf('function teksSel(');
+  const timetable=source.slice(iSel, source.indexOf('\nfunction ', iSel+10));
+  // Sel jadual mesti guna nama PENDEK (kod guru) supaya muat; pemboleh ubah dalaman tidak penting,
+  // jadi padanan tidak dipakukan pada satu nama pemboleh ubah sahaja.
+  assert.match(timetable, /namaGuru\([^)]*guruId[^)]*,\s*true\)/);
+  assert.ok(summary.includes('namaGuru(gid)'));
+  assert.ok(sheet.includes('namaGuru(k.guruKelas)'));
 });
 
 test('master time zero is one readable shared cell instead of repeated narrow labels',()=>{

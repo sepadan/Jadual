@@ -1,0 +1,28 @@
+<!doctype html><html lang="ms"><head><meta charset="utf-8">
+<title>verify-print harness</title>
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../builder.css">
+<style>body{margin:0}</style>
+</head><body>
+<div id="builderRoot" data-theme="light">
+<div class="app">
+  <aside class="side" id="side">
+    <div class="brand builder-brand"><div class="logo">SJ</div><div><b>Sistem Jadual</b><span>verify</span></div></div>
+    <nav class="navlist" id="nav"></nav>
+    <div class="foot"><button class="btn sm" id="btnTheme">Tema</button><button class="btn sm" id="btnSaveNow">Simpan</button></div>
+  </aside>
+  <div class="main">
+    <header class="topbar noprint"><button class="btn ico mobonly" id="btnMenu">M</button>
+      <h2 id="vTitle">Papan Utama</h2><div class="sp"></div>
+      <span class="pill hidden" id="driveState"></span><span class="pill" id="saveState">Tersimpan</span></header>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+<input type="file" id="fileIn" accept="application/json" class="hidden">
+<input type="file" id="logoIn" accept="image/*" class="hidden">
+</div>
+<script src="../vendor/html2canvas-1.4.1.min.js"></script>
+<script src="../vendor/jspdf-3.0.4.umd.min.js"></script>
+<script src="../builder.js"></script>
+</body></html>
