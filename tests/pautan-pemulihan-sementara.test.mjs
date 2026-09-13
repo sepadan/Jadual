@@ -23,9 +23,23 @@ const kunci = (hari, waktu) => `${hari}-${waktu}`;
 test("pautan membawa senarai waktu pemulihan dan boleh dibaca semula", () => {
   const muatan = { guru: "AMIRAH BINTI SHEIKH ISMAIL", slot };
   const kod = kodPemulihan(muatan);
-  assert.match(kod, /^[A-Za-z0-9_-]+$/, "kod pautan mengandungi aksara yang perlu di-escape dalam URL");
+  assert.ok(kod.length < 900, `kod pautan terlalu panjang (${kod.length} aksara) untuk ditekan di telefon`);
+  assert.doesNotMatch(kod, /[#&]/, "kod itu memutuskan dirinya sendiri dalam URL");
+  assert.match(kod, /^AMIRAH%20BINTI%20SHEIKH%20ISMAIL:IS-2~MT~3B;/, "kod ringkas tidak seperti yang dijangka");
   assert.deepEqual(bacaPemulihanHash(`#pemulihan=${kod}`), muatan);
-  assert.deepEqual(bacaPemulihanHash(`https://contoh/#lain=1&pemulihan=${kod}`), muatan);
+  assert.deepEqual(bacaPemulihanHash(`https://contoh/#other=1&pemulihan=${kod}`), muatan);
+});
+
+test("subjek bertitik dan kelas berspace tidak memecahkan pautan", () => {
+  const rumit = { guru: "AMIRAH BT SHEIKH ISMAIL", slot: [{ h: "JUM", w: 1, s: "B.ALQ", k: "" }, { h: "KHA", w: 5, s: "BM", k: "3 BIJAK" }] };
+  const kod = kodPemulihan(rumit);
+  assert.deepEqual(bacaPemulihanHash(`#pemulihan=${kod}`), rumit, "kod subjek bertitik (B.ALQ) atau kelas berspace hilang makna");
+  assert.equal(rumit.slot[0].k, "", "kelas kosong menjadi kelas palsu");
+});
+
+test("pautan bentuk base64 lama masih diterima", () => {
+  const lama = Buffer.from(JSON.stringify({ guru: "AMIRAH BT SHEIKH ISMAIL", slot }), "utf8").toString("base64url");
+  assert.deepEqual(bacaPemulihanHash(`#pemulihan=${lama}`)?.slot.length, slot.length);
 });
 
 test("pautan rosak atau tiada tidak memecahkan aplikasi", () => {

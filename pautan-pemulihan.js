@@ -7,18 +7,34 @@
 // Pautan itu TIDAK memintas apa-apa: ia hanya menyediakan tanda dalam dialog Tetapan Jadual, yang
 // masih memerlukan login admin dan masih ditulis melalui aliran simpan biasa ke Google Sheets.
 export function kodPemulihan(muatan) {
-  const teks = JSON.stringify(muatan);
-  const bytes = new TextEncoder().encode(teks);
-  let bin = "";
-  for (const bait of bytes) bin += String.fromCharCode(bait);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  // Format ringkas "NAMA:HARI-waktu~SUBJEK~KELAS;..." — 37 waktu menjadi ~470 aksara, bukan ~2 KB
+  // base64. Subjek dan kelas di-escape kerana kod subjek boleh mengandungi titik (B.ALQ) atau
+  // ruang (3 BIJAK). Bentuk base64 lama masih diterima oleh pembaca di bawah.
+  const bahagian = (muatan?.slot || []).map((item) => [
+    `${String(item?.h || "").toUpperCase()}-${Number(item?.w)}`,
+    encodeURIComponent(String(item?.s || "").toUpperCase()),
+    encodeURIComponent(String(item?.k || "").trim()),
+  ].join("~"));
+  return `${encodeURIComponent(String(muatan?.guru || "").trim())}:${bahagian.join(";")}`;
 }
 
 export function bacaPemulihanHash(hash) {
-  const padan = /(?:^|[#&])pemulihan=([A-Za-z0-9_-]+)/.exec(String(hash || ""));
+  const padan = /(?:^|[#&])pemulihan=([^&]+)/.exec(String(hash || ""));
   if (!padan) return null;
+  const mentah = padan[1];
+  const buka = (teks) => { try { return decodeURIComponent(teks); } catch { return teks; } };
+  if (mentah.includes(":")) {
+    const pisah = mentah.indexOf(":");
+    const guru = buka(mentah.slice(0, pisah)).trim();
+    const slot = mentah.slice(pisah + 1).split(";").map((bahagian) => bahagian.trim()).filter(Boolean).map((bahagian) => {
+      const [masa, subjek = "", kelas = ""] = bahagian.split("~");
+      const [hari, waktu] = String(masa).split("-");
+      return { h: String(hari || "").toUpperCase(), w: Number(waktu), s: buka(subjek).toUpperCase(), k: buka(kelas) };
+    }).filter((item) => item.h && Number.isFinite(item.w));
+    return slot.length ? { guru, slot } : null;
+  }
   try {
-    const b64 = padan[1].replace(/-/g, "+").replace(/_/g, "/");
+    const b64 = mentah.replace(/-/g, "+").replace(/_/g, "/");
     const bin = atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
     const bytes = Uint8Array.from(bin, (huruf) => huruf.charCodeAt(0));
     const muatan = JSON.parse(new TextDecoder().decode(bytes));
