@@ -1,4 +1,4 @@
-import { DAY_CODES, PERIODS, slug } from "./data.js?v=3.1.68";
+import { DAY_CODES, PERIODS, slug } from "./data.js?v=3.1.69";
 
 // Reference coordinate system from the original aSc export (792 x 612).
 // The decimal column width matters near periods 9-12; rounding it to 36

@@ -79,6 +79,34 @@
 #builderRoot .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:820px){#builderRoot .g2,#builderRoot .g3,#builderRoot .g4{grid-template-columns:1fr}
 }
+
+/* Telefon: jadual borang (senarai Guru) tidak boleh dipaksa 980px. Dipaksa begitu, pentadbir yang
+   bekerja dari telefon hanya nampak sebahagian lajur - nama terpotong dan medan Kod terkeluar
+   skrin. Setiap guru menjadi satu kad: nama lebar penuh, medan lain berkembar dengan label kecil
+   daripada ::before supaya maksudnya kekal walaupun baris kepala disembunyikan. */
+@media(max-width:820px){
+  /* Kekhususan mesti lebih tinggi daripada `#builderRoot .teacher-table{min-width:980px}` yang
+     datang KEMUDIAN dalam fail ini - peraturan media tidak menambah kekhususan, jadi `min-width:0`
+     sahaja akan kalah dan jadual kekal 980px pada telefon. */
+  #builderRoot .tblwrap table.teacher-table{min-width:0;width:100%}
+  #builderRoot .teacher-table thead{display:none}
+  #builderRoot .teacher-table tbody tr{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;
+    padding:12px 12px 14px;border-bottom:1px solid var(--line)}
+  #builderRoot .teacher-table tbody tr:last-child{border-bottom:0}
+  #builderRoot .teacher-table tbody td{display:block;padding:0;border:0;min-width:0}
+  #builderRoot .teacher-table tbody td:nth-child(1){flex:1 1 100%}
+  #builderRoot .teacher-table tbody td:nth-child(2),#builderRoot .teacher-table tbody td:nth-child(3){
+    display:flex;flex-direction:column;gap:4px}
+  #builderRoot .teacher-table tbody td:nth-child(2){flex:1 1 90px}
+  #builderRoot .teacher-table tbody td:nth-child(3){flex:0 1 110px}
+  #builderRoot .teacher-table tbody td:nth-child(4){flex:0 0 auto}
+  #builderRoot .teacher-table tbody td:nth-child(5){flex:1 1 130px}
+  #builderRoot .teacher-table tbody td:nth-child(6){flex:0 0 auto;margin-left:auto}
+  #builderRoot .teacher-table tbody td input{width:100%;box-sizing:border-box}
+  #builderRoot .teacher-table tbody td:nth-child(2)::before{content:"Kod";font-size:11px;color:var(--ink2)}
+  #builderRoot .teacher-table tbody td:nth-child(3)::before{content:"Maks/hari";font-size:11px;color:var(--ink2)}
+  #builderRoot .teacher-table tbody td:nth-child(5)::before{content:"Tidak tersedia";font-size:11px;color:var(--ink2);display:block;margin-bottom:4px}
+}
 #builderRoot label.f{display:block;font-size:12px;font-weight:640;color:var(--ink2);margin:0 0 4px}
 #builderRoot input,#builderRoot select,#builderRoot textarea{
   width:100%;padding:9px 10px;border:1px solid var(--line2);border-radius:var(--r2);

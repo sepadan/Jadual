@@ -285,10 +285,31 @@ function go(v){
   $('#vTitle').textContent=def.t;
   $('#content').innerHTML=def.r();
   if(def.after) def.after();
+  tandaLeretBolehSkrol_();
   window.scrollTo(0,0);
   $('#side').classList.remove('open'); $('#scrim')&&$('#scrim').remove();
   kiraKaunter();
   document.dispatchEvent(new CustomEvent('builder-view', {detail:v}));
+}
+
+/* Jadual borang yang lebih lebar daripada skrin mesti memberitahu pengguna, bukan terpotong senyap -
+   pentadbir dari telefon hanya nampak sebahagian lajur tanpa sebarang petunjuk bahawa ada lagi di
+   kanan. Petunjuk dipasang hanya apabila benar-benar melimpah, dan dibuang dahulu pada setiap
+   render supaya ia tidak berganda. */
+function tandaLeretBolehSkrol_(akar){
+  const root=akar||$('#content');
+  if(!root||!root.querySelectorAll) return 0;
+  root.querySelectorAll('.scrollhint-auto').forEach(el=>el.remove());
+  let kira=0;
+  root.querySelectorAll('.tblwrap').forEach(wrap=>{
+    if(wrap.scrollWidth<=wrap.clientWidth+1) return;
+    const p=document.createElement('p');
+    p.className='scrollhint scrollhint-auto';
+    p.textContent='↔ Leret ke kiri/kanan untuk melihat semua lajur.';
+    wrap.insertAdjacentElement('afterend',p);
+    kira+=1;
+  });
+  return kira;
 }
 function ulang(){ go(VIEW); }
 function kiraKaunter(){
