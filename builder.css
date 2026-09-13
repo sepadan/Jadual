@@ -90,8 +90,16 @@
   #builderRoot .tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   #builderRoot table.dt.teacher-table{min-width:980px}
   #builderRoot table.dt.subject-table{min-width:1050px}
+  /* Slot Tetap & Aktiviti Terkunci: 8 lajur (Kod, Nama, Hari, Waktu, Panjang, Skop, Warna, buang).
+     Tanpa lebar minimum, lajur Nama dihimpit sampai namanya tidak kelihatan pada telefon - jadi
+     jadual dikekalkan selebar desktop dan hanya leretan disediakan, sama seperti jadual Guru/Subjek. */
+  #builderRoot table.dt.acara-table{min-width:940px}
+  /* Senarai Kelas: lajur "Guru Kelas" (240px) dihimpit sampai 44px pada telefon, jadi nama guru
+     tidak kelihatan. Kekalkan lebar desktop dan sediakan leretan. */
+  #builderRoot table.dt.kelas-table{min-width:760px}
   /* Sticky header mesti kekal kelihatan semasa meleret supaya lajur tidak hilang maksudnya. */
-  #builderRoot table.dt.teacher-table thead th,#builderRoot table.dt.subject-table thead th{position:sticky;top:0}
+  #builderRoot table.dt.teacher-table thead th,#builderRoot table.dt.subject-table thead th,
+  #builderRoot table.dt.acara-table thead th,#builderRoot table.dt.kelas-table thead th{position:sticky;top:0}
 }
 #builderRoot label.f{display:block;font-size:12px;font-weight:640;color:var(--ink2);margin:0 0 4px}
 #builderRoot input,#builderRoot select,#builderRoot textarea{

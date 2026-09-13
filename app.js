@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.70";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.70";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.70";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.70";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.70";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.70";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.70';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.70';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.70';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.70';
-import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.70';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.70';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.71";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.71";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.71";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.71";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.71";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.71";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.71';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.71';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.71';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.71';
+import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.71';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.71';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";

@@ -589,7 +589,7 @@ function subjekPreset(){
 VIEWS.kelas={t:'Kelas', r(){
   return `<div class="card"><h3>Senarai Kelas</h3>
     <p class="hint">“Tahun” menentukan peruntukan waktu yang digunakan bagi kelas tersebut.</p>
-    <div class="tblwrap"><table class="dt"><thead><tr>
+    <div class="tblwrap"><table class="dt kelas-table"><thead><tr>
       <th>Nama Kelas</th><th style="width:110px">Tahun</th><th style="width:240px">Guru Kelas</th>
       <th style="width:110px">Jumlah waktu</th><th style="width:70px"></th></tr></thead><tbody>
     ${S.kelas.map((k,i)=>{
@@ -891,7 +891,7 @@ VIEWS.acara={t:'Slot Tetap', r(){
   const N=maxWaktu();
   return `<div class="card"><h3>Slot Tetap &amp; Aktiviti Terkunci</h3>
     <p class="hint">Slot yang dikunci pada hari &amp; waktu tertentu — perhimpunan, kokurikulum, bacaan Al-Quran, mesyuarat panitia. Slot ini akan disekat daripada digunakan oleh mata pelajaran.</p>
-    <div class="tblwrap"><table class="dt"><thead><tr>
+    <div class="tblwrap"><table class="dt acara-table"><thead><tr>
       <th style="width:90px">Kod</th><th>Nama</th><th style="width:110px">Hari</th>
       <th style="width:90px">Waktu</th><th style="width:90px">Panjang</th>
       <th style="width:150px">Skop</th><th style="width:60px">Warna</th><th style="width:60px"></th></tr></thead><tbody>
