@@ -1,15 +1,17 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.54";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.54";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.54";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.54";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.54";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.54";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.54';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.54';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.54';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.54';
-import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature } from './setting-slots.js?v=3.1.54';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.54';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.55";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.55";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.55";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.55";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.55";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.55";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.55';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.55';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.55';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.55';
+import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.55';
+// SEMENTARA: pautan "tandakan jadual pemulihan" (buang selepas data dimasukkan).
+import { bacaPemulihanHash, kiraPerubahanPemulihan, pilihGuruPemulihan, susunSlotPemulihan } from './pautan-pemulihan.js?v=3.1.55';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.55';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -529,6 +531,9 @@ let settingSelection = new Set();
 let settingDetails = {};
 // Waktu yang sedang diubah dalam dialog subjek/kelas.
 let settingCellKey = "";
+// SEMENTARA: keadaan sebelum pautan pemulihan digunakan, supaya "Batal" memulihkan asal.
+let pautanPemulihanAsal = null;
+let pautanPemulihanSlot = [];
 // Saving a version rewrites all of its rows, so the dialog remembers what the version looked like
 // when it opened. Anything else changing that version means the admin must look again first.
 let settingGuard = null;
@@ -733,6 +738,74 @@ async function saveSettingSlots() {
     remoteWrite("importSchedule", { version: active, rows: versionRows },
       `${result.added} waktu tetapan disimpan untuk ${teacher?.name || "guru ini"}.`);
   } finally { button.disabled = false; }
+}
+
+// SEMENTARA: guna pautan `#pemulihan=<base64url>` untuk mengisi seluruh jadual pemulihan seorang
+// guru sekali gus. Pautan hanya menyediakan tanda; simpanan tetap melalui aliran biasa.
+async function gunaPautanPemulihan() {
+  if (!admin) return false;
+  const muatan = bacaPemulihanHash(location.hash);
+  if (!muatan) return false;
+  history.replaceState(null, "", `${location.pathname}${location.search}`);
+  const version = settingVersion();
+  if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
+  const { tepat, calon } = pilihGuruPemulihan({ nama: muatan.guru, guru: db.teachers });
+  if (!calon.length) return toast("Tiada guru dalam senarai. Tambah guru dahulu.", "error");
+  showView("guru");
+  pautanPemulihanSlot = muatan.slot;
+  $("#pautanPemulihanGuru").innerHTML = calon
+    .map((item) => `<option value="${esc(item.id)}">${esc(item.name)}${item.position === "Guru Pemulihan" ? "" : ` · ${esc(item.position || "")}`}</option>`)
+    .join("");
+  $("#pautanPemulihanPilih").classList.toggle("hidden", Boolean(tepat));
+  $("#pautanPemulihanPilihNota").classList.toggle("hidden", Boolean(tepat));
+  tandakanPautanPemulihan(tepat ? tepat.id : "");
+  $("#pautanPemulihanDialog").showModal();
+  return true;
+}
+
+// Tanda waktu bagi guru yang dipilih: satu tanda untuk setiap slot, tetapi sel yang sudah ada kelas
+// sebenar dilaporkan sebagai terkunci (tidak pernah ditindih).
+function tandakanPautanPemulihan(guruId) {
+  const version = settingVersion();
+  if (!version) return;
+  const guru = teacherById(guruId);
+  if (!guru) {
+    $("#pautanPemulihanRingkas").textContent = "Pilih guru untuk ditanda.";
+    $("#pautanPemulihanKira").textContent = "";
+    return;
+  }
+  openSettingDialog(guru.id);
+  const grid = weekGrid({ rows: settingVersionRows(version), days: SETTING_DAYS, periods: PERIODS, teacherId: guru.id });
+  const { tanda, terkunci } = susunSlotPemulihan({ grid, slot: pautanPemulihanSlot, bolehTanda: claimableCell });
+  if (!pautanPemulihanAsal) pautanPemulihanAsal = { pilihan: new Set(), butiran: {} };
+  const kira = kiraPerubahanPemulihan({ tanda, pilihan: settingSelection, butiran: settingDetails, kunci: settingKey });
+  for (const item of tanda) {
+    const id = settingKey(item.hari, item.waktu);
+    settingSelection.add(id);
+    settingDetails[id] = { subjek: item.subjek, kelas: item.kelas };
+  }
+  renderSettingGrid();
+  $("#pautanPemulihanRingkas").textContent = `${guru.name} · ${pautanPemulihanSlot.length} waktu dalam pautan`;
+  $("#pautanPemulihanKira").textContent = `${kira.baharu} tanda baharu · ${kira.dikemas} dikemas kini · ${kira.sama} sudah betul` +
+    (terkunci.length ? ` · ${terkunci.length} tidak boleh ditanda (${terkunci.map((item) => `${item.hari} wk ${item.waktu}`).join(", ")})` : "");
+}
+
+function batalPautanPemulihan() {
+  if (pautanPemulihanAsal) {
+    settingSelection = pautanPemulihanAsal.pilihan;
+    settingDetails = pautanPemulihanAsal.butiran;
+    pautanPemulihanAsal = null;
+  }
+  pautanPemulihanSlot = [];
+  $("#pautanPemulihanDialog").close();
+  $("#settingDialog").close();
+}
+
+async function simpanPautanPemulihan() {
+  pautanPemulihanAsal = null;
+  pautanPemulihanSlot = [];
+  $("#pautanPemulihanDialog").close();
+  await saveSettingSlots();
 }
 
 function validClockTime(value) {
@@ -1419,8 +1492,15 @@ function wireEvents() {
   $("#saveSettingSlots").addEventListener("click", saveSettingSlots);
   $("#clearSettingSlots").addEventListener("click", clearSettingSlots);
   $("#settingCellApply").addEventListener("click", applySettingCell);
+  // SEMENTARA: pautan "tandakan jadual pemulihan" (buang selepas data dimasukkan).
+  $("#pautanPemulihanSimpan").addEventListener("click", simpanPautanPemulihan);
+  $("#pautanPemulihanGuru").addEventListener("change", () => tandakanPautanPemulihan($("#pautanPemulihanGuru").value));
+  $$('[data-close-pautan-pemulihan]').forEach((button) => button.addEventListener("click", batalPautanPemulihan));
   $("#settingCellRemove").addEventListener("click", removeSettingCell);
   $$('[data-close-setting-cell]').forEach((button) => button.addEventListener("click", () => $("#settingCellDialog").close()));
+  // Menekan pautan semasa aplikasi sudah terbuka hanya menukar fragmen URL: dengar perubahan itu
+  // supaya pautan tetap berfungsi tanpa memuat semula halaman.
+  window.addEventListener("hashchange", () => { gunaPautanPemulihan(); });
   setReliefPanel(reliefPanel);
   $$('[data-relief-tab]').forEach((button) => button.addEventListener("click", () => setReliefTab(button.dataset.reliefTab)));
   // One arrow-key handler serves every tablist in the app (relief sub tabs, the view switch
@@ -1648,6 +1728,7 @@ async function enterAdmin(result) {
     // Preserve the optimistic snapshot, replay its durable commands, then reconcile with Sheets.
     cacheAdminDb();restoreDrafts();builderCloudLoaded=false;builderDirty=false;
     retryStoredWrites().then((saved) => { if (saved) syncData(false); });
+    gunaPautanPemulihan();
     return;
   }
   const since=Number(cached?.revision||0);
@@ -1661,6 +1742,7 @@ async function enterAdmin(result) {
   restoreDrafts();
   builderCloudLoaded=false;builderDirty=false;
   if(writeOutbox.length) retryStoredWrites().then((saved) => { if (saved) syncData(false); });
+  gunaPautanPemulihan();
 }
 async function leaveAdmin(remoteLogout=true) {
   const previous=api,finalWrites=writeQueue;admin=false;window.systemAdminActive=false;sessionExpiry=0;localStorage.removeItem('jadual-admin-session');localStorage.removeItem(ADMIN_DB_KEY);localStorage.removeItem(DRAFT_KEY);currentDrafts=[];generatedReliefKey='';

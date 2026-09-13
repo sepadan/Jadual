@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.54">
-  <link rel="stylesheet" href="./builder.css?v=3.1.54">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.54">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.54"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
+  <link rel="stylesheet" href="./styles.css?v=3.1.55">
+  <link rel="stylesheet" href="./builder.css?v=3.1.55">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.55">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.55"><style>.public-mode .admin-only{display:none!important}</style><title>Sistem Jadual</title>
 </head>
 <body class="public-mode">
   <div class="app-shell">
@@ -272,6 +272,16 @@
     <div class="dialog-actions"><button type="button" class="button ghost" data-close-setting-cell>Batal</button><button type="button" class="button ghost hidden" id="settingCellRemove">Buang tanda</button><button type="button" class="button primary" id="settingCellApply">Simpan waktu ini</button></div>
   </dialog>
 
+  <dialog id="pautanPemulihanDialog">
+    <div class="dialog-head"><div><p class="step">TANDAKAN JADUAL PEMULIHAN</p><h2>Isi waktu pemulihan sekali gus?</h2></div><button type="button" class="close" data-close-pautan-pemulihan aria-label="Tutup">×</button></div>
+    <p id="pautanPemulihanRingkas"></p>
+    <p id="pautanPemulihanKira"></p>
+    <label id="pautanPemulihanPilih" class="hidden">Guru pemulihan<select id="pautanPemulihanGuru"></select></label>
+    <p id="pautanPemulihanPilihNota" class="hidden">Nama dalam pautan tidak padan dengan mana-mana guru, jadi sila pilih guru yang betul.</p>
+    <p class="setting-count">Waktu yang sudah ada kelas sebenar tidak akan ditanda. Selepas ditanda, tekan <strong>Simpan tetapan</strong> untuk menghantar ke Google Sheets.</p>
+    <div class="dialog-actions"><button type="button" class="button ghost" data-close-pautan-pemulihan>Batal</button><button type="button" class="button primary" id="pautanPemulihanSimpan">Tanda dan simpan</button></div>
+  </dialog>
+
   <dialog id="builderPublishDialog"><form id="builderPublishForm" method="dialog">
     <div class="dialog-head"><div><p class="step">AKTIFKAN JADUAL</p><h2>Gunakan untuk relief</h2></div><button class="close" value="cancel" formnovalidate aria-label="Tutup">×</button></div>
     <p id="builderPublishSummary"></p><p class="alert" id="builderPublishMissing"></p>
@@ -282,6 +292,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.54"></script>
+  <script type="module" src="./app.js?v=3.1.55"></script>
 </body>
 </html>
