@@ -157,7 +157,7 @@
 #builderRoot .sheet.pdf-capture{border:0;box-shadow:none;border-radius:0;margin:0}
 /* Bentuk muka surat cetak = A4 landskap sebenar (skop asas: eksport berjalan pada semua lebar). Eksport mengecilkan lebar 1100px kepada 287 mm, jadi
    767px tinggi menjadi 200 mm: meja mengisi kertas dan bukan sekadar jalur di tengah dengan jalur putih. */
-#builderRoot #cetakArea .sheet{min-height:767px;display:flex;flex-direction:column}
+#builderRoot #cetakArea .sheet{min-height:767px;display:flex;flex-direction:column;--pt-row:84px;--pt-row-master:64px}
 #builderRoot #cetakArea .sh-body{flex:1;min-height:0}
 #builderRoot #cetakArea table.pt,#builderRoot #cetakArea table.pt-master{height:100%}
 /* Teks dan baris dibesarkan ~1.5x supaya meja yang kini setinggi A4 benar-benar terbaca, bukan sel
@@ -165,6 +165,22 @@
 #builderRoot #cetakArea .sh-body{flex:1;min-height:0;align-items:stretch}
 #builderRoot #cetakArea .sh-main{display:flex;flex-direction:column}
 #builderRoot #cetakArea table.pt th,#builderRoot #cetakArea table.pt td{height:84px;font-size:16px}
+/* Lajur tetap (table-layout:fixed) supaya semua lajur waktu sama lebar dan baris rata. Auto-layout
+   memberi lajur mengikut kandungan, jadi nama panjang menjadikan grid tidak sekata dan html2canvas
+   mengukur berbeza daripada pelayar. .pt-col-period dibiar auto: baki ruang dibahagi sama rata. */
+#builderRoot #cetakArea table.pt,#builderRoot #cetakArea table.pt-master,#builderRoot #cetakArea table.sum{table-layout:fixed}
+#builderRoot #cetakArea table.pt .pt-col-period{width:auto}
+#builderRoot #cetakArea table.pt td.cellv,#builderRoot #cetakArea table.pt td.day{text-align:center;vertical-align:middle}
+#builderRoot #cetakArea table.pt td.cellv .pc,#builderRoot #cetakArea table.pt td.day{overflow-wrap:anywhere;word-break:break-word}
+#builderRoot #cetakArea table.pt .pc .pcls,#builderRoot #cetakArea table.pt .pc .pgr{max-width:100%;text-align:center}
+/* Teks sel cetak mesti boleh berbalut. Warisan white-space:nowrap + overflow:hidden memotong nama
+   seperti "6 BIJAK" menjadi "6 BI" - itulah yang kelihatan tidak kemas dalam pratonton dan PDF.
+   Baris kekal sama tinggi kerana kemasSelCetak_ mengecilkan tulisan sehingga muat, bukan menambah baris. */
+#builderRoot #cetakArea table.pt .pc,#builderRoot #cetakArea table.pt td.day,
+#builderRoot #cetakArea table.pt .pc .psub,#builderRoot #cetakArea table.pt .pc .pcls,
+#builderRoot #cetakArea table.pt .pc .pgr{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+#builderRoot #cetakArea table.pt .pc .pcls,#builderRoot #cetakArea table.pt .pc .pgr{line-height:1.08;hyphens:auto}
+#builderRoot #cetakArea table.pt-master .pc{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
 #builderRoot #cetakArea table.pt th{font-size:19px;padding:3px 2px}
 #builderRoot #cetakArea table.pt th .tm{font-size:10px}
 #builderRoot #cetakArea .pt-rest-head{font-size:12px!important}

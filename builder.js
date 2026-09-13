@@ -1915,12 +1915,14 @@ VIEWS.cetak={t:'Cetak / PDF', r(){
     </div>`}
   </div>
   <div id="cetakArea">${pratontonCetak()}</div>`;
-}};
+  },
+  after(){ kemasSelCetak_($('#cetakArea')); },
+};
 function pilihSemuaCetak(on){
   const senarai=senaraiJenisCetak();
   cetakPilih=new Set(on?senarai.map(x=>x.id):[]); ulang();
 }
-function ulangCetakPratonton(){ $('#cetakArea').innerHTML=pratontonCetak(); }
+function ulangCetakPratonton(){ $('#cetakArea').innerHTML=pratontonCetak(); kemasSelCetak_($('#cetakArea')); }
 function cetakJadual(){ window.print(); }
 const pemuatanSkripPdf=new Map();
 function muatSkripPdf(src,sedia){
@@ -1946,6 +1948,49 @@ function namaFailPdf(){
   const sekolah=String(S.sekolah.nama||'sekolah').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
   return `${jenis}-${sekolah||'sekolah'}.pdf`;
 }
+/* ---------- Kemas sel cetak: kecilkan tulisan ikut kotak sebenar ---------- */
+/* szTeks() meneka saiz ikut panjang teks sahaja dan tidak tahu lebar lajur, jadi nama seperti
+   "6 BIJAK" terpotong dalam lajur 34px (13 waktu dalam 1100px). Fungsi ini mengukur kotak sel
+   sebenar dan mengecilkan tulisan sedikit demi sedikit sehingga kandungan muat - dipakai pada
+   pratonton (supaya pratonton kemas) dan sekali lagi sebelum html2canvas merakam. */
+const KEMAS_CETAK_=[
+  {sel:'table.pt td.cellv',      isi:'.psub,.pcls,.pgr', row:'--pt-row',        def:84},
+  {sel:'table.pt-master td.pt-master-cell', isi:'.psub,.pcls,.pgr', row:'--pt-row-master', def:64},
+  {sel:'table.sum td',           isi:'.pcls,.pgr,.pmid', row:'',                 def:0},
+];
+function kemasSelCetak_(akar){
+  const root=akar&&akar.querySelectorAll?akar:document;
+  let diubah=0;
+  KEMAS_CETAK_.forEach(konf=>{
+    root.querySelectorAll(konf.sel).forEach(sel=>{
+      const kotak=sel.querySelector('.pc')||sel;
+      const isi=[...kotak.querySelectorAll(konf.isi)];
+      if(!isi.length) return;
+      const gayaSel=getComputedStyle(sel);
+      const padX=(parseFloat(gayaSel.paddingLeft)||0)+(parseFloat(gayaSel.paddingRight)||0);
+      const lebar=Math.max(8,sel.getBoundingClientRect().width-padX-1);
+      let tinggi=0;
+      if(konf.row){
+        const helaian=sel.closest('.sheet');
+        const nilai=helaian?parseFloat(getComputedStyle(helaian).getPropertyValue(konf.row)):0;
+        const tinggiSel=nilai||konf.def;
+        tinggi=Math.max(8,tinggiSel-(parseFloat(gayaSel.paddingTop)||0)-(parseFloat(gayaSel.paddingBottom)||0)-2);
+      }
+      const asal=isi.map(el=>parseFloat(getComputedStyle(el).fontSize)||11);
+      let k=1,pusingan=0;
+      const setel=()=>isi.forEach((el,i)=>{el.style.fontSize=(asal[i]*k).toFixed(2)+'px';});
+      const muat=()=>{
+        if(kotak.scrollWidth>lebar+0.6) return false;
+        if(tinggi>0&&kotak.getBoundingClientRect().height>tinggi) return false;
+        return true;
+      };
+      setel();
+      while(!muat()&&k>0.5&&pusingan++<10){ k=Math.max(0.5,+(k-0.05).toFixed(2)); setel(); }
+      if(k<1) diubah++;
+    });
+  });
+  return diubah;
+}
 async function eksportPdfJadual(){
   const lembaran=$$('#cetakArea .sheet').filter(el=>getComputedStyle(el).display!=='none');
   if(!lembaran.length) return toast('Pilih sekurang-kurangnya satu jadual.','warn');
@@ -1957,6 +2002,8 @@ async function eksportPdfJadual(){
       muatSkripPdf('./vendor/jspdf-3.0.4.umd.min.js',()=>Boolean(window.jspdf&&window.jspdf.jsPDF)),
     ]);
     if(document.fonts&&document.fonts.ready) await document.fonts.ready;
+    const dipadatkan=kemasSelCetak_($('#cetakArea'));
+    if(dipadatkan) await new Promise(r=>setTimeout(r,0));
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
     const lebarHalaman=pdf.internal.pageSize.getWidth(),tinggiHalaman=pdf.internal.pageSize.getHeight(),margin=5;
@@ -2134,6 +2181,7 @@ window.jadualBuilder = {
   setState(state) {S=Object.assign(kosong(),clone(state));S.masa=Object.assign(kosong().masa,state.masa||{});ulang();},
   clear() {S=kosong();$('#content').innerHTML='';},
   getState: () => clone(S),
+  kemasSelCetak: kemasSelCetak_,
   // Benar apabila draf pada peranti ini dipulihkan semasa mula.
   hasDeviceDraft: () => drafPeranti,
   // Kerja yang belum naik ke Sheets disimpan di tepi semasa log masuk memuatkan draf Sheets, jadi ia

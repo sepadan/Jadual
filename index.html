@@ -19,10 +19,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.64">
-  <link rel="stylesheet" href="./builder.css?v=3.1.64">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.64">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.64"><style>.public-mode .admin-only{display:none!important}</style>
+  <link rel="stylesheet" href="./styles.css?v=3.1.65">
+  <link rel="stylesheet" href="./builder.css?v=3.1.65">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.65">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.65"><style>.public-mode .admin-only{display:none!important}</style>
   <!-- Preconnect saves the handshake on the first Apps Script call. Preloading every module was
        measured and rejected: fourteen parallel streams on a slow link finished later than the plain
        two-wave load (last module 2592 ms vs 1760 ms), so the graph is left to the browser. -->
@@ -288,6 +288,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.64"></script>
+  <script type="module" src="./app.js?v=3.1.65"></script>
 </body>
 </html>
