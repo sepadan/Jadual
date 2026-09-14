@@ -228,6 +228,14 @@ table.timetable td.locked .lock { display: block; font-size: 8px; line-height: 1
 #settingDialog table.timetable td.chosen .sub { color: #6b4708; }
 #settingDialog table.timetable td.free .hint { font-size: 9px; }
 .setting-count { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+#settingCellDialog { padding: 24px; max-height: calc(100dvh - 24px); overflow-y: auto; }
+#settingCellDialog .dialog-head { align-items: flex-start; gap: 14px; }
+#settingCellDialog .dialog-head > div { min-width: 0; }
+#settingCellDialog .dialog-head h2 { line-height: 1.25; overflow-wrap: anywhere; }
+#settingCellDialog .close { flex: 0 0 auto; }
+.setting-cell-help { margin: -5px 0 18px; padding: 11px 13px; border-left: 3px solid var(--green-700); border-radius: 0 10px 10px 0; color: #42534f; background: var(--green-50); font-size: 13px; line-height: 1.5; }
+.setting-cell-fields { display: grid; grid-template-columns: minmax(120px, .75fr) minmax(180px, 1.25fr); gap: 12px; }
+.setting-cell-fields label { min-width: 0; margin-bottom: 0; }
 .schedule-switch { width: fit-content; margin: 0 0 14px; }
 .schedule-pane { min-width: 0; }
 .module-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
@@ -327,6 +335,11 @@ dialog form { padding: 25px; }
   table.timetable th.day, table.timetable td.day { width: 44px; font-size: 10px; }
   table.timetable td.blk .cls { font-size: 10px; }
   #settingDialog .timetable-wrap { margin: 0 -6px; }
+  #settingCellDialog { padding: 18px; }
+  #settingCellDialog .setting-cell-fields { grid-template-columns: 1fr; }
+  #settingCellDialog .dialog-actions { position: sticky; bottom: -18px; flex-wrap: wrap; justify-content: stretch; margin: 16px -18px -18px; padding: 12px 18px 18px; background: linear-gradient(to bottom, rgba(255,255,255,.94), #fff 14px); z-index: 1; }
+  #settingCellDialog .dialog-actions .button { flex: 1 1 110px; min-height: 44px; }
+  #settingCellDialog .dialog-actions .button.primary { flex-basis: 100%; }
   /* The profile dialog carries the remedial teacher's "Tetapan Jadual" now. Its buttons are pressed
      with a thumb, and the base .button padding only just reaches the 40px floor at this width. */
   #teacherDialog .dialog-actions .button { min-height: 40px; }

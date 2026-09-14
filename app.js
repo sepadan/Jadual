@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.77";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.77";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.77";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.77";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.77";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.77";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.77';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.77';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.77';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.77';
-import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.77';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.77';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.78";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.78";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.78";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.78";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.78";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.78";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.78';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.78';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.78';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.78';
+import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.78';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.78';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -617,27 +617,18 @@ function settingCellDetail(key) {
   return text ? `<span class="cls">${esc(text)}</span>` : "";
 }
 
-// Pilihan kelas dan subjek untuk dialog: kelas daripada jadual aktif (dan senarai kelas pembina bila
-// ada), subjek daripada senarai subjek pembina ditambah apa yang sudah dipakai di waktu pemulihan.
+// Pilihan kelas untuk dialog datang daripada jadual aktif (dan senarai kelas pembina bila ada).
+// Subjek Pemulihan ialah senarai tetap BM, MT dan BI di dalam markup dialog supaya pentadbir tidak
+// perlu menaip kod dan tidak boleh menghasilkan variasi ejaan bagi subjek yang sama.
 function settingCellPickers() {
   const rows = settingVersionRows(settingVersion());
   const classes = new Set();
   for (const row of rows) if (!row.isDuty && row.className) classes.add(String(row.className));
-  let subjects = [];
   try {
     const state = window.jadualBuilder?.getState?.() || {};
     for (const item of state.kelas || []) if (item?.nama) classes.add(String(item.nama));
-    subjects = (state.subjek || []).map((item) => String(item?.kod || "").toUpperCase()).filter(Boolean);
-  } catch { subjects = []; }
-  const set = new Set(subjects);
-  for (const row of rows) {
-    // Kod subjek yang sudah dipakai dalam jadual aktif ialah cadangan yang paling berguna.
-    if (!row.isDuty && row.subject) set.add(String(row.subject).toUpperCase());
-    if (!isSettingRow(row)) continue;
-    const { subjek } = parseSettingSubject(row.subject);
-    if (subjek) set.add(subjek.toUpperCase());
-  }
-  return { classes: [...classes].sort(bandingNamaKelas), subjects: [...set].sort() };
+  } catch {}
+  return { classes: [...classes].sort(bandingNamaKelas) };
 }
 
 // Tekan satu ruang kosong: pilih subjek dan kelas asal murid. Tekan ruang yang sudah ditanda: ubah
@@ -650,14 +641,13 @@ function openSettingCellDialog(key) {
   const [day, period] = String(key).split("-");
   const clock = PERIODS.find((item) => Number(item.period) === Number(period));
   settingCellKey = key;
-  const { classes, subjects } = settingCellPickers();
+  const { classes } = settingCellPickers();
   const current = settingDetails[key] || {};
   $("#settingCellTitle").textContent = `${settingDayName(day)} · waktu ${period}${clock ? ` (${clock.startTime}–${clock.endTime})` : ""}`;
   $("#settingCellClass").innerHTML = `<option value="">— tiada kelas —</option>` +
     classes.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join("");
   $("#settingCellClass").value = current.kelas || "";
   $("#settingCellSubject").value = current.subjek || "";
-  $("#settingCellSubjects").innerHTML = subjects.map((code) => `<option value="${esc(code)}"></option>`).join("");
   $("#settingCellRemove").classList.toggle("hidden", !settingSelection.has(key));
   $("#settingCellDialog").showModal();
 }

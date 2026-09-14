@@ -23,10 +23,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=3.1.77">
-  <link rel="stylesheet" href="./builder.css?v=3.1.77">
-  <link rel="stylesheet" href="./workspace.css?v=3.1.77">
-  <link rel="stylesheet" href="./public-ui.css?v=3.1.77"><style>.public-mode .admin-only{display:none!important}</style>
+  <link rel="stylesheet" href="./styles.css?v=3.1.78">
+  <link rel="stylesheet" href="./builder.css?v=3.1.78">
+  <link rel="stylesheet" href="./workspace.css?v=3.1.78">
+  <link rel="stylesheet" href="./public-ui.css?v=3.1.78"><style>.public-mode .admin-only{display:none!important}</style>
   <!-- Preconnect saves the handshake on the first Apps Script call. Preloading every module was
        measured and rejected: fourteen parallel streams on a slow link finished later than the plain
        two-wave load (last module 2592 ms vs 1760 ms), so the graph is left to the browser. -->
@@ -274,11 +274,13 @@
     <div class="dialog-actions"><button type="button" class="button ghost" data-close-setting>Batal</button><button type="button" class="button ghost" id="clearSettingSlots">Kosongkan tanda</button><button type="button" class="button primary" id="saveSettingSlots">Simpan tetapan</button></div>
   </dialog>
 
-  <dialog id="settingCellDialog">
+  <dialog id="settingCellDialog" aria-labelledby="settingCellTitle" aria-describedby="settingCellHelp">
     <div class="dialog-head"><div><p class="step">MASA PEMULIHAN</p><h2 id="settingCellTitle">Waktu pemulihan</h2></div><button type="button" class="close" data-close-setting-cell aria-label="Tutup">×</button></div>
-    <p>Guru pemulihan mengambil sebahagian murid sahaja, jadi kelas di sini ialah kelas ASAL murid — bukan kelas yang diajar. Biarkan kelas kosong untuk aktiviti seperti perhimpunan atau koku.</p>
-    <label>Subjek<input id="settingCellSubject" list="settingCellSubjects" placeholder="BM, MT, KOKU…" autocomplete="off" maxlength="24"><datalist id="settingCellSubjects"></datalist></label>
-    <label>Kelas asal murid<select id="settingCellClass"></select></label>
+    <p class="setting-cell-help" id="settingCellHelp">Pilih subjek Pemulihan dan kelas asal murid yang hadir pada waktu ini.</p>
+    <div class="setting-cell-fields">
+      <label>Subjek<select id="settingCellSubject" required><option value="">Pilih subjek</option><option value="BM">BM</option><option value="MT">MT</option><option value="BI">BI</option></select></label>
+      <label>Kelas asal murid<select id="settingCellClass"></select></label>
+    </div>
     <div class="dialog-actions"><button type="button" class="button ghost" data-close-setting-cell>Batal</button><button type="button" class="button ghost hidden" id="settingCellRemove">Buang tanda</button><button type="button" class="button primary" id="settingCellApply">Simpan waktu ini</button></div>
   </dialog>
 
@@ -292,6 +294,6 @@
   <dialog id="loginDialog"><form id="loginForm"><div class="dialog-head"><div><p class="step">SEPAdAN · PENTADBIR</p><h2>Login admin</h2></div><button type="button" class="close" id="closeLogin" aria-label="Tutup">×</button></div><p>Login untuk mengurus guru, membina jadual dan menetapkan relief.</p><label>Nama pengguna<input id="loginUsername" value="admin" autocomplete="username" required></label><label>Kata laluan<input id="loginPassword" type="password" autocomplete="current-password" required></label><div id="loginSetup" class="hidden"><label>URL Apps Script sekolah<input id="loginApiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><p>Sambungan perlu disediakan sekali oleh pemilik sekolah.</p></div><p id="loginError" class="form-error" role="alert"></p><button class="button primary wide" id="submitLogin">Login</button></form></dialog><div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 
-  <script type="module" src="./app.js?v=3.1.77"></script>
+  <script type="module" src="./app.js?v=3.1.78"></script>
 </body>
 </html>

@@ -83,18 +83,33 @@ test("the timetable writes the subject and the class under the Pemulihan heading
   assert.equal(cellOf("IS", 1).label, "", "an old plain slot shows a stray label");
 });
 
-test("the picker is wired from the grid to the save, and both choices reach Sheets", () => {
-  for (const id of ["settingCellDialog", "settingCellTitle", "settingCellSubject", "settingCellSubjects", "settingCellClass", "settingCellApply", "settingCellRemove"]) {
+test("the picker offers only the three remedial subjects and both choices reach Sheets", () => {
+  for (const id of ["settingCellDialog", "settingCellTitle", "settingCellSubject", "settingCellClass", "settingCellApply", "settingCellRemove"]) {
     assert.ok(html.includes(`id="${id}"`), `the picker dialog is missing #${id}`);
   }
-  assert.match(html, /id="settingCellSubject" list="settingCellSubjects"/, "the subject is typed blind, with no suggestions from the school's own subjects");
+  const subject = html.match(/<select id="settingCellSubject" required>([\s\S]*?)<\/select>/)?.[1] || "";
+  assert.ok(subject, "the remedial subject is not a required dropdown");
+  assert.deepEqual([...subject.matchAll(/<option(?: value="([^"]*)")?>([^<]*)<\/option>/g)].map((match) => match[1] ?? match[2]), ["", "BM", "MT", "BI"]);
+  assert.doesNotMatch(html, /id="settingCellSubjects"/, "the old free-text subject suggestions still exist");
   assert.match(app, /cell\.addEventListener\("click", \(\) => openSettingCellDialog\(cell\.dataset\.settingCell\)\)/, "a cell no longer opens the picker");
   assert.match(app, /settingSelection\.add\(key\);\s*\n\s*settingDetails\[key\] = \{ subjek, kelas \};/, "the chosen subject and class are not kept");
   assert.match(app, /mergeSettingRows\(\{ rows: db\.schedule,[\s\S]{0,200}details: settingDetails \}\)/, "the chosen subject and class are dropped on save");
   assert.match(app, /if \(!subjek\) return toast\(/, "a slot can be saved with no subject at all");
   assert.match(app, /\$\("#settingCellRemove"\)\.addEventListener\("click", removeSettingCell\)/, "a ticked slot can no longer be unticked");
-  assert.match(app, /subjects = \(state\.subjek \|\| \[\]\)\.map/, "the picker does not offer the school's subject list");
   assert.match(app, /if \(!row\.isDuty && row\.className\) classes\.add/, "a duty row's className was offered as a class");
+});
+
+test("the cell popup has an inset body, safe scrolling and wrapping phone actions", () => {
+  assert.match(html, /<dialog id="settingCellDialog" aria-labelledby="settingCellTitle" aria-describedby="settingCellHelp">/, "the popup has no accessible name or help association");
+  assert.match(html, /<p class="setting-cell-help" id="settingCellHelp">/, "the popup help text cannot be associated with the dialog");
+  assert.match(css, /#settingCellDialog\s*\{[^}]*padding:\s*24px[^}]*max-height:\s*calc\(100dvh - 24px\)[^}]*overflow-y:\s*auto/s,
+    "the popup content can still touch or be clipped by its rounded edge");
+  const mobile = css.slice(css.indexOf("@media (max-width: 760px)"));
+  assert.match(mobile, /#settingCellDialog\s*\{[^}]*padding:\s*18px/s, "the phone popup wastes space or touches the edge");
+  assert.match(mobile, /#settingCellDialog \.dialog-actions\s*\{[^}]*flex-wrap:\s*wrap/s, "the popup buttons can still be cut off on a phone");
+  assert.match(mobile, /#settingCellDialog \.dialog-actions\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*-18px/s, "the primary action can disappear below the fold on a short phone");
+  assert.match(mobile, /#settingCellDialog \.dialog-actions \.button\s*\{[^}]*flex:\s*1 1 110px[^}]*min-height:\s*44px/s, "the phone actions are too large to share a row or too small to tap reliably");
+  assert.match(mobile, /#settingCellDialog \.dialog-actions \.button\.primary\s*\{[^}]*flex-basis:\s*100%/s, "the primary action does not keep a clear full-width row");
 });
 
 test("a claimed period reads as a heading with a smaller line under it", () => {

@@ -515,7 +515,7 @@ Setiap waktu pemulihan boleh membawa **subjek** dan **kelas asal murid** — con
 5. **Jadual minggu** guru itu terbuka — **hari ke bawah (5 baris), waktu melintang (13 lajur, waktu 0–12)** — supaya lajur waktu mudah dibaca pada telefon:
 
     - Sel kosong bertulis **"kosong"** boleh ditekan untuk menanda masa tetapan. Tekanan itu membuka borang kecil **Masa pemulihan** (hari + waktu dipaparkan di atasnya).
-    - Dalam borang itu, isi **Subjek** (contoh `BM`, `MT`, `KOKU`; cadangan diambil daripada senarai subjek sekolah) dan pilih **Kelas asal murid** (contoh `3B`). Biarkan kelas kosong untuk aktiviti tanpa kelas seperti perhimpunan, koku atau B. Al-Quran.
+    - Dalam borang itu, pilih **Subjek** daripada dropdown tetap **BM**, **MT** atau **BI**, kemudian pilih **Kelas asal murid** (contoh `3 BIJAK`).
     - Tekan **Simpan waktu ini** — borang menutup dan sel menunjukkan `Pemulihan` dengan subjek + kelas di bawahnya.
     - Sel yang sudah ditanda **boleh ditekan semula**: borang terbuka dengan subjek dan kelas sedia ada untuk diubah, dan butang **Buang tanda** ada di situ untuk membuang tanda itu.
     - Sel yang sudah ada kelas sebenar (contoh `BM` + `3 BIJAK`) **tidak boleh ditekan** — masa tetapan tidak boleh menindih pengajaran sebenar.
