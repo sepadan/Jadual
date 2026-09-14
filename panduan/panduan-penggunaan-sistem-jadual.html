@@ -46,7 +46,7 @@ a { color: #0b6b5b; text-decoration: none; }
   <div class="meta">
     <div><strong>Dokumen:</strong> Panduan penggunaan untuk pentadbir dan pengunjung</div>
     <div><strong>Aplikasi:</strong> https://sepadan.github.io/Jadual/</div>
-    <div><strong>Versi sistem:</strong> 3.1.78</div>
+    <div><strong>Versi sistem:</strong> 3.1.79</div>
     <div><strong>Tarikh dokumen:</strong> 14/09/2026</div>
   </div>
 </section>
@@ -299,6 +299,10 @@ a { color: #0b6b5b; text-decoration: none; }
 <li>Mencadangkan guru ganti yang <strong>layak relief</strong>, <strong>tidak sibuk</strong> pada waktu itu, <strong>tidak turut tiada</strong>, dan belum melebihi <strong>had relief harian</strong>.</li>
 <li>Mengutamakan guru dengan jumlah <strong>waktu mengajar + relief</strong> hari itu yang <strong>paling sedikit</strong>, supaya beban relief tidak menumpuk pada orang yang sama.</li>
 </ol>
+<p>Angka pada dropdown calon ditulis sebagai <strong>"N waktu subjek + M relief"</strong>. Hanya waktu
+pengajaran subjek dikira dalam <code>N</code>; waktu tetapan/tugas seperti Pemulihan, PER, 1M1S, KOKU dan
+B.ALQ tidak menambah kiraan itu. Namun, waktu tetapan masih menjadikan guru <strong>sibuk pada slot
+berkenaan</strong>, jadi guru tersebut tidak boleh menerima relief yang bertembung.</p>
 <p>Jika sudah ada draf yang belum diterbitkan, sistem meminta pengesahan sebelum menjana semula — kerana <strong>draf lama akan digantikan</strong>.</p>
 <p><strong>Mengapa draf boleh keluar kosong.</strong> Sistem akan memberitahu sebabnya, contohnya:</p>
 <ul>
@@ -803,7 +807,11 @@ sel berkenaan secara manual) supaya penanda auto/disahkan terkini terpakai.</p>
 </ul>
 </li>
 </ol>
-<p>Selepas disimpan, dialog ditutup dan butang kembali kepada keadaan asal. Jadual minggu guru itu kini menunjukkan masa tetapan, dan enjin relief menghormatinya.</p>
+<p>Selepas <strong>Simpan tetapan</strong> ditekan, butang terus memaparkan <strong>"Menyemak jadual terkini…"</strong>; jika
+revisi berubah, ia bertukar kepada <strong>"Memuatkan jadual terkini…"</strong>. Selepas berjaya, dialog ditutup
+dan butang kembali kepada keadaan asal. Jika sambungan tidak menjawab dalam had masa, mesej ralat
+kekal dalam dialog, butang boleh ditekan semula, dan semua tanda masih dipelihara — tiada simpanan
+separa dihantar. Jadual minggu guru itu kini menunjukkan masa tetapan, dan enjin relief menghormatinya.</p>
 <h3>11.4 Mengubah, menambah atau membuang masa tetapan</h3>
 <ul>
 <li>Buka semula <strong>Tetapan Jadual</strong> pada kad guru yang sama; tanda sedia ada dipaparkan bersama subjek dan kelasnya.</li>

@@ -1,5 +1,5 @@
-import { coverageRows, fullyCoveredIds, sharedPairKey, sharedPairs } from "./teacher-coverage.js?v=3.1.78";
-import { DAY_CODES, PERIODS } from "./data.js?v=3.1.78";
+import { coverageRows, fullyCoveredIds, sharedPairKey, sharedPairs } from "./teacher-coverage.js?v=3.1.79";
+import { DAY_CODES, PERIODS } from "./data.js?v=3.1.79";
 
 export function dayCodeFromDate(dateText) {
   const date = new Date(`${dateText}T12:00:00`);
@@ -169,7 +169,10 @@ export function rankCandidates({ db, date, day, period, startTime, absentTeacher
     if (item.date === date) todayCounts.set(item.replacementTeacherId, (todayCounts.get(item.replacementTeacherId) || 0) + 1);
     if (item.date >= weekStart && item.date <= date) weekCounts.set(item.replacementTeacherId, (weekCounts.get(item.replacementTeacherId) || 0) + 1);
   });
-  rows.filter((row) => row.day === day).forEach((row) => teachingCounts.set(row.teacherId, (teachingCounts.get(row.teacherId) || 0) + 1));
+  // Beban harian untuk kedudukan calon ialah waktu jadual subjek sahaja. Waktu tetapan/tugas
+  // (PEMULIHAN, PER, 1M1S, KOKU, B.ALQ dll.) tetap menjadikan guru sibuk melalui `busy` di atas,
+  // tetapi tidak menambah bilangan waktu mengajar mahupun skor.
+  rows.filter((row) => row.day === day && !row.isDuty).forEach((row) => teachingCounts.set(row.teacherId, (teachingCounts.get(row.teacherId) || 0) + 1));
 
   return (db.teachers || [])
     .filter((teacher) => teacher.active && !hidden.has(teacher.id) && teacher.reliefEligible && preschoolAvailable(teacher, startTime) && teacher.id !== absentTeacherId)

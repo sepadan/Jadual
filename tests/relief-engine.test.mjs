@@ -157,6 +157,27 @@ test('jana dan sahkan relief menguatkuasakan masa tamat prasekolah',()=>{
   assert.match(validateReliefs(db,drafts)[0],/sudah tidak tersedia/);
 });
 
+test('waktu tugas tidak menambah beban jadual tetapi tetap menjadikan guru sibuk',()=>{
+  const db=fixture();
+  db.schedule=db.schedule.filter(row=>row.teacherId!=='busy');
+  db.teachers.push({id:'duty',name:'Guru Tugas',active:true,reliefEligible:true,priority:3});
+  db.schedule.push(
+    {versionId:'v1',teacherId:'free',day:'RAB',period:5,subject:'BM',className:'1 BIJAK'},
+    {versionId:'v1',teacherId:'free',day:'RAB',period:6,subject:'MT',className:'1 BIJAK'},
+    {versionId:'v1',teacherId:'free',day:'RAB',period:7,subject:'PEMULIHAN',className:'',isDuty:true},
+    {versionId:'v1',teacherId:'free',day:'RAB',period:9,subject:'KOKU',className:'',isDuty:true},
+    {versionId:'v1',teacherId:'free',day:'RAB',period:10,subject:'B.ALQ',className:'',isDuty:true},
+    {versionId:'v1',teacherId:'duty',day:'RAB',period:2,subject:'PER',className:'',isDuty:true},
+  );
+  const ranked=rankCandidates({db,date:'2026-09-09',day:'RAB',period:2,absentTeacherId:'absent'});
+  const free=ranked.find(teacher=>teacher.id==='free');
+  // 2 baris subjek + 3 baris tugas: hanya waktu subjek dikira untuk kedudukan calon.
+  assert.equal(free.teachingToday,2);
+  assert.equal(free.score,2);
+  // Waktu tugas pada waktu relief itu tetap menyekat pencalonan.
+  assert.equal(ranked.some(teacher=>teacher.id==='duty'),false);
+});
+
 test('pairing setting skips only when another active teacher is present for that slot',()=>{
   const db=fixture();db.schedule.push({...db.schedule[0],teacherId:'busy'});
   assert.equal(buildReliefDrafts(db,'2026-09-09').length,1);

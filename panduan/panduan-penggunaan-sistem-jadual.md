@@ -184,6 +184,11 @@ Tekan **"Jana"**. Sistem akan:
 3. Mencadangkan guru ganti yang **layak relief**, **tidak sibuk** pada waktu itu, **tidak turut tiada**, dan belum melebihi **had relief harian**.
 4. Mengutamakan guru dengan jumlah **waktu mengajar + relief** hari itu yang **paling sedikit**, supaya beban relief tidak menumpuk pada orang yang sama.
 
+Angka pada dropdown calon ditulis sebagai **"N waktu subjek + M relief"**. Hanya waktu
+pengajaran subjek dikira dalam `N`; waktu tetapan/tugas seperti Pemulihan, PER, 1M1S, KOKU dan
+B.ALQ tidak menambah kiraan itu. Namun, waktu tetapan masih menjadikan guru **sibuk pada slot
+berkenaan**, jadi guru tersebut tidak boleh menerima relief yang bertembung.
+
 Jika sudah ada draf yang belum diterbitkan, sistem meminta pengesahan sebelum menjana semula — kerana **draf lama akan digantikan**.
 
 **Mengapa draf boleh keluar kosong.** Sistem akan memberitahu sebabnya, contohnya:
@@ -522,7 +527,11 @@ Setiap waktu pemulihan boleh membawa **subjek** dan **kelas asal murid** — con
 6. Ulang untuk setiap ruang kosong yang sepatutnya menjadi masa pemulihan. Setiap ketukan menghasilkan satu tanda, dan kiraan di bawah jadual berubah (contoh: "3 waktu pemulihan ditanda.").
 7. Tekan **Simpan tetapan**.
 
-Selepas disimpan, dialog ditutup dan butang kembali kepada keadaan asal. Jadual minggu guru itu kini menunjukkan masa tetapan, dan enjin relief menghormatinya.
+Selepas **Simpan tetapan** ditekan, butang terus memaparkan **"Menyemak jadual terkini…"**; jika
+revisi berubah, ia bertukar kepada **"Memuatkan jadual terkini…"**. Selepas berjaya, dialog ditutup
+dan butang kembali kepada keadaan asal. Jika sambungan tidak menjawab dalam had masa, mesej ralat
+kekal dalam dialog, butang boleh ditekan semula, dan semua tanda masih dipelihara — tiada simpanan
+separa dihantar. Jadual minggu guru itu kini menunjukkan masa tetapan, dan enjin relief menghormatinya.
 
 ### 11.4 Mengubah, menambah atau membuang masa tetapan
 

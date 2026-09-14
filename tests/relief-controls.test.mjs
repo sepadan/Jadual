@@ -183,6 +183,16 @@ test("the data tools cover archive, purge and a guarded reset", () => {
   assert.match(html, /id="archiveTimetables"/);
 });
 
+// rankCandidates counts only non-duty rows, so a label reading "jadual" told the admin a remedial
+// or duty period was included in the number when it never was.
+test("the candidate list names the load it actually counts", () => {
+  const line = app.slice(app.indexOf('candidateHtml = `<select class="candidate-select"'), app.indexOf("Jumlah waktu hari ini paling sedikit"));
+  assert.match(line, /\$\{teacher\.teachingToday\} waktu subjek \+ \$\{teacher\.todayReliefs\} relief/, "the candidate label no longer matches what rankCandidates counts");
+  assert.equal(/teachingToday\} jadual/.test(app), false, "the old label that counted duty periods is back");
+  const engine = readFileSync(new URL("../relief-engine.js", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  assert.match(engine, /rows\.filter\(\(row\) => row\.day === day && !row\.isDuty\)/, "duty rows are counted again, so the label is wrong the other way");
+});
+
 test("a refresh paints the private data from the device instead of waiting for Sheets", () => {
   assert.match(app, /const ADMIN_DB_KEY = "sistem-jadual-data-admin-v1"/);
   assert.match(app, /function cacheAdminDb\(\)/);

@@ -69,12 +69,12 @@ test("saving sends every row of the active version, because Sheets rewrites that
 // the check must happen before the merge, and it must refuse instead of guessing.
 test("a fresh save checks the school revision before rewriting the version", () => {
   const save = app.slice(app.indexOf("async function settingDriftCheck"), app.indexOf("function validClockTime"));
-  assert.match(save, /await api\.status\(\)/, "the school revision is never read before saving");
-  assert.match(save, /await syncData\(false\)/, "the newer timetable is never loaded, so the admin cannot see what changed");
+  assert.match(save, /api\.status\(SETTING_STATUS_TIMEOUT\)/, "the school revision is never read with a finite time budget before saving");
+  assert.match(save, /settingDeadline\(syncData\(false\), SETTING_SYNC_TIMEOUT/, "the newer timetable is never loaded with a finite time budget, so the admin cannot see what changed");
   assert.match(save, /if \(fresh && fresh\.id === version\.id && freshSignature === expected\.signature\) return \{ ok: true \}/, "an unchanged version is not recognised as safe to write");
   assert.match(save, /renderSettingGrid\(\)/, "the grid is not refreshed after the drift, so the ticks would be stale");
   const guarded = save.slice(save.indexOf("const check = await settingDriftCheck"));
-  assert.ok(guarded.indexOf("if (!check.ok) return toast") < guarded.indexOf("mergeSettingRows"), "the merge runs before the drift check");
+  assert.ok(guarded.indexOf("if (!check.ok)") < guarded.indexOf("mergeSettingRows"), "the merge runs before the drift check");
   assert.match(save, /catch \(error\) \{[\s\S]*Simpanan tidak dibuat/, "a failed check writes anyway instead of refusing");
 });
 

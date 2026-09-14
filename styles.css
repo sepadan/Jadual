@@ -228,6 +228,10 @@ table.timetable td.locked .lock { display: block; font-size: 8px; line-height: 1
 #settingDialog table.timetable td.chosen .sub { color: #6b4708; }
 #settingDialog table.timetable td.free .hint { font-size: 9px; }
 .setting-count { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+/* Baris status simpanan: kekal di sisi tanda yang dilindunginya, kerana toast hilang dalam tiga
+   saat sedangkan pentadbir perlu tahu mengapa simpanan ditolak sebelum menekan sekali lagi. */
+.setting-status { margin: 8px 0 0; padding: 9px 12px; border-left: 3px solid var(--green-700); border-radius: 0 8px 8px 0; color: #42534f; background: var(--green-50); font-size: 13px; font-weight: 650; line-height: 1.5; }
+.setting-status.error { border-left-color: #8f3038; color: #7a2731; background: #fdf1f2; }
 #settingCellDialog { padding: 24px; max-height: calc(100dvh - 24px); overflow-y: auto; }
 #settingCellDialog .dialog-head { align-items: flex-start; gap: 14px; }
 #settingCellDialog .dialog-head > div { min-width: 0; }

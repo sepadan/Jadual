@@ -1,15 +1,15 @@
-import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.78";
-import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.78";
-import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.78";
-import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.78";
-import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.78";
-import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.78";
-import { draftFromPdf } from './pdf-builder.js?v=3.1.78';
-import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.78';
-import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.78';
-import { openReliefPdf } from './relief-pdf.js?v=3.1.78';
-import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.78';
-import { weekGrid, claimableCell } from './week-view.js?v=3.1.78';
+import { APP_VERSION, DAY_CODES, DAY_NAMES, PERIODS, emptyDatabase, slug } from "./data.js?v=3.1.79";
+import { ApiClient, loadConfig, saveConfig } from "./admin-api.js?v=3.1.79";
+import { activeScheduleRows, buildReliefDrafts, cancelAbsenceAndReliefs, cancelReliefsAssignedToAbsence, coverageHiddenIds, dayCodeFromDate, effectiveScheduleRows, reliefHasActiveAbsence, reliefMatchesAbsence, validateReliefs, dailyReliefLimit, selectedScheduleVersion, officialScheduleVersion } from "./relief-engine.js?v=3.1.79";
+import { canCover, coverList, coverLinks, coverageLabel, coveredTeacherSubjects } from "./teacher-coverage.js?v=3.1.79";
+import { buildImportSelection, parseTeacherPdf } from "./pdf-import.js?v=3.1.79";
+import { convertBuilderSchedule } from "./builder-relief.js?v=3.1.79";
+import { draftFromPdf } from './pdf-builder.js?v=3.1.79';
+import { exportTeachers, importTeachers } from './teacher-transfer.js?v=3.1.79';
+import { buildReliefPrintModel, reliefPrintHtml } from './relief-print.js?v=3.1.79';
+import { openReliefPdf } from './relief-pdf.js?v=3.1.79';
+import { SETTING_SUBJECT, isSettingRow, mergeSettingRows, parseSettingSubject, settingDayName, settingDetailsFromRows, settingKey, settingSelectionFromRows, settingSignature, SETTING_DAYS } from './setting-slots.js?v=3.1.79';
+import { weekGrid, claimableCell } from './week-view.js?v=3.1.79';
 
 const DB_KEY = "relief-skpr-db-v1";
 const PUBLIC_DAY_KEY = "sistem-jadual-public-day-v1";
@@ -407,7 +407,7 @@ function reliefCard(item) {
   } else if (!item.candidates.length) {
     candidateHtml = `<select class="candidate-select" data-id="${esc(item.id)}"><option value="">Tiada guru tersedia</option></select><div class="candidate-note" style="color:#b83d45">Pilih atau ubah kelayakan guru</div>`;
   } else {
-    candidateHtml = `<select class="candidate-select" data-id="${esc(item.id)}">${item.candidates.map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === item.replacementTeacherId ? "selected" : ""}>${esc(teacher.shortName)} · ${teacher.teachingToday} jadual + ${teacher.todayReliefs} relief</option>`).join("")}</select><div class="candidate-note">Jumlah waktu hari ini paling sedikit · had ${dailyReliefLimit(db)} relief sehari</div>`;
+    candidateHtml = `<select class="candidate-select" data-id="${esc(item.id)}">${item.candidates.map((teacher) => `<option value="${esc(teacher.id)}" ${teacher.id === item.replacementTeacherId ? "selected" : ""}>${esc(teacher.shortName)} · ${teacher.teachingToday} waktu subjek + ${teacher.todayReliefs} relief</option>`).join("")}</select><div class="candidate-note">Jumlah waktu hari ini paling sedikit · had ${dailyReliefLimit(db)} relief sehari</div>`;
   }
   return `<article class="relief-card">
     <div class="time-chip"><span class="period-bubble">${item.period}</span><span><strong>${esc(clockValue(item.startTime,item.period,'startTime'))}–${esc(clockValue(item.endTime,item.period,'endTime'))}</strong><small>Waktu ${item.period}</small></span></div>
@@ -556,6 +556,9 @@ function openSettingDialog(id) {
   settingDetails = settingDetailsFromRows({ rows: settingVersionRows(version), teacherId: id });
   settingGuard = { revision: Number(db.revision || 0), versionId: version.id, signature: settingVersionSignature(version) };
   $("#settingDialogTitle").textContent = `Tetapan jadual · ${teacher.name}`;
+  // A refusal from the previous open must not be read as this one's state.
+  setSettingBusy(false);
+  setSettingNote("");
   renderSettingGrid();
   $("#settingDialog").showModal();
 }
@@ -679,6 +682,44 @@ function clearSettingSlots() {
   renderSettingGrid();
 }
 
+// The press has to answer before the network does. Reading the school revision takes about two
+// seconds on the school line, and a hung mobile connection never finishes at all, so without these
+// two bounds the admin sees a button that simply stops working.
+const SETTING_STATUS_TIMEOUT = 12000;
+// The reload after a moved revision is a whole bootstrap, so it gets its own, longer budget.
+const SETTING_SYNC_TIMEOUT = 30000;
+
+// The fetch inside api.status() aborts itself; this is the fallback for the sync leg and for old
+// browsers without AbortController, so no wait in this dialog can outlive its budget.
+function settingDeadline(work, ms, message) {
+  let timer = null;
+  return Promise.race([
+    Promise.resolve(work),
+    new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+// The dialog answers the thumb straight away: the label says what is happening, the spinner turns
+// and aria-busy carries the same thing to a screen reader.
+function setSettingBusy(busy, message = "") {
+  const button = $("#saveSettingSlots");
+  button.disabled = busy;
+  button.classList.toggle("is-busy", busy);
+  button.setAttribute("aria-busy", String(busy));
+  button.textContent = busy ? message : "Simpan tetapan";
+  $("#settingDialog").setAttribute("aria-busy", String(busy));
+  if (busy) setSettingNote(message);
+}
+
+// A toast is gone in three seconds, and a refusal the admin has to act on must outlast that: the
+// reason stays in the dialog next to the marks it protected.
+function setSettingNote(message, kind = "info") {
+  const note = $("#settingStatus");
+  note.textContent = message || "";
+  note.classList.toggle("hidden", !message);
+  note.classList.toggle("error", kind === "error");
+}
+
 // Saving rewrites every row of the version in Sheets, so a stale dialog must never win: the school
 // revision is checked first and, when it moved, the version this dialog saw is compared with the
 // fresh one before anything is written.
@@ -686,9 +727,12 @@ async function settingDriftCheck(version) {
   if (!api.isConfigured()) return { ok: true };
   const expected = settingGuard || { revision: Number(db.revision || 0), versionId: version.id, signature: settingVersionSignature(version) };
   try {
-    const status = await api.status();
+    const status = await settingDeadline(api.status(SETTING_STATUS_TIMEOUT), SETTING_STATUS_TIMEOUT + 1000,
+      "sambungan sekolah tidak menjawab dalam 12 saat");
     if (Number(status.revision || 0) === Number(expected.revision)) return { ok: true };
-    await syncData(false);
+    setSettingBusy(true, "Memuatkan jadual terkini…");
+    await settingDeadline(syncData(false), SETTING_SYNC_TIMEOUT,
+      "jadual terkini tidak selesai dimuatkan dalam 30 saat");
     const fresh = settingVersion();
     const freshSignature = settingVersionSignature(fresh);
     settingGuard = { revision: Number(db.revision || 0), versionId: fresh?.id || "", signature: freshSignature };
@@ -706,10 +750,12 @@ async function saveSettingSlots() {
   if (!version) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
   const button = $("#saveSettingSlots");
   if (button.disabled) return;
-  button.disabled = true;
+  setSettingBusy(true, "Menyemak jadual terkini…");
   try {
     const check = await settingDriftCheck(version);
-    if (!check.ok) return toast(check.reason, "error");
+    // Nothing has been written yet, so a refused check simply hands the dialog back with every
+    // mark still on it and the reason on screen.
+    if (!check.ok) { setSettingNote(check.reason, "error"); return toast(check.reason, "error"); }
     const active = settingVersion();
     if (!active) return toast("Belum ada jadual aktif. Import atau aktifkan jadual dahulu.", "error");
     const teacher = teacherById(settingTeacherId);
@@ -718,12 +764,13 @@ async function saveSettingSlots() {
     settingGuard = { revision: Number(db.revision || 0), versionId: active.id, signature: settingVersionSignature(active) };
     persist();
     renderAll();
+    setSettingNote("");
     $("#settingDialog").close();
     // The Sheets handler rewrites every row of the version, so the whole version travels with it.
     const versionRows = db.schedule.filter((row) => row.versionId === active.id);
     remoteWrite("importSchedule", { version: active, rows: versionRows },
       `${result.added} waktu tetapan disimpan untuk ${teacher?.name || "guru ini"}.`);
-  } finally { button.disabled = false; }
+  } finally { setSettingBusy(false); }
 }
 
 function validClockTime(value) {
