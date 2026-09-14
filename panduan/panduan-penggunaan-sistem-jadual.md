@@ -151,7 +151,7 @@ Skrin **Hari ini** ialah tempat kerja harian relief. Di bahagian atasnya terdapa
 
 1. Pastikan sub-tab **Ketiadaan guru** dipilih.
 2. Tekan **"+ Tambah"**.
-3. Pilih **Guru**, **Tarikh**, dan jika perlu tulis **Sebab ringkas** (contoh: "Kursus", "Cuti sakit").
+3. Pilih **Guru**, **Tarikh**, dan **Sebab ringkas** daripada senarai: **CRK**, **CTR**, **Mesyuarat/Kursus/Bengkel/Seminar**, **Urusan Sekolah**, atau **Urusan Keluarga**.
 4. Biarkan **"Sepanjang hari"** bertanda jika guru tidak hadir sepanjang hari. Nyahtanda kotak itu untuk memilih **waktu tertentu** sahaja daripada senarai waktu yang dipaparkan — gunakan ini untuk guru yang hadir separuh hari (contoh: keluar kursus pada waktu 7–9 sahaja).
 5. Tekan **"Simpan dan jana relief"**.
 

@@ -1,4 +1,4 @@
-import { DAY_CODES } from "./data.js?v=3.1.76";
+import { DAY_CODES } from "./data.js?v=3.1.77";
 
 // A Guru Pemulihan's own setting periods ("masa tetapan") belong to no class and no subject, so
 // they are stored the same way as the builder's fixed activities and the duty cells read from an
